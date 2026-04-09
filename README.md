@@ -1,5 +1,5 @@
 <<<<<<< HEAD
-# EasyCord 🎮
+# EasyCord 
 
 A developer-friendly Python framework for building Discord bots, built on top of [discord.py 2.x](https://discordpy.readthedocs.io/).
 
