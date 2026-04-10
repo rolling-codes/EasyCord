@@ -1,3 +1,4 @@
+"""Decorators for marking Plugin methods as slash commands or event handlers."""
 from __future__ import annotations
 
 from typing import Callable
@@ -11,11 +12,25 @@ def slash(
 ) -> Callable:
     """Mark a Plugin method as a slash command.
 
-    Usage::
+    Parameters
+    ----------
+    name:
+        The command name shown in Discord. Defaults to the method name.
+    description:
+        Short description shown in the Discord command picker.
+    guild_id:
+        Register the command in one specific server only. Useful during
+        development because server commands update instantly (global commands
+        can take up to 1 hour).
+
+    Example::
 
         class MyPlugin(Plugin):
-            @slash(description="Say hello")
-            async def hello(self, ctx, name: str): ...
+
+            @slash(description="Roll a dice")
+            async def roll(self, ctx, sides: int = 6):
+                import random
+                await ctx.respond(f"You rolled {random.randint(1, sides)}!")
     """
 
     def decorator(func: Callable) -> Callable:
@@ -31,11 +46,21 @@ def slash(
 def on(event: str) -> Callable:
     """Mark a Plugin method as an event handler.
 
-    Usage::
+    Use the event name without the ``on_`` prefix. Any arguments that
+    discord.py normally passes to ``on_<event>`` are forwarded to your method.
+
+    Example::
 
         class MyPlugin(Plugin):
+
             @on("member_join")
-            async def welcome(self, member): ...
+            async def welcome(self, member):
+                await member.send(f"Welcome to {member.guild.name}!")
+
+            @on("message")
+            async def echo(self, message):
+                if "hello bot" in message.content.lower():
+                    await message.reply("Hello!")
     """
 
     def decorator(func: Callable) -> Callable:

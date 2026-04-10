@@ -180,7 +180,7 @@ async def test_remove_plugin_removes_event_handler(bot):
 
 
 async def test_remove_plugin_not_loaded_raises(bot):
-    with pytest.raises(ValueError, match="Plugin is not loaded"):
+    with pytest.raises(ValueError, match="has not been added"):
         await bot.remove_plugin(Plugin())
 
 

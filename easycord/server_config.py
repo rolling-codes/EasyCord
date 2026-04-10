@@ -178,4 +178,6 @@ class ServerConfigStore:
                 os.remove(path)
 
     async def exists(self, guild_id: int) -> bool:
-        return self._path(guild_id).exists()
+        """Return ``True`` if a config file exists for this guild."""
+        async with self._locks[guild_id]:
+            return self._path(guild_id).exists()

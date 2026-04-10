@@ -7,7 +7,7 @@ from easycord.decorators import slash, on
 
 def test_bot_property_raises_when_not_loaded():
     plugin = Plugin()
-    with pytest.raises(RuntimeError, match="Plugin has not been loaded"):
+    with pytest.raises(RuntimeError, match="has not been added"):
         _ = plugin.bot
 
 

@@ -20,7 +20,7 @@ def _wrap(
     ctx: Context,
     proceed: Callable[[], Awaitable[None]],
 ) -> Callable[[], Awaitable[None]]:
-    """Bind a middleware function to a context and its inner next-step."""
+    """Return a zero-arg coroutine that calls mw(ctx, proceed)."""
     async def step() -> None:
         await mw(ctx, proceed)
     return step
@@ -31,7 +31,7 @@ def _build_chain(
     invoke: Callable[[], Awaitable[None]],
     middleware: list[MiddlewareFn],
 ) -> Callable[[], Awaitable[None]]:
-    """Wrap invoke in the full middleware stack, outermost first."""
+    """Wrap invoke in the full middleware stack so the first middleware runs first."""
     chain = invoke
     for mw in reversed(middleware):
         chain = _wrap(mw, ctx, chain)
@@ -40,14 +40,32 @@ def _build_chain(
 
 class Bot(discord.Client):
     """
-    A discord.Client subclass with slash commands, middleware, events, and plugins.
+    The main EasyCord bot — a discord.Client with slash commands,
+    middleware, event listeners, and plugins built in.
+
+    Quick start::
+
+        import os
+        from easycord import Bot
+        from easycord.middleware import log_middleware, catch_errors
+
+        bot = Bot()
+        bot.use(log_middleware())
+        bot.use(catch_errors())
+
+        @bot.slash(description="Ping the bot")
+        async def ping(ctx):
+            await ctx.respond("Pong!")
+
+        bot.run(os.environ["DISCORD_TOKEN"])
 
     Parameters
     ----------
     intents:
-        Passed to ``discord.Client``. Defaults to ``discord.Intents.default()``.
+        Discord gateway intents. Defaults to ``discord.Intents.default()``.
     auto_sync:
-        If ``True`` (default), slash commands are synced with Discord on startup.
+        Automatically sync slash commands with Discord on startup (default ``True``).
+        Set to ``False`` during development to avoid hitting Discord's sync rate limit.
     """
 
     def __init__(
@@ -73,11 +91,13 @@ class Bot(discord.Client):
             await plugin.on_load()
 
     async def on_ready(self) -> None:
-        logger.info("Logged in as %s (ID: %s)", self.user, self.user.id)
+        logger.info("Logged in as %s (ID: %s)", self.user, self.user.id)  # type: ignore[union-attr]
 
     def dispatch(self, event: str, /, *args, **kwargs) -> None:
         super().dispatch(event, *args, **kwargs)
-        for handler in self._event_handlers.get(event, []):
+        # Snapshot the list so handlers that modify _event_handlers mid-loop
+        # don't cause a RuntimeError or silently skip handlers.
+        for handler in list(self._event_handlers.get(event, [])):
             asyncio.create_task(handler(*args, **kwargs))
 
     # ── Slash commands ────────────────────────────────────────
@@ -89,7 +109,14 @@ class Bot(discord.Client):
         description: str = "No description provided.",
         guild_id: int | None = None,
     ) -> Callable:
-        """Decorator that registers a top-level slash command."""
+        """Decorator that registers a top-level slash command.
+
+        Example::
+
+            @bot.slash(description="Say hello")
+            async def hello(ctx, name: str):
+                await ctx.respond(f"Hello, {name}!")
+        """
 
         def decorator(func: Callable) -> Callable:
             self._register_slash(
@@ -110,10 +137,15 @@ class Bot(discord.Client):
         description: str,
         guild_id: int | None,
     ) -> None:
-        """Register a callable as a slash command in the app-command tree."""
+        """Register a callable as a slash command in discord.py's app-command tree.
+
+        Works for both plain functions (@bot.slash) and bound plugin methods
+        (@slash inside a Plugin). In both cases the first parameter is ctx;
+        discord.py infers the remaining typed parameters as command options.
+        """
         guild = discord.Object(id=guild_id) if guild_id else None
         sig = inspect.signature(func)
-        user_params = list(sig.parameters.values())[1:]  # skip ctx
+        user_params = list(sig.parameters.values())[1:]  # skip ctx (or self for bound methods)
 
         async def callback(interaction: discord.Interaction, **kwargs) -> None:
             ctx = Context(interaction)
@@ -139,7 +171,14 @@ class Bot(discord.Client):
     # ── Events ────────────────────────────────────────────────
 
     def on(self, event: str) -> Callable:  # type: ignore[override]
-        """Decorator that registers an event listener (no ``on_`` prefix)."""
+        """Decorator that registers an event listener.
+
+        Use the event name without the ``on_`` prefix::
+
+            @bot.on("member_join")
+            async def welcome(member):
+                await member.send("Welcome!")
+        """
 
         def decorator(func: Callable) -> Callable:
             self._event_handlers.setdefault(event, []).append(func)
@@ -150,14 +189,31 @@ class Bot(discord.Client):
     # ── Middleware ────────────────────────────────────────────
 
     def use(self, middleware: MiddlewareFn) -> MiddlewareFn:
-        """Register a middleware function. Runs for all slash commands."""
+        """Register a middleware function that runs before every slash command.
+
+        Can be used as a decorator or called directly::
+
+            @bot.use
+            async def my_middleware(ctx, proceed):
+                print("before")
+                await proceed()
+                print("after")
+        """
         self._middleware.append(middleware)
         return middleware
 
     # ── Plugins ───────────────────────────────────────────────
 
     def add_plugin(self, plugin: Plugin) -> None:
-        """Add a plugin, registering its slash commands and event handlers."""
+        """Add a plugin, registering all of its slash commands and event handlers.
+
+        Raises ``ValueError`` if the same plugin instance has already been added.
+        """
+        if plugin in self._plugins:
+            raise ValueError(
+                f"{type(plugin).__name__} is already added to this bot. "
+                "Create a new instance if you need a second copy."
+            )
         plugin._bot = self
         self._plugins.append(plugin)
 
@@ -176,9 +232,15 @@ class Bot(discord.Client):
             asyncio.create_task(plugin.on_load())
 
     async def remove_plugin(self, plugin: Plugin) -> None:
-        """Remove a plugin, deregistering its commands and event handlers."""
+        """Remove a plugin, deregistering its commands and event handlers.
+
+        Raises ``ValueError`` if the plugin was never added.
+        """
         if plugin not in self._plugins:
-            raise ValueError("Plugin is not loaded.")
+            raise ValueError(
+                f"{type(plugin).__name__} has not been added to this bot. "
+                "Call bot.add_plugin() before trying to remove it."
+            )
 
         self._plugins.remove(plugin)
 
@@ -187,7 +249,7 @@ class Bot(discord.Client):
                 guild = discord.Object(id=method._slash_guild) if method._slash_guild else None
                 try:
                     self.tree.remove_command(method._slash_name, guild=guild)
-                except Exception:
+                except Exception:  # noqa: BLE001
                     logger.debug("Could not remove command %r during unload", method._slash_name)
 
             if getattr(method, "_is_event", False):

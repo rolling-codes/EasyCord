@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "1.192"
+version = "1.193"
 description = "A developer-friendly Python framework for building Discord bots on top of discord.py"
 readme = "README.md"
 license = { text = "MIT" }
