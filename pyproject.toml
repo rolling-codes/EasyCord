@@ -1,21 +1,50 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
 version = "0.1.0"
 description = "A developer-friendly Python framework for building Discord bots on top of discord.py"
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.10"
+keywords = ["discord", "discord.py", "bot", "framework", "slash commands", "middleware", "plugins"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: AsyncIO",
+]
 dependencies = [
     "discord.py>=2.0.0",
 ]
+
+# TODO: fill in your name and email
+# authors = [
+#     { name = "Your Name", email = "you@example.com" },
+# ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7",
     "pytest-asyncio>=0.21",
+    "build",
+    "twine",
 ]
+
+# TODO: replace with your actual repository URL
+[project.urls]
+Homepage       = "https://github.com/your-username/EasyCord"
+Repository     = "https://github.com/your-username/EasyCord"
+Issues         = "https://github.com/your-username/EasyCord/issues"
+Documentation  = "https://github.com/your-username/EasyCord/tree/main/docs"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

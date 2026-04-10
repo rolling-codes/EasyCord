@@ -17,6 +17,7 @@ Quick start::
 """
 
 from .bot import EasyCord
+from .composer import Composer
 from .context import Context
 from .decorators import on, slash
 from .plugin import Plugin
@@ -24,6 +25,7 @@ from .server_config import ServerConfig, ServerConfigStore
 
 __all__ = [
     "EasyCord",
+    "Composer",
     "Context",
     "Plugin",
     "slash",
