@@ -1,4 +1,6 @@
-# EasyCordEasyCord is a modern wrapper framework built on top of discord.py 2.x (not affiliated with other projects using the same name).
+# EasyCord
+
+EasyCord is a modern wrapper framework built on top of discord.py 2.x (not affiliated with other projects using the same name).
 
 A developer-friendly Python framework for building Discord bots, built on top of [discord.py 2.x](https://discordpy.readthedocs.io/).
 
@@ -21,7 +23,7 @@ The fix: I decided to stop being just a user and started being an architect. Eas
 Clone the repo, then install in editable mode (dependencies are declared in `pyproject.toml` and installed automatically):
 
 ```bash
-git clone https://github.com/your-username/EasyCord.git
+git clone https://github.com/rolling-codes/EasyCord.git
 cd EasyCord
 pip install -e .
 ```
@@ -174,6 +176,30 @@ await bot.remove_plugin(plugin)  # calls plugin.on_unload()
 
 ---
 
+## Composer
+
+`Composer` is a fluent builder that chains everything together in one readable block — no separate `bot.use(...)` and `bot.add_plugin(...)` calls scattered around.
+
+```python
+from easycord import Composer
+from my_bot.plugins import ModerationPlugin, FunPlugin
+
+bot = (
+    Composer()
+    .log()
+    .catch_errors()
+    .rate_limit(limit=5, window=10.0)
+    .guild_only()
+    .add_plugin(ModerationPlugin())
+    .add_plugin(FunPlugin())
+    .build()
+)
+
+bot.run("YOUR_TOKEN")
+```
+
+---
+
 ## Per-Guild Config
 
 Skip complex database setup. The built-in `ServerConfigStore` saves server-specific settings to simple JSON files under `.easycord/server-config/`.
@@ -210,6 +236,7 @@ Drop the resulting file into `server_commands/` and the bot is updated.
 easycord/               # framework package
 ├── __init__.py
 ├── bot.py
+├── composer.py
 ├── context.py
 ├── decorators.py
 ├── middleware.py
@@ -231,7 +258,7 @@ pyproject.toml
 
 ## API Reference
 
-### `EasyCord`
+### `Bot`
 
 | Method | Description |
 |---|---|
@@ -241,6 +268,20 @@ pyproject.toml
 | `bot.add_plugin(plugin)` | Load a `Plugin` instance |
 | `await bot.remove_plugin(plugin)` | Unload a plugin at runtime |
 | `bot.run(token)` | Start the bot |
+
+### `Composer`
+
+| Method | Description |
+|---|---|
+| `.intents(intents)` | Set Discord gateway intents |
+| `.auto_sync(enabled)` | Enable or disable slash-command syncing on startup |
+| `.log(level, fmt)` | Add logging middleware |
+| `.catch_errors(message)` | Add error-handler middleware |
+| `.rate_limit(limit, window)` | Add per-user rate-limit middleware |
+| `.guild_only()` | Add guild-only guard middleware |
+| `.use(middleware)` | Add a custom middleware function |
+| `.add_plugin(plugin)` | Queue a plugin to be loaded |
+| `.build()` | Return the fully configured `Bot` |
 
 ### `Context`
 
@@ -260,7 +301,7 @@ pyproject.toml
 |---|---|
 | `async on_load()` | Called when plugin is loaded |
 | `async on_unload()` | Called when plugin is unloaded |
-| `self.bot` | Back-reference to `EasyCord` |
+| `self.bot` | Back-reference to the `Bot` |
 
 ### `ServerConfig`
 

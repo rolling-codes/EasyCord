@@ -39,12 +39,11 @@ dev = [
     "twine",
 ]
 
-# TODO: replace with your actual repository URL
 [project.urls]
-Homepage       = "https://github.com/your-username/EasyCord"
-Repository     = "https://github.com/your-username/EasyCord"
-Issues         = "https://github.com/your-username/EasyCord/issues"
-Documentation  = "https://github.com/your-username/EasyCord/tree/main/docs"
+Homepage       = "https://github.com/rolling-codes/EasyCord"
+Repository     = "https://github.com/rolling-codes/EasyCord"
+Issues         = "https://github.com/rolling-codes/EasyCord/issues"
+Documentation  = "https://github.com/rolling-codes/EasyCord/tree/main/docs"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
