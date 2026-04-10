@@ -2,19 +2,19 @@
 
 This reference is derived from the actual EasyCord source in this codebase.
 
-## `easycord.EasyCord`
+## `easycord.Bot`
 
 ### Constructor
 
-`EasyCord(*, intents: discord.Intents | None = None, sync_commands: bool = True, **kwargs)`
+`Bot(*, intents: discord.Intents | None = None, auto_sync: bool = True, **kwargs)`
 
 - **intents**: passed to `discord.Client`. Defaults to `discord.Intents.default()`.
-- **sync_commands**: if true, `setup_hook()` runs `await tree.sync()`.
+- **auto_sync**: if true, `setup_hook()` runs `await tree.sync()`.
 - **kwargs**: forwarded to `discord.Client`.
 
 ### Slash commands
 
-`EasyCord.slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None) -> Callable`
+`Bot.slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None) -> Callable`
 
 Decorator that registers a top-level slash command.
 
@@ -30,7 +30,7 @@ Handler shape:
 
 ### Events
 
-`EasyCord.on(event: str) -> Callable`
+`Bot.on(event: str) -> Callable`
 
 Decorator that registers an event listener for `event` (without the `on_` prefix).
 
@@ -43,7 +43,7 @@ async def on_message(message): ...
 
 ### Middleware
 
-`EasyCord.use(middleware: MiddlewareFn) -> MiddlewareFn`
+`Bot.use(middleware: MiddlewareFn) -> MiddlewareFn`
 
 Registers a middleware function. Middleware runs for slash commands only.
 
@@ -53,7 +53,7 @@ Middleware signature:
 
 ### Plugins
 
-`EasyCord.load_plugin(plugin: Plugin) -> None`
+`Bot.add_plugin(plugin: Plugin) -> None`
 
 Loads a plugin instance:
 
@@ -63,12 +63,12 @@ Loads a plugin instance:
   - in `setup_hook()` for plugins loaded before `run()`
   - or scheduled immediately if the bot is already ready
 
-`EasyCord.unload_plugin(plugin: Plugin) -> Awaitable[None]`
+`await Bot.remove_plugin(plugin: Plugin) -> None`
 
 Unloads a plugin instance:
 
-- removes the plugin’s registered slash commands from the command tree (best-effort)
-- deregisters the plugin’s event handlers
+- removes the plugin's registered slash commands from the command tree (best-effort)
+- deregisters the plugin's event handlers
 - awaits `plugin.on_unload()`
 
 Raises:
@@ -77,7 +77,7 @@ Raises:
 
 ### Lifecycle hooks
 
-EasyCord overrides:
+Bot overrides:
 
 - `setup_hook()`:
   - syncs commands (if enabled)
@@ -90,7 +90,7 @@ EasyCord overrides:
 
 ### Convenience
 
-`EasyCord.run(token: str, **kwargs) -> None`
+`Bot.run(token: str, **kwargs) -> None`
 
 Configures basic logging and calls `discord.Client.run(...)`.
 
@@ -107,6 +107,7 @@ Configures basic logging and calls `discord.Client.run(...)`.
 - `ctx.guild`: `discord.Guild | None`
 - `ctx.channel`: channel from the interaction
 - `ctx.command_name`: slash command name or `None`
+- `ctx.data`: raw `interaction.data`
 
 ### Responding
 
@@ -121,14 +122,21 @@ Behavior:
 
 Defers the response and marks the context as responded.
 
-`await ctx.respond_embed(title: str, description: str | None = None, *, color: discord.Color = discord.Color.blue(), ephemeral: bool = False, **kwargs) -> None`
+`await ctx.send_embed(title: str, description: str | None = None, *, fields: list[tuple] | None = None, footer: str | None = None, color: discord.Color = discord.Color.blue(), ephemeral: bool = False, **kwargs) -> None`
 
 Builds a `discord.Embed` and sends it via `respond()`.
 
-### Helpers
+- **fields**: list of `(name, value)` or `(name, value, inline)` tuples. `inline` defaults to `True`.
+- **footer**: optional footer text.
 
-- `ctx.author`: alias for `ctx.user`
-- `ctx.data`: raw `interaction.data`
+```python
+await ctx.send_embed(
+    "Server Stats",
+    fields=[("Members", "150"), ("Online", "42")],
+    footer="Updated just now",
+    color=discord.Color.green(),
+)
+```
 
 ## Decorators for plugins (`easycord.decorators`)
 
@@ -156,7 +164,7 @@ Marks a plugin method as an event handler.
 
 Base class for plugins.
 
-- `plugin.bot -> EasyCord`: back-reference (only valid after `load_plugin()`)
+- `plugin.bot -> Bot`: back-reference (only valid after `add_plugin()`)
 - `async plugin.on_load()`: optional async setup hook
 - `async plugin.on_unload()`: optional async teardown hook
 
@@ -164,7 +172,7 @@ Base class for plugins.
 
 All return a `MiddlewareFn`.
 
-### `logging_middleware(level=logging.INFO, fmt="/{command} invoked by {user} in {guild}")`
+### `log_middleware(level=logging.INFO, fmt="/{command} invoked by {user} in {guild}")`
 
 Logs every slash command invocation using `logging.getLogger("easycord")`.
 
@@ -174,17 +182,16 @@ Format placeholders:
 - `{user}`: `ctx.user`
 - `{guild}`: `ctx.guild` or `"DM"`
 
-### `guild_only_middleware()`
+### `guild_only()`
 
 Blocks commands invoked in DMs and responds ephemerally with an error message.
 
-### `rate_limit_middleware(max_calls=5, window_seconds=10.0)`
+### `rate_limit(limit=5, window=10.0)`
 
 Simple per-user sliding-window rate limiter using timestamps from `time.monotonic()`.
 
-When limited, responds ephemerally with a “try again in Xs” message.
+When limited, responds ephemerally with a "try again in Xs" message.
 
-### `error_handler_middleware(message="💥 Something went wrong. Please try again.")`
+### `catch_errors(message="Something went wrong. Please try again.")`
 
 Catches exceptions thrown by later middleware/handlers, logs them, and attempts to send an ephemeral error response.
-

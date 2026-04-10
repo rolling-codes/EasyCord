@@ -35,12 +35,12 @@ Practical guidance:
 
 ## Events
 
-`EasyCord.on("message")` registers a handler for that event name (without the `on_` prefix).
+`Bot.on("message")` registers a handler for that event name (without the `on_` prefix).
 
 Key behavior:
 
 - Multiple handlers per event are supported.
-- EasyCord overrides `discord.Client.dispatch` and schedules handlers via `asyncio.ensure_future(...)`.
+- EasyCord overrides `discord.Client.dispatch` and schedules handlers via `asyncio.create_task(...)`.
 
 Implication:
 
@@ -67,7 +67,7 @@ Ordering:
 Short-circuiting:
 
 - If middleware does not call `await next()`, the command will not run.
-- This is how `guild_only_middleware()` and rate limiting work.
+- This is how `guild_only()` and rate limiting work.
 
 ## Plugins
 
@@ -81,19 +81,19 @@ In a plugin you decorate methods with:
 Then you register the plugin:
 
 ```python
-bot.load_plugin(MyPlugin())
+bot.add_plugin(MyPlugin())
 ```
 
 ### Plugin lifecycle
 
-- `load_plugin()`:
+- `add_plugin()`:
   - sets `plugin._bot = bot`
   - scans methods and registers slash commands + event handlers
   - if the bot is already ready, schedules `plugin.on_load()` as a task
 - `setup_hook()`:
   - syncs commands (if enabled)
   - calls `on_load()` for any plugins loaded before `run()`
-- `unload_plugin()` (async):
+- `remove_plugin()` (async):
   - removes the plugin’s slash commands from the command tree (best-effort)
   - deregisters the plugin’s event handlers
   - awaits `plugin.on_unload()`

@@ -110,3 +110,37 @@ async def test_send_embed_custom_color(ctx, interaction):
 async def test_send_embed_ephemeral(ctx, interaction):
     await ctx.send_embed("Title", ephemeral=True)
     assert interaction.response.send_message.call_args.kwargs["ephemeral"] is True
+
+
+async def test_send_embed_with_fields(ctx, interaction):
+    await ctx.send_embed("Stats", fields=[("Members", "150"), ("Online", "42")])
+    embed = interaction.response.send_message.call_args.kwargs["embed"]
+    assert len(embed.fields) == 2
+    assert embed.fields[0].name == "Members"
+    assert embed.fields[0].value == "150"
+    assert embed.fields[1].name == "Online"
+    assert embed.fields[1].value == "42"
+
+
+async def test_send_embed_fields_inline_default(ctx, interaction):
+    await ctx.send_embed("T", fields=[("A", "1")])
+    embed = interaction.response.send_message.call_args.kwargs["embed"]
+    assert embed.fields[0].inline is True
+
+
+async def test_send_embed_fields_inline_custom(ctx, interaction):
+    await ctx.send_embed("T", fields=[("A", "1", False)])
+    embed = interaction.response.send_message.call_args.kwargs["embed"]
+    assert embed.fields[0].inline is False
+
+
+async def test_send_embed_with_footer(ctx, interaction):
+    await ctx.send_embed("T", footer="Updated just now")
+    embed = interaction.response.send_message.call_args.kwargs["embed"]
+    assert embed.footer.text == "Updated just now"
+
+
+async def test_send_embed_no_footer_by_default(ctx, interaction):
+    await ctx.send_embed("T")
+    embed = interaction.response.send_message.call_args.kwargs["embed"]
+    assert not embed.footer.text

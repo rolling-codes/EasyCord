@@ -21,9 +21,9 @@ DISCORD_TOKEN=your_token_here python my_bot.py
 
 ```python
 import os
-from easycord import EasyCord
+from easycord import Bot
 
-bot = EasyCord()
+bot = Bot()
 
 @bot.slash(description="Ping the bot")
 async def ping(ctx):
@@ -49,14 +49,14 @@ my_bot/
 
 In `main.py`, you typically:
 
-- create `EasyCord()`
+- create `Bot()`
 - register middleware (`bot.use(...)`)
-- load plugins (`bot.load_plugin(...)`)
+- load plugins (`bot.add_plugin(...)`)
 - call `bot.run(token)`
 
 ## Command syncing behavior
 
-By default, `EasyCord(sync_commands=True)` syncs the global slash command tree in `setup_hook()`.
+By default, `Bot(auto_sync=True)` syncs the global slash command tree in `setup_hook()`.
 
 - **Global commands** may take up to ~1 hour to appear.
 - During development, prefer `guild_id=...` (see below) for instant visibility.
@@ -71,5 +71,5 @@ async def test(ctx):
 
 ## Logging
 
-`EasyCord.run()` configures basic logging and then delegates to `discord.Client.run()`. You can configure logging yourself before calling `run()` if you want different formatting/handlers.
+`Bot.run()` configures basic logging and then delegates to `discord.Client.run()`. You can configure logging yourself before calling `run()` if you want different formatting/handlers.
 

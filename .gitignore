@@ -1,29 +1,17 @@
-# Python
 __pycache__/
 *.py[cod]
-*.pyd
-*.so
 *.egg-info/
-build/
 dist/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.tox/
+build/
+.eggs/
+*.egg
 .venv/
 venv/
-ENV/
-
-# OS / editor
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-
-# Runtime / secrets
+env/
 .env
-.env.*
-
-# EasyCord runtime data
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
 .easycord/
-
+*.tmp

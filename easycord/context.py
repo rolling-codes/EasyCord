@@ -106,15 +106,30 @@ class Context:
         title: str,
         description: str | None = None,
         *,
+        fields: list[tuple] | None = None,
+        footer: str | None = None,
         color: discord.Color = discord.Color.blue(),
         ephemeral: bool = False,
         **kwargs,
     ) -> None:
         """Build and send a Discord embed in one call.
 
-        Example::
+        ``fields`` is a list of ``(name, value)`` or ``(name, value, inline)``
+        tuples. ``inline`` defaults to ``True`` when omitted.
 
-            await ctx.send_embed("Results", "Here is what I found:", color=discord.Color.green())
+        Example — a simple embed with fields::
+
+            await ctx.send_embed(
+                "Server Stats",
+                fields=[("Members", "150"), ("Online", "42")],
+                footer="Updated just now",
+                color=discord.Color.green(),
+            )
         """
         embed = discord.Embed(title=title, description=description, color=color)
+        for field in (fields or []):
+            name, value, *rest = field
+            embed.add_field(name=name, value=value, inline=rest[0] if rest else True)
+        if footer:
+            embed.set_footer(text=footer)
         await self.respond(embed=embed, ephemeral=ephemeral, **kwargs)

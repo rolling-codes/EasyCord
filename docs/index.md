@@ -4,8 +4,8 @@ EasyCord is a small, decorator-first framework for building Discord bots on top 
 
 It provides:
 
-- **Slash command registration** via `EasyCord.slash(...)`
-- **Event listeners** via `EasyCord.on(...)` (supports multiple handlers per event)
+- **Slash command registration** via `Bot.slash(...)`
+- **Event listeners** via `Bot.on(...)` (supports multiple handlers per event)
 - **Middleware** that wraps every slash command invocation
 - **Plugins** (`Plugin` subclasses) with `@slash` and `@on` decorators
 
@@ -30,12 +30,12 @@ pip install "discord.py>=2.0"
 
 ```python
 import os
-from easycord import EasyCord
-from easycord.middleware import logging_middleware, error_handler_middleware
+from easycord import Bot
+from easycord.middleware import log_middleware, catch_errors
 
-bot = EasyCord()
-bot.use(logging_middleware())
-bot.use(error_handler_middleware())
+bot = Bot()
+bot.use(log_middleware())
+bot.use(catch_errors())
 
 @bot.slash(description="Ping the bot")
 async def ping(ctx):

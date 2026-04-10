@@ -24,7 +24,7 @@ my_bot/
 1. Create a new file in `server_commands/`, for example `server_commands/music.py`.
 2. Add a `Plugin` subclass and decorate methods with `@slash` / `@on`.
 3. Export it from `server_commands/__init__.py` (optional but convenient).
-4. Load it in your bot (`bot.load_plugin(...)`).
+4. Load it in your bot (`bot.add_plugin(...)`).
 
 Example:
 

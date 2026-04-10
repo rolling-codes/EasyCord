@@ -28,9 +28,9 @@ async def echo(ctx, message: str, times: int = 1):
 ## Plugin structure
 
 ```python
-from easycord import EasyCord, Plugin, slash, on
+from easycord import Bot, Plugin, slash, on
 
-bot = EasyCord()
+bot = Bot()
 
 class MyPlugin(Plugin):
     @slash(description="Roll a dice")
@@ -42,7 +42,7 @@ class MyPlugin(Plugin):
     async def welcome(self, member):
         await member.send("Welcome!")
 
-bot.load_plugin(MyPlugin())
+bot.add_plugin(MyPlugin())
 ```
 
 ## Using `respond()` vs follow-ups

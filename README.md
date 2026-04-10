@@ -31,11 +31,11 @@ pip install -e .
 ## Quick Start
 
 ```python
-from easycord import EasyCord
-from easycord.middleware import logging_middleware
+from easycord import Bot
+from easycord.middleware import log_middleware
 
-bot = EasyCord()
-bot.use(logging_middleware())
+bot = Bot()
+bot.use(log_middleware())
 
 @bot.slash(description="Ping the bot")
 async def ping(ctx):
@@ -82,7 +82,8 @@ async def my_command(ctx):
 
     await ctx.respond("plain text")
     await ctx.respond("hidden", ephemeral=True)
-    await ctx.respond_embed("Title", "Description", color=discord.Color.red())
+    await ctx.send_embed("Title", "Description", color=discord.Color.red())
+    await ctx.send_embed("Stats", fields=[("Members", "150"), ("Online", "42")], footer="just now")
     await ctx.defer()  # for slow operations — respond within 15 minutes
 ```
 
@@ -123,16 +124,16 @@ Middleware is executed in the order it was registered.
 
 ```python
 from easycord.middleware import (
-    logging_middleware,       # log every invocation
-    error_handler_middleware, # catch unhandled exceptions
-    rate_limit_middleware,    # per-user rate limiting
-    guild_only_middleware,    # block DM usage
+    log_middleware,   # log every invocation
+    catch_errors,     # catch unhandled exceptions
+    rate_limit,       # per-user rate limiting
+    guild_only,       # block DM usage
 )
 
-bot.use(logging_middleware())
-bot.use(error_handler_middleware(message="Something broke"))
-bot.use(rate_limit_middleware(max_calls=5, window_seconds=10))
-bot.use(guild_only_middleware())
+bot.use(log_middleware())
+bot.use(catch_errors(message="Something broke"))
+bot.use(rate_limit(limit=5, window=10))
+bot.use(guild_only())
 ```
 
 ---
@@ -159,16 +160,16 @@ class FunPlugin(Plugin):
     async def welcome(self, member):
         await member.send("Welcome!")
 
-bot.load_plugin(FunPlugin())
+bot.add_plugin(FunPlugin())
 ```
 
 ### Unloading plugins at runtime
 
 ```python
 plugin = FunPlugin()
-bot.load_plugin(plugin)
+bot.add_plugin(plugin)
 # later...
-await bot.unload_plugin(plugin)  # calls plugin.on_unload()
+await bot.remove_plugin(plugin)  # calls plugin.on_unload()
 ```
 
 ---
@@ -217,8 +218,7 @@ easycord/               # framework package
 server_commands/        # example bot plugins
 ├── fun.py
 ├── moderation.py
-├── info.py
-└── config.py
+└── info.py
 examples/
 ├── basic_bot.py
 └── plugin_bot.py
@@ -238,8 +238,8 @@ pyproject.toml
 | `bot.slash(name, *, description, guild_id)` | Decorator — register a slash command |
 | `bot.on(event)` | Decorator — register an event handler |
 | `bot.use(middleware)` | Register a middleware function |
-| `bot.load_plugin(plugin)` | Load a `Plugin` instance |
-| `await bot.unload_plugin(plugin)` | Unload a plugin at runtime |
+| `bot.add_plugin(plugin)` | Load a `Plugin` instance |
+| `await bot.remove_plugin(plugin)` | Unload a plugin at runtime |
 | `bot.run(token)` | Start the bot |
 
 ### `Context`
@@ -252,7 +252,7 @@ pyproject.toml
 | `ctx.command_name` | Slash command name |
 | `await ctx.respond(...)` | Send a reply |
 | `await ctx.defer(...)` | Acknowledge (15-min window) |
-| `await ctx.respond_embed(title, description, ...)` | Send an embed |
+| `await ctx.send_embed(title, description, *, fields, footer, ...)` | Build and send an embed — `fields` is a list of `(name, value)` or `(name, value, inline)` tuples |
 
 ### `Plugin`
 
