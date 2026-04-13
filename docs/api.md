@@ -121,6 +121,28 @@ Bot overrides:
 - `on_ready()`:
   - logs ready information
 
+### Context menus
+
+`Bot.user_command(name: str | None = None, *, guild_id: int | None = None) -> Callable`
+
+Decorator that registers a right-click **User** context menu command. The handler receives `(ctx, member)` where `member` is `discord.Member | discord.User` depending on where the right-click occurred.
+
+`Bot.message_command(name: str | None = None, *, guild_id: int | None = None) -> Callable`
+
+Decorator that registers a right-click **Message** context menu command. The handler receives `(ctx, message)` where `message` is a `discord.Message`.
+
+Both decorators run the full middleware stack, support `guild_id` for guild-scoped registration, and default `name` to the function name.
+
+```python
+@bot.user_command(name="User Info")
+async def user_info(ctx, member):
+    await ctx.respond(f"{member.display_name} — ID {member.id}", ephemeral=True)
+
+@bot.message_command(name="Quote")
+async def quote(ctx, message):
+    await ctx.respond(f"> {message.content[:100]}")
+```
+
 ### User & member lookup
 
 `await Bot.fetch_member(guild_id: int, user_id: int) -> discord.Member`

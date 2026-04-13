@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import logging
 import time
-from typing import Awaitable, Callable, Literal
+from typing import Awaitable, Callable, Literal, Union
 
 import discord
 from discord import app_commands
@@ -481,6 +481,106 @@ class Bot(discord.Client):
         if self.is_ready():
             asyncio.create_task(group.on_load())
             self._start_plugin_tasks(group)
+
+    # ── Context menus ─────────────────────────────────────────
+
+    def user_command(
+        self,
+        name: str | None = None,
+        *,
+        guild_id: int | None = None,
+    ) -> Callable:
+        """Decorator that registers a right-click User context menu command.
+
+        The handler receives ``(ctx, member)`` where ``member`` is the
+        right-clicked user as a ``discord.Member | discord.User``.
+
+        Example::
+
+            @bot.user_command(name="User Info")
+            async def user_info(ctx, member):
+                await ctx.respond(f"{member.display_name} joined {member.guild.name}.")
+        """
+        def decorator(func: Callable) -> Callable:
+            self._register_context_menu(
+                func,
+                name=name or func.__name__,
+                menu_type=discord.AppCommandType.user,
+                guild_id=guild_id,
+            )
+            return func
+        return decorator
+
+    def message_command(
+        self,
+        name: str | None = None,
+        *,
+        guild_id: int | None = None,
+    ) -> Callable:
+        """Decorator that registers a right-click Message context menu command.
+
+        The handler receives ``(ctx, message)`` where ``message`` is the
+        right-clicked ``discord.Message``.
+
+        Example::
+
+            @bot.message_command(name="Quote")
+            async def quote(ctx, message):
+                await ctx.respond(f"> {message.content[:100]}")
+        """
+        def decorator(func: Callable) -> Callable:
+            self._register_context_menu(
+                func,
+                name=name or func.__name__,
+                menu_type=discord.AppCommandType.message,
+                guild_id=guild_id,
+            )
+            return func
+        return decorator
+
+    def _register_context_menu(
+        self,
+        func: Callable,
+        *,
+        name: str,
+        menu_type: discord.AppCommandType,
+        guild_id: int | None,
+    ) -> None:
+        """Build and register an app_commands.ContextMenu from a user-provided handler."""
+        guild = discord.Object(id=guild_id) if guild_id else None
+        sig = inspect.signature(func)
+        params = list(sig.parameters.values())
+        target_name = params[1].name if len(params) > 1 else "target"
+
+        # Annotation tells discord.py what type to inject as the second argument.
+        if menu_type == discord.AppCommandType.user:
+            target_annotation: type = Union[discord.Member, discord.User]  # type: ignore[assignment]
+        else:
+            target_annotation = discord.Message
+
+        interaction_param = inspect.Parameter(
+            "interaction",
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            annotation=discord.Interaction,
+        )
+        target_param = inspect.Parameter(
+            target_name,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            annotation=target_annotation,
+        )
+
+        async def callback(interaction: discord.Interaction, target) -> None:
+            ctx = Context(interaction)
+
+            async def invoke() -> None:
+                await func(ctx, target)
+
+            await _build_chain(ctx, invoke, self._middleware)()
+
+        callback.__signature__ = inspect.Signature(parameters=[interaction_param, target_param])
+
+        menu = app_commands.ContextMenu(name=name, callback=callback)
+        self.tree.add_command(menu, guild=guild)
 
     # ── User & member lookup ──────────────────────────────────
 

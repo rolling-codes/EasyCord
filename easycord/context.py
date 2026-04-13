@@ -508,6 +508,8 @@ class Context:
     ) -> None:
         """Move a member to a voice channel by ID, or disconnect them (pass ``None``).
 
+        Accepts both ``VoiceChannel`` and ``StageChannel`` targets.
+
         Example::
 
             await ctx.move_member(member, AFK_CHANNEL_ID)
@@ -517,8 +519,8 @@ class Context:
             await member.edit(voice_channel=None, reason=reason)
         else:
             channel = self.interaction.client.get_channel(channel_id)
-            if not isinstance(channel, discord.VoiceChannel):
-                raise ValueError(f"Channel {channel_id} is not a voice channel or was not found")
+            if not isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
+                raise ValueError(f"Channel {channel_id} is not a voice or stage channel, or was not found")
             await member.edit(voice_channel=channel, reason=reason)
 
     # ── Role management ───────────────────────────────────────
@@ -596,7 +598,7 @@ class Context:
     # ── Message management ────────────────────────────────────
 
     async def purge(self, limit: int = 10) -> int:
-        """Bulk-delete recent messages in the current channel. Returns count deleted.
+        """Bulk-delete recent messages in the current channel or thread. Returns count deleted.
 
         Example::
 
@@ -605,8 +607,8 @@ class Context:
                 deleted = await ctx.purge(count)
                 await ctx.respond(f"Deleted {deleted} messages.", ephemeral=True)
         """
-        if not isinstance(self.channel, discord.TextChannel):
-            raise RuntimeError("purge can only be used in a text channel")
+        if not isinstance(self.channel, (discord.TextChannel, discord.Thread)):
+            raise RuntimeError("purge can only be used in a text channel or thread")
         deleted = await self.channel.purge(limit=limit)
         return len(deleted)
 
@@ -775,3 +777,124 @@ class Context:
             await ctx.delete_message(message, delay=5.0)  # delete after 5 seconds
         """
         await message.delete(delay=delay)
+
+    # ── Invoker voice state ───────────────────────────────────
+
+    @property
+    def voice_channel(self) -> discord.VoiceChannel | discord.StageChannel | None:
+        """The voice channel the command invoker is currently in, or ``None``.
+
+        Only works inside a guild; returns ``None`` in DMs or if the member's
+        voice state is not cached.
+
+        Example::
+
+            @bot.slash(description="Join my voice channel")
+            async def join(ctx):
+                if ctx.voice_channel is None:
+                    await ctx.respond("You're not in a voice channel.", ephemeral=True)
+                else:
+                    await ctx.respond(f"You're in {ctx.voice_channel.name}.")
+        """
+        member = self.interaction.user
+        if isinstance(member, discord.Member) and member.voice:
+            return member.voice.channel  # type: ignore[return-value]
+        return None
+
+    # ── Response editing ──────────────────────────────────────
+
+    async def edit_response(
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        **kwargs,
+    ) -> None:
+        """Edit the bot's original response to this interaction.
+
+        Useful for "Loading…" patterns — defer, do work, then edit in the result.
+
+        Example::
+
+            @bot.slash(description="Generate a report")
+            async def report(ctx):
+                await ctx.defer()
+                data = await fetch_data()
+                await ctx.edit_response(f"Report ready: {data}")
+        """
+        await self.interaction.edit_original_response(content=content, embed=embed, **kwargs)
+
+    # ── Message pinning ───────────────────────────────────────
+
+    async def pin(self, message: discord.Message, *, reason: str | None = None) -> None:
+        """Pin a message in the current channel.
+
+        Requires the ``manage_messages`` permission.
+
+        Example::
+
+            messages = await ctx.fetch_messages(1)
+            await ctx.pin(messages[0], reason="Important announcement")
+        """
+        await message.pin(reason=reason)
+
+    async def unpin(self, message: discord.Message, *, reason: str | None = None) -> None:
+        """Unpin a pinned message from the current channel.
+
+        Requires the ``manage_messages`` permission.
+
+        Example::
+
+            await ctx.unpin(message)
+        """
+        await message.unpin(reason=reason)
+
+    # ── Announcement channels ─────────────────────────────────
+
+    async def crosspost(self, message: discord.Message) -> None:
+        """Publish (crosspost) a message from an announcement channel to all followers.
+
+        The channel must be a ``discord.TextChannel`` with the ``news`` type.
+
+        Example::
+
+            @bot.slash(description="Publish the latest news", permissions=["manage_messages"])
+            async def publish(ctx):
+                messages = await ctx.fetch_messages(1)
+                await ctx.crosspost(messages[0])
+                await ctx.respond("Published!", ephemeral=True)
+        """
+        await message.publish()
+
+    # ── Member & ban helpers ──────────────────────────────────
+
+    def get_member(self, user_id: int) -> discord.Member | None:
+        """Look up a guild member from the local cache without an API call.
+
+        Returns ``None`` if the member is not cached or the command was run in a DM.
+
+        Example::
+
+            member = ctx.get_member(stored_id)
+            if member:
+                await ctx.respond(f"Found: {member.display_name}")
+        """
+        return self.guild.get_member(user_id) if self.guild else None
+
+    async def fetch_bans(self, limit: int | None = None) -> list[discord.BanEntry]:
+        """Return a list of ban entries for the current guild.
+
+        Parameters
+        ----------
+        limit:
+            Maximum number of entries to fetch. ``None`` fetches all bans.
+
+        Example::
+
+            bans = await ctx.fetch_bans(limit=50)
+            summary = "\\n".join(str(b.user) for b in bans)
+            await ctx.respond(summary or "No bans.", ephemeral=True)
+        """
+        if self.guild is None:
+            raise RuntimeError("fetch_bans requires a guild context")
+        return [entry async for entry in self.guild.bans(limit=limit)]

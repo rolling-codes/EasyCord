@@ -1,5 +1,57 @@
 # Changelog
 
+## [2.0] — 2026-04-12
+
+Context menus, message editing, pinning, crosspost publishing, voice state, ban listing, and two bug fixes.
+
+**Jump to docs:**
+
+- [Context menus](docs/api.md#context-menus)
+- [Response editing](docs/api.md#responding)
+- [Pinning](docs/api.md#message-management)
+- [Voice state](docs/api.md#easycordcontext)
+- [Member & ban helpers](docs/api.md#member--ban-helpers)
+
+---
+
+### 2.0 — New `Bot` decorators
+
+| Decorator | What it does |
+| --- | --- |
+| `@bot.user_command(name)` | Register a right-click User context menu command |
+| `@bot.message_command(name)` | Register a right-click Message context menu command |
+
+Both pass middleware through the same stack as slash commands. Handlers receive `(ctx, target)` where `target` is `discord.Member \| discord.User` or `discord.Message` respectively.
+
+Full docs: [docs/api.md#context-menus](docs/api.md#context-menus)
+
+---
+
+### 2.0 — New `Context` helpers
+
+| Method / Property | What it does |
+| --- | --- |
+| `ctx.voice_channel` | Property — voice/stage channel the invoker is currently in, or `None` |
+| `await ctx.edit_response(content, *, embed)` | Edit the bot's original response in-place |
+| `await ctx.pin(message, *, reason)` | Pin a message in the current channel |
+| `await ctx.unpin(message, *, reason)` | Unpin a message from the current channel |
+| `await ctx.crosspost(message)` | Publish a message from an announcement channel to all followers |
+| `ctx.get_member(user_id)` | Cache-only guild member lookup — no API call, returns `None` if not found |
+| `await ctx.fetch_bans(limit)` | Return a list of `discord.BanEntry` for the guild |
+
+Full signatures: [docs/api.md#easycordcontext](docs/api.md#easycordcontext)
+
+---
+
+### 2.0 — Bug fixes
+
+| Method | Fix |
+| --- | --- |
+| `ctx.move_member` | Now accepts `discord.StageChannel` as a valid destination (previously rejected all non-`VoiceChannel` channels) |
+| `ctx.purge` | Now works in `discord.Thread` channels (previously restricted to `TextChannel` only) |
+
+---
+
 ## [1.199] — 2026-04-12
 
 Reactions, targeted message deletion, static parameter choices, and bot-level user/member lookup.
