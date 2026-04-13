@@ -131,6 +131,28 @@ async def test_slash_guild_only_blocks_dm(bot):
     assert interaction.response.send_message.call_args.kwargs.get("ephemeral") is True
 
 
+async def test_slash_ephemeral_forces_ephemeral_response(bot):
+    """ephemeral=True on @bot.slash makes ctx._force_ephemeral True."""
+    captured_ctx = {}
+
+    @bot.slash(description="hidden", ephemeral=True)
+    async def _hidden_cmd(_ctx):
+        captured_ctx["ctx"] = _ctx
+
+    cmd = bot.tree.add_command.call_args[0][0]
+
+    interaction = MagicMock()
+    interaction.guild = MagicMock()
+    interaction.response.send_message = AsyncMock()
+    interaction.followup.send = AsyncMock()
+    interaction.command = MagicMock()
+    interaction.command.name = "hidden"
+    interaction.user = MagicMock()
+
+    await cmd.callback(interaction)
+    assert captured_ctx["ctx"]._force_ephemeral is True
+
+
 async def test_slash_guild_only_passes_in_guild(bot):
     """guild_only=True on @bot.slash allows invocation inside a guild."""
     handler_called = False

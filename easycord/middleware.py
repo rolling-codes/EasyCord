@@ -76,6 +76,32 @@ def allowed_roles(*role_ids: int, message: str = "You don't have the required ro
     return handler
 
 
+def channel_only(
+    *channel_ids: int,
+    message: str = "This command cannot be used in this channel.",
+) -> MiddlewareFn:
+    """Block commands invoked outside of the specified channel(s).
+
+    Passes silently when used outside a guild (DMs).
+
+    Example::
+
+        bot.use(channel_only(COMMANDS_CHANNEL_ID, BOT_CHANNEL_ID))
+    """
+    channel_set = frozenset(channel_ids)
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        if ctx.channel is None or ctx.channel.id not in channel_set:  # type: ignore[union-attr]
+            await ctx.respond(message, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
+
+
 def admin_only(
     message: str = "This command requires administrator permissions.",
 ) -> MiddlewareFn:

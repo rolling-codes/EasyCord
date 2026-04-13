@@ -10,6 +10,7 @@ def slash(
     description: str = "No description provided.",
     guild_id: int | None = None,
     guild_only: bool = False,
+    ephemeral: bool = False,
     permissions: list[str] | None = None,
     cooldown: float | None = None,
     autocomplete: dict[str, Callable] | None = None,
@@ -54,6 +55,7 @@ def slash(
         func._slash_desc = description
         func._slash_guild = guild_id
         func._slash_guild_only = guild_only
+        func._slash_ephemeral = ephemeral
         func._slash_permissions = permissions
         func._slash_cooldown = cooldown
         func._slash_autocomplete = autocomplete or {}

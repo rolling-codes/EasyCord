@@ -1,5 +1,49 @@
 # Changelog
 
+## [2.5] — 2026-04-13
+
+New decorator parameter, two middleware factories, two context shortcuts, and minimized agent documentation.
+
+### New: `ephemeral=True` on `@slash` / `@bot.slash`
+
+All responses from a command are forced ephemeral without touching each `ctx.respond()` call:
+
+```python
+@slash(description="Show your token.", ephemeral=True)
+async def token(self, ctx):
+    await ctx.respond("Your token is …")  # automatically ephemeral
+```
+
+### New: `channel_only(*channel_ids)` middleware
+
+```python
+from easycord.middleware import channel_only
+
+bot.use(channel_only(COMMANDS_CHANNEL_ID, BOT_CHANNEL_ID))
+```
+
+Restricts commands to the specified channels. Passes silently in DMs.
+
+### New: `ctx.guild_id` property
+
+`ctx.guild.id` safe shortcut — returns `None` instead of raising `AttributeError` in DMs.
+
+### New: `ctx.is_admin` property
+
+Boolean shortcut for administrator permission check — `True` only inside a guild when the invoking member has `administrator`. Always `False` in DMs.
+
+```python
+if not ctx.is_admin:
+    await ctx.respond("Admins only.", ephemeral=True)
+    return
+```
+
+### Doc minimization
+
+`model.md` and `docs/api.md` rewritten as dense reference tables. Reduced from ~700 → ~200 lines in `model.md` and from ~460 → ~230 lines in `docs/api.md`, cutting agent token cost roughly in half when reading project context.
+
+---
+
 ## [2.4] — 2026-04-13
 
 New decorator parameter, middleware factory, context property, and simplified example plugins.

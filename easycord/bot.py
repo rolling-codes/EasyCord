@@ -94,6 +94,7 @@ class Bot(discord.Client):
         description: str = "No description provided.",
         guild_id: int | None = None,
         guild_only: bool = False,
+        ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
         autocomplete: dict[str, Callable] | None = None,
@@ -143,6 +144,7 @@ class Bot(discord.Client):
                 description=description,
                 guild_id=guild_id,
                 guild_only=guild_only,
+                ephemeral=ephemeral,
                 permissions=permissions,
                 cooldown=cooldown,
                 autocomplete=autocomplete,
@@ -157,6 +159,7 @@ class Bot(discord.Client):
         func: Callable,
         *,
         guild_only: bool = False,
+        ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
     ) -> Callable:
@@ -168,6 +171,8 @@ class Bot(discord.Client):
 
         async def callback(interaction: discord.Interaction, **kwargs) -> None:
             ctx = Context(interaction)
+            if ephemeral:
+                ctx._force_ephemeral = True
 
             async def invoke() -> None:
                 # ── Guild guard ───────────────────────────────────
@@ -240,6 +245,7 @@ class Bot(discord.Client):
         description: str,
         guild_id: int | None,
         guild_only: bool = False,
+        ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
         autocomplete: dict[str, Callable] | None = None,
@@ -247,7 +253,7 @@ class Bot(discord.Client):
     ) -> None:
         """Register a callable as a slash command in discord.py's app-command tree."""
         guild = discord.Object(id=guild_id) if guild_id else None
-        callback = self._build_slash_callback(func, guild_only=guild_only, permissions=permissions, cooldown=cooldown)
+        callback = self._build_slash_callback(func, guild_only=guild_only, ephemeral=ephemeral, permissions=permissions, cooldown=cooldown)
         if choices:
             self._inject_choices(callback, choices)
         cmd = app_commands.Command(name=name, description=description, callback=callback)
@@ -330,6 +336,7 @@ class Bot(discord.Client):
                     description=method._slash_desc,
                     guild_id=method._slash_guild,
                     guild_only=getattr(method, "_slash_guild_only", False),
+                    ephemeral=getattr(method, "_slash_ephemeral", False),
                     permissions=getattr(method, "_slash_permissions", None),
                     cooldown=getattr(method, "_slash_cooldown", None),
                     autocomplete=getattr(method, "_slash_autocomplete", None),
@@ -446,6 +453,7 @@ class Bot(discord.Client):
                 callback = self._build_slash_callback(
                     method,
                     guild_only=getattr(method, "_slash_guild_only", False),
+                    ephemeral=getattr(method, "_slash_ephemeral", False),
                     permissions=getattr(method, "_slash_permissions", None),
                     cooldown=getattr(method, "_slash_cooldown", None),
                 )

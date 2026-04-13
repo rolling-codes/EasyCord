@@ -1,472 +1,252 @@
 # API reference
 
-This reference is derived from the actual EasyCord source in this codebase.
-
 ## `easycord.Bot`
 
-### Constructor
-
-`Bot(*, intents: discord.Intents | None = None, auto_sync: bool = True, **kwargs)`
-
-- **intents**: passed to `discord.Client`. Defaults to `discord.Intents.default()`.
-- **auto_sync**: if true, `setup_hook()` runs `await tree.sync()`.
-- **kwargs**: forwarded to `discord.Client`.
+`Bot(*, intents=None, auto_sync=True, **kwargs)`
 
 ### Slash commands
 
-`Bot.slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None, permissions: list[str] | None = None, cooldown: float | None = None, autocomplete: dict[str, Callable] | None = None) -> Callable`
+`Bot.slash(name=None, *, description, guild_id=None, guild_only=False, ephemeral=False, permissions=None, cooldown=None, autocomplete=None, choices=None)`
 
-Decorator that registers a top-level slash command.
-
-- **name**: defaults to the function name.
-- **description**: shown in Discord UI.
-- **guild_id**: `None` registers globally; `int` registers to one guild (instant).
-- **permissions**: list of `discord.Permissions` attribute names required (e.g. `["kick_members"]`). Responds ephemerally and skips the command if any are missing.
-- **cooldown**: per-user cooldown in seconds. Blocks ephemerally until the window expires.
-- **autocomplete**: dict mapping parameter names to async callbacks. Each callback receives the current typed string and returns a `list[str]` of suggestions.
-- **guild_only**: if `True`, the command responds ephemerally and exits immediately when invoked outside a server (DM). Use instead of a manual `if not ctx.guild` guard.
-- **choices**: dict mapping parameter names to a fixed list of values. Discord renders these as a locked dropdown — no free-text entry. Values may be strings or numbers.
-
-```python
-@bot.slash(description="Kick a member", permissions=["kick_members"])
-async def kick(ctx, member: discord.Member):
-    await member.kick()
-    await ctx.respond(f"Kicked {member.display_name}.")
-
-@bot.slash(description="Roll dice", cooldown=5)
-async def roll(ctx):
-    import random
-    await ctx.respond(str(random.randint(1, 6)))
-
-FRUITS = ["apple", "banana", "cherry", "date"]
-
-async def fruit_ac(current: str) -> list[str]:
-    return [f for f in FRUITS if current.lower() in f]
-
-@bot.slash(description="Pick a fruit", autocomplete={"fruit": fruit_ac})
-async def pick(ctx, fruit: str):
-    await ctx.respond(f"You picked {fruit}!")
-```
-
-### Presence
-
-`await Bot.set_status(status: str = "online", *, activity: str | None = None, activity_type: str = "playing") -> None`
-
-Set the bot's presence status and optional activity text.
-
-- **status**: `"online"`, `"idle"`, `"dnd"`, or `"invisible"`.
-- **activity**: display text shown alongside the status indicator. `None` clears it.
-- **activity_type**: `"playing"`, `"watching"`, or `"listening"`.
-
-```python
-await bot.set_status("idle", activity="Taking a break", activity_type="watching")
-```
-
-### Events
-
-`Bot.on(event: str) -> Callable`
-
-Decorator that registers an event listener for `event` (without the `on_` prefix).
-
-Example:
-
-```python
-@bot.on("message")
-async def on_message(message): ...
-```
-
-### Middleware
-
-`Bot.use(middleware: MiddlewareFn) -> MiddlewareFn`
-
-Registers a middleware function. Middleware runs for slash commands only.
-
-Middleware signature:
-
-`async def middleware(ctx: Context, next: Callable[[], Awaitable[None]]) -> None`
-
-### Plugins
-
-`Bot.add_plugin(plugin: Plugin) -> None`
-
-Loads a plugin instance:
-
-- assigns the bot reference (`plugin._bot`)
-- registers all plugin slash commands and event handlers
-- calls `on_load()`:
-  - in `setup_hook()` for plugins loaded before `run()`
-  - or scheduled immediately if the bot is already ready
-
-`await Bot.remove_plugin(plugin: Plugin) -> None`
-
-Unloads a plugin instance:
-
-- removes the plugin's registered slash commands from the command tree (best-effort)
-- deregisters the plugin's event handlers
-- awaits `plugin.on_unload()`
-
-Raises:
-
-- `ValueError` if the plugin is not loaded.
-
-### Lifecycle hooks
-
-Bot overrides:
-
-- `setup_hook()`:
-  - syncs commands (if enabled)
-  - awaits `on_load()` for all loaded plugins
-- `dispatch(event, *args, **kwargs)`:
-  - calls `discord.Client.dispatch`
-  - schedules all EasyCord event handlers for `event`
-- `on_ready()`:
-  - logs ready information
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `name` | `str \| None` | Command name; defaults to function name |
+| `description` | `str` | Shown in Discord UI |
+| `guild_id` | `int \| None` | Register to one guild (instant); `None` = global (up to 1 h) |
+| `guild_only` | `bool` | Reject DM invocations ephemerally; replaces `if not ctx.guild` guard |
+| `ephemeral` | `bool` | Force all responses from this command to be ephemeral |
+| `permissions` | `list[str]` | `discord.Permissions` attribute names required (e.g. `["kick_members"]`) |
+| `cooldown` | `float` | Per-user cooldown in seconds |
+| `autocomplete` | `dict[str, async (str) -> list[str]]` | Live suggestions per parameter |
+| `choices` | `dict[str, list]` | Fixed dropdown values per parameter |
 
 ### Context menus
 
-`Bot.user_command(name: str | None = None, *, guild_id: int | None = None) -> Callable`
+`Bot.user_command(name=None, *, guild_id=None)` — right-click User menu; handler receives `(ctx, member)`
 
-Decorator that registers a right-click **User** context menu command. The handler receives `(ctx, member)` where `member` is `discord.Member | discord.User` depending on where the right-click occurred.
+`Bot.message_command(name=None, *, guild_id=None)` — right-click Message menu; handler receives `(ctx, message)`
 
-`Bot.message_command(name: str | None = None, *, guild_id: int | None = None) -> Callable`
+### Events / Middleware / Plugins
 
-Decorator that registers a right-click **Message** context menu command. The handler receives `(ctx, message)` where `message` is a `discord.Message`.
+`Bot.on(event)` — decorator; event name without `on_` prefix; multiple handlers per event supported
 
-Both decorators run the full middleware stack, support `guild_id` for guild-scoped registration, and default `name` to the function name.
+`Bot.use(middleware)` — register middleware (decorator or direct call); runs for slash commands only
 
-```python
-@bot.user_command(name="User Info")
-async def user_info(ctx, member):
-    await ctx.respond(f"{member.display_name} — ID {member.id}", ephemeral=True)
+`Bot.add_plugin(plugin)` — load plugin; raises `TypeError` / `ValueError` on bad input or duplicate
 
-@bot.message_command(name="Quote")
-async def quote(ctx, message):
-    await ctx.respond(f"> {message.content[:100]}")
-```
+`await Bot.remove_plugin(plugin)` — unload plugin; removes commands, deregisters handlers, calls `on_unload()`
 
-### User & member lookup
+### Lookup / Presence / Run
 
-`await Bot.fetch_member(guild_id: int, user_id: int) -> discord.Member`
+`await Bot.fetch_member(guild_id, user_id)` — cache-first guild member fetch; raises `discord.NotFound`
 
-Fetch a guild member by guild and user ID. Tries the cache first; falls back to the API. Raises `discord.NotFound` if the user is not in the guild.
+`await Bot.fetch_user(user_id)` — inherited from `discord.Client`; cache-first
 
-`await bot.fetch_user(user_id)` is available directly from the inherited `discord.Client` API.
+`await Bot.set_status(status="online", *, activity=None, activity_type="playing")` — status: `"online" | "idle" | "dnd" | "invisible"`; activity_type: `"playing" | "watching" | "listening"`
 
-```python
-user = await bot.fetch_user(123456789)   # inherited from discord.Client
-await ctx.unban(user, reason="Appeal accepted")
+`Bot.run(token, **kwargs)` — configures logging, starts the bot
 
-member = await bot.fetch_member(ctx.guild.id, stored_id)
-await ctx.kick(member)
-```
-
-### Convenience
-
-`Bot.run(token: str, **kwargs) -> None`
-
-Configures basic logging and calls `discord.Client.run(...)`.
+---
 
 ## `easycord.Context`
 
-### Constructor
+### Properties
 
-`Context(interaction: discord.Interaction)`
-
-### Core attributes
-
-- `ctx.interaction`: the underlying `discord.Interaction`
-- `ctx.user`: `discord.User | discord.Member`
-- `ctx.member`: `discord.Member | None` — the invoking user as a guild Member (with `.roles`, `.nick`, `.guild_permissions`), or `None` in DMs
-- `ctx.guild`: `discord.Guild | None`
-- `ctx.channel`: channel from the interaction
-- `ctx.command_name`: slash command name or `None`
-- `ctx.data`: raw `interaction.data`
+| Property | Type | Description |
+| --- | --- | --- |
+| `ctx.interaction` | `discord.Interaction` | Underlying interaction |
+| `ctx.user` | `User \| Member` | Invoking user |
+| `ctx.member` | `Member \| None` | Invoking user as `Member` (has `.roles`, `.nick`, `.guild_permissions`); `None` in DMs |
+| `ctx.guild` | `Guild \| None` | Server or `None` in DMs |
+| `ctx.guild_id` | `int \| None` | `ctx.guild.id` safe shortcut; `None` in DMs |
+| `ctx.channel` | `Messageable \| None` | Channel |
+| `ctx.command_name` | `str \| None` | Slash command name |
+| `ctx.voice_channel` | `VoiceChannel \| StageChannel \| None` | Invoker's current voice channel |
+| `ctx.is_admin` | `bool` | `True` if invoker has administrator permission; `False` in DMs |
+| `ctx.data` | `dict \| None` | Raw interaction data |
 
 ### Responding
 
-`await ctx.respond(content: str | None = None, *, ephemeral: bool = False, embed: discord.Embed | None = None, **kwargs) -> None`
+`await ctx.respond(content=None, *, ephemeral=False, embed=None, **kwargs)` — first call: `send_message`; subsequent: `followup.send`
 
-Behavior:
+`await ctx.defer(*, ephemeral=False)` — acknowledge without visible reply; use before slow operations
 
-- first response uses `interaction.response.send_message(...)`
-- subsequent responses use `interaction.followup.send(...)`
+`await ctx.send_embed(title, description=None, *, fields=None, footer=None, color=blue, ephemeral=False)` — fields: `[(name, value)]` or `[(name, value, inline)]`
 
-`await ctx.defer(*, ephemeral: bool = False) -> None`
+`await ctx.send_file(path, *, filename=None, content=None, ephemeral=False)`
 
-Defers the response and marks the context as responded.
+`await ctx.edit_response(content=None, *, embed=None, **kwargs)` — edit the original response in-place
 
-`await ctx.send_embed(title: str, description: str | None = None, *, fields: list[tuple] | None = None, footer: str | None = None, color: discord.Color = discord.Color.blue(), ephemeral: bool = False, **kwargs) -> None`
+`await ctx.dm(content=None, *, embed=None, **kwargs)` — DM the invoking user; raises `RuntimeError` if DMs disabled
 
-Builds a `discord.Embed` and sends it via `respond()`.
-
-- **fields**: list of `(name, value)` or `(name, value, inline)` tuples. `inline` defaults to `True`.
-- **footer**: optional footer text.
-
-```python
-await ctx.send_embed(
-    "Server Stats",
-    fields=[("Members", "150"), ("Online", "42")],
-    footer="Updated just now",
-    color=discord.Color.green(),
-)
-```
-
-`await ctx.send_file(path: str, *, filename: str | None = None, content: str | None = None, ephemeral: bool = False) -> None`
-
-Send a file attachment as the command response.
+`await ctx.send_to(channel_id, content=None, **kwargs)` — send to any channel by ID
 
 ### Interactive UI
 
-`await ctx.ask_form(title: str, **fields) -> dict[str, str] | None`
+`await ctx.ask_form(title, **fields)` → `dict[str, str] | None` — modal with text inputs
 
-Show a modal with text inputs. Returns submitted values or `None` on timeout/dismiss.
+`await ctx.confirm(prompt, *, timeout=30, yes_label="Yes", no_label="Cancel", ephemeral=False)` → `bool | None`
 
-`await ctx.confirm(prompt: str, *, timeout: float = 30, yes_label: str = "Yes", no_label: str = "Cancel", ephemeral: bool = False) -> bool | None`
+`await ctx.choose(prompt, options, *, timeout=60, placeholder="Select an option", ephemeral=False)` → `str | None` — options: strings or `{"label", "value", "description"}` dicts
 
-Show Yes/No buttons. Returns `True`, `False`, or `None` on timeout.
-
-`await ctx.choose(prompt: str, options: list[str | dict], *, timeout: float = 60, placeholder: str = "Select an option", ephemeral: bool = False) -> str | None`
-
-Show a select-menu. Options may be strings or `{"label", "value", "description"}` dicts. Returns the chosen value or `None` on timeout.
-
-```python
-color = await ctx.choose("Pick a color", ["Red", "Green", "Blue"])
-```
-
-`await ctx.paginate(pages: list[str | discord.Embed], *, timeout: float = 120, ephemeral: bool = False) -> None`
-
-Show a multi-page message with Prev/Next buttons.
+`await ctx.paginate(pages, *, timeout=120, ephemeral=False)` — Prev/Next multi-page embed/text
 
 ### Moderation
 
-`await ctx.kick(member: discord.Member, *, reason: str | None = None) -> None`
+`await ctx.kick(member, *, reason=None)`
 
-`await ctx.ban(member: discord.Member, *, reason: str | None = None, delete_message_days: int = 0) -> None`
+`await ctx.ban(member, *, reason=None, delete_message_days=0)`
 
-`await ctx.timeout(member: discord.Member, duration: float, *, reason: str | None = None) -> None`
+`await ctx.timeout(member, duration, *, reason=None)` — duration in seconds
 
-Temporarily mute a member. `duration` is in seconds.
+`await ctx.unban(user, *, reason=None)`
 
-`await ctx.unban(user: discord.User, *, reason: str | None = None) -> None`
+### Member / Role management
 
-Unban a user. Requires a guild context.
+`await ctx.set_nickname(member, nickname, *, reason=None)` — `None` resets to account username
 
-### Member management
+`await ctx.move_member(member, channel_id, *, reason=None)` — `None` disconnects
 
-`await ctx.set_nickname(member: discord.Member, nickname: str | None, *, reason: str | None = None) -> None`
+`await ctx.add_role(member, role_id, *, reason=None)`
 
-Set or clear a member's server nickname. Pass `None` to reset to their account username.
+`await ctx.remove_role(member, role_id, *, reason=None)`
 
-`await ctx.move_member(member: discord.Member, channel_id: int | None, *, reason: str | None = None) -> None`
+`await ctx.create_role(name, *, color=default, hoist=False, mentionable=False, reason=None)` → `discord.Role`
 
-Move a member to a voice channel by ID. Pass `None` to disconnect them entirely.
+`await ctx.delete_role(role_id, *, reason=None)`
 
-### Role management
+`ctx.get_member(user_id)` → `Member | None` — cache-only lookup
 
-`await ctx.add_role(member: discord.Member, role_id: int, *, reason: str | None = None) -> None`
+### Messages / Reactions / Threads / Channel
 
-`await ctx.remove_role(member: discord.Member, role_id: int, *, reason: str | None = None) -> None`
+`await ctx.purge(limit=10)` → `int` — bulk-delete; returns count
 
-`await ctx.create_role(name: str, *, color: discord.Color = discord.Color.default(), hoist: bool = False, mentionable: bool = False, reason: str | None = None) -> discord.Role`
+`await ctx.fetch_messages(limit=10)` → `list[discord.Message]`
 
-Create a new role and return it. `hoist=True` makes members with this role appear separately in the member list.
+`await ctx.delete_message(message, *, delay=None)`
 
-`await ctx.delete_role(role_id: int, *, reason: str | None = None) -> None`
+`await ctx.react(message, emoji)` / `await ctx.unreact(message, emoji)` / `await ctx.clear_reactions(message)`
 
-Delete a role by ID.
+`await ctx.pin(message, *, reason=None)` / `await ctx.unpin(message, *, reason=None)`
 
-### Message management
+`await ctx.crosspost(message)` — publish from announcement channel
 
-`await ctx.purge(limit: int = 10) -> int`
+`await ctx.create_thread(name, *, auto_archive_minutes=1440, reason=None)` → `discord.Thread`
 
-Bulk-delete recent messages in the current channel. Returns count deleted. Requires a `TextChannel`.
+`await ctx.slowmode(seconds, *, reason=None)` — 0 = off; max 21600
 
-`await ctx.fetch_messages(limit: int = 10) -> list[discord.Message]`
+`await ctx.lock_channel(*, reason=None)` / `await ctx.unlock_channel(*, reason=None)` — @everyone send_messages
 
-Return the N most recent messages in the current channel.
+`ctx.fetch_bans(limit=100)` → `list[discord.BanEntry]`
 
-`await ctx.delete_message(message: discord.Message, *, delay: float | None = None) -> None`
-
-Delete a specific message. Pass `delay` (seconds) to schedule a delayed deletion.
-
-### Reactions
-
-`await ctx.react(message: discord.Message, emoji: str) -> None`
-
-Add a reaction to a message.
-
-`await ctx.unreact(message: discord.Message, emoji: str) -> None`
-
-Remove the bot's own reaction from a message.
-
-`await ctx.clear_reactions(message: discord.Message) -> None`
-
-Remove all reactions from a message. Requires `manage_messages`.
-
-### Channel management
-
-`await ctx.slowmode(seconds: int, *, reason: str | None = None) -> None`
-
-Set the slowmode delay on the current text channel. `0` disables it; maximum is `21600` (6 hours).
-
-`await ctx.lock_channel(*, reason: str | None = None) -> None`
-
-Prevent `@everyone` from sending messages by setting `send_messages = False` on the default role overwrite. Preserves all other existing permission overwrites.
-
-`await ctx.unlock_channel(*, reason: str | None = None) -> None`
-
-Restore `@everyone`'s ability to send messages (`send_messages = True`).
-
-### Threads
-
-`await ctx.create_thread(name: str, *, auto_archive_minutes: int = 1440, reason: str | None = None) -> discord.Thread`
-
-Create a public thread in the current channel. `auto_archive_minutes` must be `60`, `1440`, `4320`, or `10080`.
-
-```python
-thread = await ctx.create_thread(f"Support: {topic}")
-await ctx.respond(f"Thread created: {thread.mention}", ephemeral=True)
-```
-
-## Decorators for plugins (`easycord.decorators`)
-
-### `slash(...)`
-
-`slash(name: str | None = None, *, description: str = "No description provided.", guild_id: int | None = None, permissions: list[str] | None = None, cooldown: float | None = None, autocomplete: dict[str, Callable] | None = None, choices: dict[str, list] | None = None) -> Callable`
-
-Marks a plugin method as a slash command. All `@bot.slash` parameters are supported.
-
-```python
-from easycord import Plugin, slash
-
-class MyPlugin(Plugin):
-    @slash(description="Hello")
-    async def hello(self, ctx, name: str): ...
-```
-
-### `on(event)`
-
-`on(event: str) -> Callable`
-
-Marks a plugin method as an event handler.
+---
 
 ## `easycord.Plugin`
 
-Base class for plugins.
+`async on_load()` — called when plugin is loaded
 
-- `plugin.bot -> Bot`: back-reference (only valid after `add_plugin()`)
-- `async plugin.on_load()`: optional async setup hook
-- `async plugin.on_unload()`: optional async teardown hook
+`async on_unload()` — called when plugin is unloaded
 
-## Built-in middleware factories (`easycord.middleware`)
+`self.bot` — back-reference to `Bot` (raises `RuntimeError` if accessed before `add_plugin`)
 
-All return a `MiddlewareFn`.
+---
 
-### `log_middleware(level=logging.INFO, fmt="/{command} invoked by {user} in {guild}")`
+## Plugin decorators (`easycord.decorators`)
 
-Logs every slash command invocation using `logging.getLogger("easycord")`.
+`@slash(name=None, *, description, guild_id=None, guild_only=False, ephemeral=False, permissions=None, cooldown=None, autocomplete=None, choices=None)` — same parameters as `Bot.slash`
 
-Format placeholders:
+`@on(event)` — mark method as event handler
 
-- `{command}`: `ctx.command_name`
-- `{user}`: `ctx.user`
-- `{guild}`: `ctx.guild` or `"DM"`
+`@task(*, seconds=0, minutes=0, hours=0)` — repeating background task; starts on load, stops on unload
 
-### `guild_only()`
+---
 
-Blocks commands invoked in DMs and responds ephemerally with an error message.
+## `easycord.SlashGroup`
 
-### `rate_limit(limit=5, window=10.0)`
+Subclass with `name` and `description` class attributes. Use `@slash` on methods. Register with `bot.add_group(MyGroup())`.
 
-Simple per-user sliding-window rate limiter using timestamps from `time.monotonic()`.
+---
 
-When limited, responds ephemerally with a "try again in Xs" message.
+## `easycord.Composer`
 
-### `catch_errors(message="Something went wrong. Please try again.")`
+Fluent builder — chains middleware + plugins, returns a configured `Bot`.
 
-Catches exceptions thrown by later middleware/handlers, logs them, and attempts to send an ephemeral error response.
-
-### `admin_only(message="This command requires administrator permissions.")`
-
-Blocks commands unless the invoking member has the `administrator` permission. Passes silently in DMs — combine with `guild_only()` if the command must be server-only.
-
-### `allowed_roles(*role_ids, message="You don't have the required role to use this command.")`
-
-Blocks commands unless the invoking member holds at least one of the given role IDs. Passes silently in DMs.
-
-### `dm_only()`
-
-Blocks commands invoked inside a guild; only allows DMs.
-
-## LevelsPlugin (`easycord.plugins.levels`)
-
-Drop-in per-guild XP, leveling, and named rank system.
-
-```python
-from easycord.plugins.levels import LevelsPlugin
-
-bot.add_plugin(LevelsPlugin())
-```
-
-### LevelsPlugin constructor
-
-`LevelsPlugin(*, xp_per_message: int = 10, cooldown_seconds: float = 60.0, data_dir: str = ".easycord/levels", announce_levelups: bool = True)`
-
-- **xp_per_message**: XP awarded per qualifying message.
-- **cooldown_seconds**: Minimum seconds between XP awards for the same user in the same guild. Prevents spam farming.
-- **data_dir**: Directory for JSON storage files (created automatically).
-- **announce_levelups**: If `True`, posts a level-up embed in the channel where the triggering message was sent.
-
-### XP formula
-
-`_xp_for_level(n)` = `n * (n + 1) // 2 * 100`
-
-| Level | Total XP required |
+| Method | Description |
 | --- | --- |
-| 1 | 100 |
-| 2 | 300 |
-| 5 | 1,500 |
-| 10 | 5,500 |
-| 20 | 21,000 |
+| `.intents(intents)` | Set gateway intents |
+| `.auto_sync(enabled)` | Enable/disable startup sync |
+| `.log(level, fmt)` | Add `log_middleware` |
+| `.catch_errors(message)` | Add `catch_errors` middleware |
+| `.rate_limit(limit, window)` | Add `rate_limit` middleware |
+| `.guild_only()` | Add `guild_only` middleware |
+| `.use(middleware)` | Add custom middleware |
+| `.add_plugin(plugin)` | Queue a plugin |
+| `.build()` | Return configured `Bot` |
 
-### Slash commands registered
+---
 
-| Command | Permission | Description |
+## Built-in middleware (`easycord.middleware`)
+
+All factories return `MiddlewareFn = async (ctx, next) -> None`.
+
+| Factory | Blocks when… | Passes in DMs |
 | --- | --- | --- |
-| `/rank` | everyone | Show your level, XP, rank name, and progress bar |
-| `/leaderboard` | everyone | Top-10 XP leaderboard |
-| `/give_xp member amount` | manage_guild | Award XP to a member |
-| `/set_rank level name` | manage_guild | Attach a rank name to a level threshold |
-| `/remove_rank level` | manage_guild | Remove a rank name |
-| `/set_level_role level role` | manage_guild | Assign a role reward to a level |
-| `/ranks` | everyone | List all configured ranks and role rewards |
+| `log_middleware(level, fmt)` | never (logging only) | yes |
+| `catch_errors(message)` | never (error handler) | yes |
+| `rate_limit(limit=5, window=10.0)` | user exceeds `limit` calls in `window` seconds | yes |
+| `guild_only()` | invoked in a DM | — |
+| `dm_only()` | invoked in a guild | — |
+| `admin_only(message)` | invoker lacks `administrator` permission | yes |
+| `allowed_roles(*role_ids, message)` | invoker holds none of the given role IDs | yes |
+| `channel_only(*channel_ids, message)` | channel not in the given set | yes |
 
-### Public methods
+---
 
-`await plugin.add_xp(guild_id: int, user_id: int, amount: int) -> tuple[int, int, bool]`
+## `easycord.ServerConfigStore`
 
-Add XP and return `(total_xp, level, leveled_up)`. Protected by a per-guild lock — safe to call from concurrent event handlers.
+`ServerConfigStore(data_dir=".easycord/server-config")` — per-guild JSON, atomic writes, per-guild async locks.
 
-`plugin.get_entry(guild_id: int, user_id: int) -> dict`
+`await store.load(guild_id)` → `ServerConfig` (empty if none exists)
 
-Return a read-only snapshot `{"xp": int, "level": int}` for a user. Returns zeros for unknown users.
+`await store.save(config)`
 
-### Storage
+`await store.delete(guild_id)`
 
-XP data is stored as `<data_dir>/<guild_id>_xp.json`. Rank/role config is stored as `<data_dir>/<guild_id>_config.json`. All writes are atomic (write-to-temp + rename).
+`await store.exists(guild_id)` → `bool`
 
-### Example: full setup with ranks and role rewards
+### `ServerConfig`
 
-```python
-from easycord.plugins.levels import LevelsPlugin
+| Group | Methods |
+| --- | --- |
+| Roles | `set_role(key, id)` `get_role(key)` `has_role(key)` `remove_role(key)` `list_roles()` `clear_roles()` |
+| Channels | `set_channel(key, id)` `get_channel(key)` `has_channel(key)` `remove_channel(key)` `list_channels()` `clear_channels()` |
+| Other | `set_other(key, val)` `get_other(key, default)` `has_other(key)` `remove_other(key)` `list_other()` `clear_other()` |
+| Misc | `reset()` `merge(other)` `to_dict()` |
 
-plugin = LevelsPlugin(xp_per_message=15, cooldown_seconds=45)
-bot.add_plugin(plugin)
+JSON schema: `{"roles": {key: int}, "channels": {key: int}, "other": {key: any}}`
 
-# In Discord, admins then run:
-# /set_rank level:1  name:Newcomer
-# /set_rank level:5  name:Regular
-# /set_rank level:10 name:Veteran
-# /set_level_role level:5  role:@Member
-# /set_level_role level:10 role:@Veteran
-```
+---
+
+## `easycord.AuditLog`
+
+Structured embed logging to a Discord channel.
+
+`AuditLog(bot, channel_id)` — instantiate in `on_load()`
+
+`await log.send(title, description=None, *, fields=None, color=blue)` — posts an embed to the audit channel
+
+---
+
+## `LevelsPlugin` (`easycord.plugins.levels`)
+
+`LevelsPlugin(*, xp_per_message=10, cooldown_seconds=60.0, data_dir=".easycord/levels", announce_levelups=True)`
+
+XP formula: `level * (level + 1) // 2 * 100` total XP to reach `level`.
+
+Slash commands: `/rank` `/leaderboard` `/give_xp` `/set_rank` `/remove_rank` `/set_level_role` `/ranks`
+
+`await plugin.add_xp(guild_id, user_id, amount)` → `(total_xp, level, leveled_up)`
+
+`plugin.get_entry(guild_id, user_id)` → `{"xp": int, "level": int}`
+
+Storage: `<data_dir>/<guild_id>_xp.json`, `<data_dir>/<guild_id>_config.json`

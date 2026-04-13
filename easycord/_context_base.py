@@ -17,6 +17,7 @@ class BaseContext:
     def __init__(self, interaction: discord.Interaction) -> None:
         self.interaction = interaction
         self._responded = False
+        self._force_ephemeral = False
 
     # ── Read-only properties ──────────────────────────────────
 
@@ -71,8 +72,10 @@ class BaseContext:
         """Send a reply to the command.
 
         The first call sends an initial response; any further calls send
-        follow-up messages automatically.
+        follow-up messages automatically. If the command was registered with
+        ``ephemeral=True``, all responses are forced ephemeral automatically.
         """
+        ephemeral = ephemeral or self._force_ephemeral
         if not self._responded:
             self._responded = True
             await self.interaction.response.send_message(
@@ -182,6 +185,23 @@ class BaseContext:
         await self.interaction.edit_original_response(content=content, embed=embed, **kwargs)
 
     # ── Member lookup ─────────────────────────────────────────
+
+    @property
+    def guild_id(self) -> int | None:
+        """The ID of the guild the command was run in, or ``None`` in DMs.
+
+        Shortcut for ``ctx.guild.id`` that is safe to call without a guild check.
+        """
+        return self.guild.id if self.guild else None
+
+    @property
+    def is_admin(self) -> bool:
+        """``True`` if the invoking member has the administrator permission.
+
+        Always ``False`` in DMs or when the member is not cached.
+        """
+        m = self.member
+        return m is not None and m.guild_permissions.administrator
 
     @property
     def member(self) -> discord.Member | None:

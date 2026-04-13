@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from easycord.middleware import admin_only, allowed_roles, dm_only
+from easycord.middleware import admin_only, allowed_roles, channel_only, dm_only
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -144,3 +144,58 @@ async def test_admin_only_custom_message():
     proceed = AsyncMock()
     await admin_only(message="Admins only!")(ctx, proceed)
     assert "Admins only!" in ctx.respond.call_args[0][0]
+
+
+# ── channel_only ──────────────────────────────────────────────────────────────
+
+def _make_ctx_channel(channel_id: int | None, *, guild=True):
+    ctx = _make_ctx(guild=guild)
+    if channel_id is not None:
+        ctx.channel = MagicMock()
+        ctx.channel.id = channel_id
+    else:
+        ctx.channel = None
+    return ctx
+
+
+async def test_channel_only_passes_in_allowed_channel():
+    ctx = _make_ctx_channel(42)
+    proceed = AsyncMock()
+    await channel_only(42)(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_channel_only_blocks_other_channel():
+    ctx = _make_ctx_channel(99)
+    proceed = AsyncMock()
+    await channel_only(42)(ctx, proceed)
+    proceed.assert_not_called()
+    assert ctx.respond.call_args.kwargs.get("ephemeral") is True
+
+
+async def test_channel_only_passes_any_of_multiple():
+    ctx = _make_ctx_channel(5)
+    proceed = AsyncMock()
+    await channel_only(1, 2, 5)(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_channel_only_passes_in_dm():
+    ctx = _make_ctx_channel(99, guild=False)
+    proceed = AsyncMock()
+    await channel_only(42)(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_channel_only_blocks_when_channel_is_none():
+    ctx = _make_ctx_channel(None)
+    proceed = AsyncMock()
+    await channel_only(42)(ctx, proceed)
+    proceed.assert_not_called()
+
+
+async def test_channel_only_custom_message():
+    ctx = _make_ctx_channel(99)
+    proceed = AsyncMock()
+    await channel_only(42, message="Wrong channel!")(ctx, proceed)
+    assert "Wrong channel!" in ctx.respond.call_args[0][0]

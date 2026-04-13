@@ -59,6 +59,41 @@ def test_member_returns_none_in_dm(ctx, interaction):
     assert ctx.member is None
 
 
+def test_guild_id_returns_id_in_guild(ctx, interaction):
+    interaction.guild = MagicMock()
+    interaction.guild.id = 999
+    assert ctx.guild_id == 999
+
+
+def test_guild_id_returns_none_in_dm(ctx, interaction):
+    interaction.guild = None
+    assert ctx.guild_id is None
+
+
+def test_is_admin_true_for_administrator(ctx, interaction):
+    member = MagicMock(spec=discord.Member)
+    member.guild_permissions = MagicMock()
+    member.guild_permissions.administrator = True
+    interaction.user = member
+    interaction.guild = MagicMock()
+    assert ctx.is_admin is True
+
+
+def test_is_admin_false_for_non_admin(ctx, interaction):
+    member = MagicMock(spec=discord.Member)
+    member.guild_permissions = MagicMock()
+    member.guild_permissions.administrator = False
+    interaction.user = member
+    interaction.guild = MagicMock()
+    assert ctx.is_admin is False
+
+
+def test_is_admin_false_in_dm(ctx, interaction):
+    interaction.user = MagicMock(spec=discord.User)
+    interaction.guild = None
+    assert ctx.is_admin is False
+
+
 # --- respond ---
 
 async def test_respond_first_call_uses_send_message(ctx, interaction):
