@@ -24,6 +24,7 @@ Decorator that registers a top-level slash command.
 - **permissions**: list of `discord.Permissions` attribute names required (e.g. `["kick_members"]`). Responds ephemerally and skips the command if any are missing.
 - **cooldown**: per-user cooldown in seconds. Blocks ephemerally until the window expires.
 - **autocomplete**: dict mapping parameter names to async callbacks. Each callback receives the current typed string and returns a `list[str]` of suggestions.
+- **guild_only**: if `True`, the command responds ephemerally and exits immediately when invoked outside a server (DM). Use instead of a manual `if not ctx.guild` guard.
 - **choices**: dict mapping parameter names to a fixed list of values. Discord renders these as a locked dropdown — no free-text entry. Values may be strings or numbers.
 
 ```python
@@ -175,6 +176,7 @@ Configures basic logging and calls `discord.Client.run(...)`.
 
 - `ctx.interaction`: the underlying `discord.Interaction`
 - `ctx.user`: `discord.User | discord.Member`
+- `ctx.member`: `discord.Member | None` — the invoking user as a guild Member (with `.roles`, `.nick`, `.guild_permissions`), or `None` in DMs
 - `ctx.guild`: `discord.Guild | None`
 - `ctx.channel`: channel from the interaction
 - `ctx.command_name`: slash command name or `None`
@@ -383,6 +385,18 @@ When limited, responds ephemerally with a "try again in Xs" message.
 ### `catch_errors(message="Something went wrong. Please try again.")`
 
 Catches exceptions thrown by later middleware/handlers, logs them, and attempts to send an ephemeral error response.
+
+### `admin_only(message="This command requires administrator permissions.")`
+
+Blocks commands unless the invoking member has the `administrator` permission. Passes silently in DMs — combine with `guild_only()` if the command must be server-only.
+
+### `allowed_roles(*role_ids, message="You don't have the required role to use this command.")`
+
+Blocks commands unless the invoking member holds at least one of the given role IDs. Passes silently in DMs.
+
+### `dm_only()`
+
+Blocks commands invoked inside a guild; only allows DMs.
 
 ## LevelsPlugin (`easycord.plugins.levels`)
 

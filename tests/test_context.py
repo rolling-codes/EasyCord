@@ -48,6 +48,17 @@ def test_command_name_no_command(ctx, interaction):
     assert ctx.command_name is None
 
 
+def test_member_returns_member_in_guild(ctx, interaction):
+    member = MagicMock(spec=discord.Member)
+    interaction.user = member
+    assert ctx.member is member
+
+
+def test_member_returns_none_in_dm(ctx, interaction):
+    interaction.user = MagicMock(spec=discord.User)
+    assert ctx.member is None
+
+
 # --- respond ---
 
 async def test_respond_first_call_uses_send_message(ctx, interaction):

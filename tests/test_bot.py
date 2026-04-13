@@ -106,6 +106,54 @@ def test_slash_guild_scoped(bot):
     assert kwargs["guild"].id == 12345
 
 
+async def test_slash_guild_only_blocks_dm(bot):
+    """guild_only=True on @bot.slash rejects interactions with no guild."""
+    handler_called = False
+
+    @bot.slash(description="server only", guild_only=True)
+    async def _server_cmd(_ctx):
+        nonlocal handler_called
+        handler_called = True
+
+    cmd = bot.tree.add_command.call_args[0][0]
+
+    interaction = MagicMock()
+    interaction.guild = None
+    interaction.response.send_message = AsyncMock()
+    interaction.followup.send = AsyncMock()
+    interaction.command = MagicMock()
+    interaction.command.name = "server_cmd"
+    interaction.user = MagicMock()
+
+    await cmd.callback(interaction)
+    assert not handler_called
+    interaction.response.send_message.assert_called_once()
+    assert interaction.response.send_message.call_args.kwargs.get("ephemeral") is True
+
+
+async def test_slash_guild_only_passes_in_guild(bot):
+    """guild_only=True on @bot.slash allows invocation inside a guild."""
+    handler_called = False
+
+    @bot.slash(description="server only", guild_only=True)
+    async def server_cmd(ctx):
+        nonlocal handler_called
+        handler_called = True
+
+    cmd = bot.tree.add_command.call_args[0][0]
+
+    interaction = MagicMock()
+    interaction.guild = MagicMock()
+    interaction.response.send_message = AsyncMock()
+    interaction.followup.send = AsyncMock()
+    interaction.command = MagicMock()
+    interaction.command.name = "server_cmd"
+    interaction.user = MagicMock()
+
+    await cmd.callback(interaction)
+    assert handler_called
+
+
 # ── add_plugin ────────────────────────────────────────────────────────────────
 
 def test_add_plugin_registers_slash_commands(bot):

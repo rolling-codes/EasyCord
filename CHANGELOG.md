@@ -1,5 +1,56 @@
 # Changelog
 
+## [2.4] — 2026-04-13
+
+New decorator parameter, middleware factory, context property, and simplified example plugins.
+
+### New: `guild_only=True` on `@slash` / `@bot.slash`
+
+Eliminates the repeated 4-line guild-guard boilerplate from commands that only work inside a server:
+
+```python
+# Before
+@slash(description="Show server info.")
+async def serverinfo(self, ctx):
+    if ctx.guild is None:
+        await ctx.respond("This command only works in a server.", ephemeral=True)
+        return
+    ...
+
+# After
+@slash(description="Show server info.", guild_only=True)
+async def serverinfo(self, ctx):
+    ...
+```
+
+Works on `@bot.slash`, `@slash` (plugin decorator), and `SlashGroup` subcommands.
+
+### New: `admin_only()` middleware
+
+```python
+from easycord.middleware import admin_only
+
+bot.use(admin_only())
+```
+
+Blocks commands unless the invoking member has the `administrator` permission. Passes silently in DMs — combine with `guild_only()` if the command must be server-only. Accepts a custom `message` kwarg.
+
+### New: `ctx.member` property
+
+```python
+if ctx.member and discord.utils.get(ctx.member.roles, name="Staff"):
+    ...
+```
+
+Returns the invoking user as `discord.Member` (with `.roles`, `.nick`, `.guild_permissions`) or `None` in DMs. Avoids the `isinstance(ctx.user, discord.Member)` cast that was previously required.
+
+### Simplified `server_commands/`
+
+- `info.py` — `serverinfo`, `roleinfo`, `channelinfo`, `roles` now use `guild_only=True` and `ctx.send_embed()` instead of manual `discord.Embed` calls and inline guild guards.
+- `moderation.py` — `announce` now uses `guild_only=True` and `ctx.send_embed()`.
+
+---
+
 ## [2.3] — 2026-04-13
 
 `LevelsPlugin` — concurrency and performance bug fixes.

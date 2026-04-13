@@ -93,6 +93,7 @@ class Bot(discord.Client):
         *,
         description: str = "No description provided.",
         guild_id: int | None = None,
+        guild_only: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
         autocomplete: dict[str, Callable] | None = None,
@@ -141,6 +142,7 @@ class Bot(discord.Client):
                 name=name or func.__name__,
                 description=description,
                 guild_id=guild_id,
+                guild_only=guild_only,
                 permissions=permissions,
                 cooldown=cooldown,
                 autocomplete=autocomplete,
@@ -154,10 +156,11 @@ class Bot(discord.Client):
         self,
         func: Callable,
         *,
+        guild_only: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
     ) -> Callable:
-        """Build a discord.py-compatible callback with permission and cooldown guards."""
+        """Build a discord.py-compatible callback with guild, permission and cooldown guards."""
         sig = inspect.signature(func)
         user_params = list(sig.parameters.values())[1:]  # skip ctx (or self for bound methods)
 
@@ -167,6 +170,14 @@ class Bot(discord.Client):
             ctx = Context(interaction)
 
             async def invoke() -> None:
+                # ── Guild guard ───────────────────────────────────
+                if guild_only and not ctx.guild:
+                    await ctx.respond(
+                        "This command can only be used inside a server.",
+                        ephemeral=True,
+                    )
+                    return
+
                 # ── Permission check ──────────────────────────────
                 if permissions:
                     if not ctx.guild:
@@ -228,6 +239,7 @@ class Bot(discord.Client):
         name: str,
         description: str,
         guild_id: int | None,
+        guild_only: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
         autocomplete: dict[str, Callable] | None = None,
@@ -235,7 +247,7 @@ class Bot(discord.Client):
     ) -> None:
         """Register a callable as a slash command in discord.py's app-command tree."""
         guild = discord.Object(id=guild_id) if guild_id else None
-        callback = self._build_slash_callback(func, permissions=permissions, cooldown=cooldown)
+        callback = self._build_slash_callback(func, guild_only=guild_only, permissions=permissions, cooldown=cooldown)
         if choices:
             self._inject_choices(callback, choices)
         cmd = app_commands.Command(name=name, description=description, callback=callback)
@@ -317,6 +329,7 @@ class Bot(discord.Client):
                     name=method._slash_name,
                     description=method._slash_desc,
                     guild_id=method._slash_guild,
+                    guild_only=getattr(method, "_slash_guild_only", False),
                     permissions=getattr(method, "_slash_permissions", None),
                     cooldown=getattr(method, "_slash_cooldown", None),
                     autocomplete=getattr(method, "_slash_autocomplete", None),
@@ -432,6 +445,7 @@ class Bot(discord.Client):
             if getattr(method, "_is_slash", False):
                 callback = self._build_slash_callback(
                     method,
+                    guild_only=getattr(method, "_slash_guild_only", False),
                     permissions=getattr(method, "_slash_permissions", None),
                     cooldown=getattr(method, "_slash_cooldown", None),
                 )

@@ -183,6 +183,18 @@ class BaseContext:
 
     # ── Member lookup ─────────────────────────────────────────
 
+    @property
+    def member(self) -> discord.Member | None:
+        """The invoking user as a ``discord.Member``, or ``None`` in DMs.
+
+        Unlike ``ctx.user`` (typed ``User | Member``), this property always
+        returns a ``Member`` when the command is used inside a server, giving
+        access to guild-specific info such as ``.roles``, ``.nick``, and
+        ``.guild_permissions`` without an extra cast or lookup.
+        """
+        u = self.interaction.user
+        return u if isinstance(u, discord.Member) else None
+
     def get_member(self, user_id: int) -> discord.Member | None:
         """Look up a guild member from the local cache without an API call.
 

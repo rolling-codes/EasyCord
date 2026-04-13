@@ -76,6 +76,32 @@ def allowed_roles(*role_ids: int, message: str = "You don't have the required ro
     return handler
 
 
+def admin_only(
+    message: str = "This command requires administrator permissions.",
+) -> MiddlewareFn:
+    """Block commands unless the invoking member has the administrator permission.
+
+    Silently passes when used outside a guild (DMs), so combine with
+    ``guild_only()`` if the command must be server-only.
+
+    Example::
+
+        bot.use(admin_only())
+    """
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        member = ctx.guild.get_member(ctx.user.id)
+        if member is None or not member.guild_permissions.administrator:
+            await ctx.respond(message, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
+
+
 def log_middleware(
     level: int = logging.INFO,
     fmt: str = "/{command} invoked by {user} in {guild}",

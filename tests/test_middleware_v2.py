@@ -1,8 +1,8 @@
-"""Tests for the v2.2 middleware additions: dm_only and allowed_roles."""
+"""Tests for the v2.2+ middleware additions: dm_only, allowed_roles, admin_only."""
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from easycord.middleware import allowed_roles, dm_only
+from easycord.middleware import admin_only, allowed_roles, dm_only
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -93,3 +93,54 @@ async def test_allowed_roles_custom_message():
     proceed = AsyncMock()
     await allowed_roles(999, message="Staff only!")(ctx, proceed)
     assert "Staff only!" in ctx.respond.call_args[0][0]
+
+
+# ── admin_only ────────────────────────────────────────────────────────────────
+
+def _make_ctx_admin(*, guild=True, is_admin=False):
+    ctx = _make_ctx(guild=guild)
+    if guild:
+        member = MagicMock()
+        member.guild_permissions = MagicMock()
+        member.guild_permissions.administrator = is_admin
+        ctx.guild.get_member = MagicMock(return_value=member)
+    return ctx
+
+
+async def test_admin_only_passes_for_admin():
+    ctx = _make_ctx_admin(guild=True, is_admin=True)
+    proceed = AsyncMock()
+    await admin_only()(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_admin_only_blocks_non_admin():
+    ctx = _make_ctx_admin(guild=True, is_admin=False)
+    proceed = AsyncMock()
+    await admin_only()(ctx, proceed)
+    proceed.assert_not_called()
+    ctx.respond.assert_called_once()
+    assert ctx.respond.call_args.kwargs.get("ephemeral") is True
+
+
+async def test_admin_only_blocks_when_member_not_cached():
+    ctx = _make_ctx(guild=True)
+    ctx.guild.get_member = MagicMock(return_value=None)
+    proceed = AsyncMock()
+    await admin_only()(ctx, proceed)
+    proceed.assert_not_called()
+
+
+async def test_admin_only_passes_in_dm():
+    """DMs bypass the admin check — combine with guild_only() if needed."""
+    ctx = _make_ctx_admin(guild=False)
+    proceed = AsyncMock()
+    await admin_only()(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_admin_only_custom_message():
+    ctx = _make_ctx_admin(guild=True, is_admin=False)
+    proceed = AsyncMock()
+    await admin_only(message="Admins only!")(ctx, proceed)
+    assert "Admins only!" in ctx.respond.call_args[0][0]
