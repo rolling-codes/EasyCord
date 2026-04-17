@@ -561,3 +561,158 @@ async def test_remove_plugin_cancels_tasks(bot):
     assert id(plugin) in bot._task_handles
     await bot.remove_plugin(plugin)
     assert id(plugin) not in bot._task_handles
+
+
+# ── set_status streaming ──────────────────────────────────────────────────────
+
+async def test_set_status_streaming(bot):
+    bot.change_presence = AsyncMock()
+    await bot.set_status("online", activity="live now", activity_type="streaming")
+    call_kwargs = bot.change_presence.call_args.kwargs
+    activity = call_kwargs["activity"]
+    assert isinstance(activity, discord.Streaming)
+    assert activity.name == "live now"
+
+
+# ── _GuildMixin ───────────────────────────────────────────────────────────────
+
+async def test_fetch_guild_returns_cached(bot):
+    guild = MagicMock(spec=discord.Guild)
+    bot.get_guild = MagicMock(return_value=guild)
+    result = await bot.fetch_guild(123)
+    assert result is guild
+    bot.get_guild.assert_called_once_with(123)
+
+
+async def test_fetch_channel_returns_cached(bot):
+    channel = MagicMock(spec=discord.TextChannel)
+    bot.get_channel = MagicMock(return_value=channel)
+    result = await bot.fetch_channel(456)
+    assert result is channel
+
+
+async def test_fetch_channel_falls_back_to_api(bot):
+    channel = MagicMock(spec=discord.TextChannel)
+    bot.get_channel = MagicMock(return_value=None)
+    with patch.object(discord.Client, "fetch_channel", new=AsyncMock(return_value=channel)):
+        result = await bot.fetch_channel(456)
+    assert result is channel
+
+
+async def test_leave_guild_calls_guild_leave(bot):
+    guild = MagicMock(spec=discord.Guild)
+    guild.leave = AsyncMock()
+    bot.get_guild = MagicMock(return_value=guild)
+    await bot.leave_guild(123)
+    guild.leave.assert_called_once()
+
+
+async def test_leave_guild_raises_when_not_in_guild(bot):
+    bot.get_guild = MagicMock(return_value=None)
+    with pytest.raises(RuntimeError, match="not in guild"):
+        await bot.leave_guild(999)
+
+
+async def test_create_channel_text(bot):
+    guild = MagicMock(spec=discord.Guild)
+    channel = MagicMock(spec=discord.TextChannel)
+    guild.create_text_channel = AsyncMock(return_value=channel)
+    bot.get_guild = MagicMock(return_value=guild)
+    result = await bot.create_channel(123, "general")
+    assert result is channel
+    guild.create_text_channel.assert_called_once_with(
+        "general", category=None, topic=None, reason=None
+    )
+
+
+async def test_create_channel_voice(bot):
+    guild = MagicMock(spec=discord.Guild)
+    channel = MagicMock(spec=discord.VoiceChannel)
+    guild.create_voice_channel = AsyncMock(return_value=channel)
+    bot.get_guild = MagicMock(return_value=guild)
+    result = await bot.create_channel(123, "voice-chat", channel_type="voice")
+    assert result is channel
+
+
+async def test_create_channel_invalid_type_raises(bot):
+    guild = MagicMock(spec=discord.Guild)
+    bot.get_guild = MagicMock(return_value=guild)
+    with pytest.raises(ValueError, match="Unknown channel_type"):
+        await bot.create_channel(123, "x", channel_type="invalid")
+
+
+async def test_create_channel_raises_when_guild_not_found(bot):
+    bot.get_guild = MagicMock(return_value=None)
+    with pytest.raises(RuntimeError, match="not in guild"):
+        await bot.create_channel(999, "test")
+
+
+async def test_delete_channel(bot):
+    channel = MagicMock()
+    channel.delete = AsyncMock()
+    bot.get_channel = MagicMock(return_value=channel)
+    await bot.delete_channel(456)
+    channel.delete.assert_called_once_with(reason=None)
+
+
+async def test_delete_channel_fetches_when_not_cached(bot):
+    channel = MagicMock()
+    channel.delete = AsyncMock()
+    bot.get_channel = MagicMock(return_value=None)
+    with patch.object(discord.Client, "fetch_channel", new=AsyncMock(return_value=channel)):
+        await bot.delete_channel(456, reason="cleanup")
+    channel.delete.assert_called_once_with(reason="cleanup")
+
+
+async def test_send_webhook_creates_and_sends(bot):
+    channel = MagicMock(spec=discord.TextChannel)
+    webhook = MagicMock(spec=discord.Webhook)
+    webhook.send = AsyncMock()
+    channel.create_webhook = AsyncMock(return_value=webhook)
+    bot.get_channel = MagicMock(return_value=channel)
+    await bot.send_webhook(111, "hello")
+    channel.create_webhook.assert_called_once_with(name="EasyCord")
+    webhook.send.assert_called_once_with("hello", username=None, avatar_url=None, embed=None)
+
+
+async def test_send_webhook_reuses_cached_webhook(bot):
+    webhook = MagicMock(spec=discord.Webhook)
+    webhook.send = AsyncMock()
+    bot._webhooks[111] = webhook
+    await bot.send_webhook(111, "hello again")
+    webhook.send.assert_called_once()
+
+
+async def test_create_emoji(bot):
+    guild = MagicMock(spec=discord.Guild)
+    emoji = MagicMock(spec=discord.Emoji)
+    guild.create_custom_emoji = AsyncMock(return_value=emoji)
+    bot.get_guild = MagicMock(return_value=guild)
+    with patch("builtins.open", MagicMock(return_value=MagicMock(
+        __enter__=MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"imgdata"))),
+        __exit__=MagicMock(return_value=False),
+    ))):
+        result = await bot.create_emoji(123, "cool", "cool.png")
+    assert result is emoji
+    guild.create_custom_emoji.assert_called_once_with(name="cool", image=b"imgdata", reason=None)
+
+
+async def test_delete_emoji(bot):
+    guild = MagicMock(spec=discord.Guild)
+    emoji = MagicMock(spec=discord.Emoji)
+    emoji.delete = AsyncMock()
+    guild.fetch_emoji = AsyncMock(return_value=emoji)
+    bot.get_guild = MagicMock(return_value=guild)
+    await bot.delete_emoji(123, 999)
+    guild.fetch_emoji.assert_called_once_with(999)
+    emoji.delete.assert_called_once_with(reason=None)
+
+
+async def test_fetch_guild_emojis(bot):
+    guild = MagicMock(spec=discord.Guild)
+    e1 = MagicMock(spec=discord.Emoji)
+    e2 = MagicMock(spec=discord.Emoji)
+    guild.fetch_emojis = AsyncMock(return_value=[e1, e2])
+    bot.get_guild = MagicMock(return_value=guild)
+    result = await bot.fetch_guild_emojis(123)
+    assert result == [e1, e2]

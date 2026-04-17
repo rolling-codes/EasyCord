@@ -221,3 +221,26 @@ class BaseContext:
         Returns ``None`` if the member is not cached or the command was run in a DM.
         """
         return self.guild.get_member(user_id) if self.guild else None
+
+    async def fetch_member(self, user_id: int) -> discord.Member:
+        """Fetch a guild member by user ID.
+
+        Tries the guild cache first; falls back to an API call.
+        Raises ``RuntimeError`` if called outside a guild.
+        Raises ``discord.NotFound`` if the user is not in the guild.
+        """
+        if self.guild is None:
+            raise RuntimeError("fetch_member requires a guild context")
+        return await self.guild.fetch_member(user_id)
+
+    @property
+    def bot_permissions(self) -> discord.Permissions:
+        """The bot's own permissions in the current channel.
+
+        Returns ``channel.permissions_for(guild.me)`` — useful for checking
+        whether the bot can attach files, embed links, manage messages, etc.
+        Raises ``RuntimeError`` outside a guild.
+        """
+        if self.guild is None:
+            raise RuntimeError("bot_permissions requires a guild context")
+        return self.channel.permissions_for(self.guild.me)  # type: ignore[union-attr]

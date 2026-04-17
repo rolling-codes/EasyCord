@@ -188,6 +188,74 @@ async def ping(ctx):
 bot.run(os.environ["DISCORD_TOKEN"])
 ```
 
+### Persistent button/select-menu handlers
+
+**discord.py** — manually intercept every interaction, check the type, parse the custom ID.
+
+```python
+@client.event
+async def on_interaction(interaction):
+    if interaction.type != discord.InteractionType.component:
+        return
+    cid = interaction.data.get("custom_id", "")
+    if cid.startswith("ban_"):
+        user_id = int(cid.removeprefix("ban_"))
+        member = await interaction.guild.fetch_member(user_id)
+        await member.ban()
+        await interaction.response.send_message("Banned.")
+```
+
+**EasyCord** — one decorator, suffix extracted automatically.
+
+```python
+@bot.component("ban_")
+async def ban_button(ctx, suffix: str):
+    member = await ctx.fetch_member(int(suffix))
+    await ctx.ban(member)
+    await ctx.respond("Banned.")
+```
+
+---
+
+### Permission-gated middleware
+
+**discord.py** — repeat the permission check inside every command.
+
+```python
+@tree.command()
+async def kick(interaction):
+    m = interaction.guild.get_member(interaction.user.id)
+    if not m or not m.guild_permissions.kick_members:
+        await interaction.response.send_message("Missing permission.", ephemeral=True)
+        return
+    ...
+```
+
+**EasyCord** — register once, applies to every command.
+
+```python
+bot.use(has_permission("kick_members"))
+```
+
+---
+
+### Webhook messages
+
+**discord.py** — create a webhook object, store it, call send separately.
+
+```python
+webhook = await channel.create_webhook(name="Bot")
+await webhook.send("Hello!", username="MyBot")
+```
+
+**EasyCord** — one call, webhook created and cached automatically.
+
+```python
+await bot.send_webhook(CHANNEL_ID, "Hello!", username="MyBot")
+```
+
+---
+
 ## Documentation map
 
 - [`getting-started.md`](getting-started.md): how to run, develop, and structure a bot

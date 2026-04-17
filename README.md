@@ -8,6 +8,23 @@ EasyCord keeps the full power of discord.py within reach while removing the boil
 
 ---
 
+## Navigation
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Slash Commands](#slash-commands)
+- [Persistent Components](#persistent-components)
+- [Event Handling](#event-handling)
+- [Middleware](#middleware)
+- [Plugins](#plugins)
+- [Composer](#composer)
+- [Per-Guild Config](#per-guild-config)
+- [Guild and Channel Management](#guild-and-channel-management)
+- [API Reference](#api-reference)
+- [Creating a Bot Application](#creating-a-bot-application)
+
+---
+
 ## The Backstory
 
 This project wasn't just a coding exercise — it was a solution to a real problem. I founded and managed the Senior IT Program Discord server for my school.
@@ -198,7 +215,56 @@ async def my_command(ctx, member: discord.Member):
     deleted = await ctx.purge(10)
     messages = await ctx.fetch_messages(5)
     thread = await ctx.create_thread("Support: my issue")
+
+    # New helpers
+    member = await ctx.fetch_member(user_id)        # API fetch, no guild_id needed
+    perms = ctx.bot_permissions                      # bot's own permissions here
+    pins = await ctx.fetch_pinned_messages()         # pinned messages in this channel
+    async with ctx.typing():                         # show typing indicator
+        data = await slow_operation()
+        await ctx.respond(data)
 ```
+
+---
+
+## Persistent Components
+
+`@bot.component` routes button and select-menu interactions to a handler without any manual `on_interaction` wiring. Middleware runs on every component interaction automatically.
+
+### Basic (custom ID = function name)
+
+```python
+@bot.component
+async def confirm_ban(ctx):
+    await ctx.respond("Ban confirmed!", ephemeral=True)
+```
+
+Register the button elsewhere with `custom_id="confirm_ban"`.
+
+### Explicit custom ID
+
+```python
+@bot.component("yes_btn")
+async def yes_handler(ctx):
+    await ctx.respond("You clicked Yes.")
+```
+
+### Prefix matching — pass data through the custom ID
+
+End the registered ID with `_` to match any custom ID that starts with it. The suffix is passed as a second argument, eliminating the need to look up IDs from a separate store.
+
+```python
+@bot.component("ban_")
+async def ban_button(ctx, suffix: str):
+    # suffix = everything after "ban_", e.g. "ban_12345" → "12345"
+    member = await ctx.fetch_member(int(suffix))
+    confirmed = await ctx.confirm(f"Ban {member.display_name}?")
+    if confirmed:
+        await ctx.ban(member)
+        await ctx.respond(f"Banned {member.display_name}.")
+```
+
+Create the button with `custom_id=f"ban_{member.id}"` and the router does the rest.
 
 ---
 
@@ -237,16 +303,24 @@ Middleware is executed in the order it was registered.
 
 ```python
 from easycord.middleware import (
-    log_middleware,   # log every invocation
-    catch_errors,     # catch unhandled exceptions
-    rate_limit,       # per-user rate limiting
-    guild_only,       # block DM usage
+    log_middleware,    # log every invocation
+    catch_errors,      # catch unhandled exceptions
+    rate_limit,        # per-user sliding-window rate limit
+    guild_only,        # block DM usage
+    dm_only,           # block guild usage
+    admin_only,        # require administrator permission
+    allowed_roles,     # require one of a set of role IDs
+    channel_only,      # restrict to specific channels
+    boost_only,        # require server booster status
+    has_permission,    # require specific discord permissions
 )
 
 bot.use(log_middleware())
 bot.use(catch_errors(message="Something broke"))
 bot.use(rate_limit(limit=5, window=10))
 bot.use(guild_only())
+bot.use(boost_only())                                    # server boosters only
+bot.use(has_permission("kick_members", "ban_members"))   # require permissions
 ```
 
 ---
@@ -329,6 +403,43 @@ await store.save(cfg)
 
 ---
 
+## Guild and Channel Management
+
+Manage guilds, channels, webhooks, and emojis directly from the bot without touching discord.py internals.
+
+```python
+# Leave a guild
+await bot.leave_guild(guild_id)
+
+# Fetch guild or channel (cache-first)
+guild = await bot.fetch_guild(guild_id)
+channel = await bot.fetch_channel(channel_id)
+
+# Create / delete channels
+await bot.create_channel(guild_id, "announcements", channel_type="text", topic="News")
+await bot.create_channel(guild_id, "General", channel_type="voice")
+await bot.delete_channel(channel_id)
+
+# Send via webhook — creates and caches a webhook automatically, one call
+await bot.send_webhook(channel_id, "Server update!", username="NewsBot")
+
+# Emoji management
+emoji = await bot.create_emoji(guild_id, "cool", "cool.png")
+await bot.delete_emoji(guild_id, emoji.id)
+emojis = await bot.fetch_guild_emojis(guild_id)
+```
+
+### Bot presence — now with streaming
+
+```python
+await bot.set_status("online",  activity="your commands", activity_type="listening")
+await bot.set_status("idle",    activity="Maintenance",   activity_type="watching")
+await bot.set_status("dnd",     activity="live now",      activity_type="streaming")
+await bot.set_status("invisible")
+```
+
+---
+
 ## Expanding with AI
 
 Inside the repo there is a file called `model.md` — a "Single-Source Context Map" designed for AI agents.
@@ -378,7 +489,18 @@ pyproject.toml
 | `bot.use(middleware)` | Register a middleware function |
 | `bot.add_plugin(plugin)` | Load a `Plugin` instance |
 | `await bot.remove_plugin(plugin)` | Unload a plugin at runtime |
-| `await bot.set_status(status, *, activity, activity_type)` | Set the bot's presence status and activity text |
+| `@bot.component` / `@bot.component("id")` | Register a persistent button/select-menu handler |
+| `@bot.component("prefix_")` | Prefix-match handler — suffix passed as second arg |
+| `await bot.fetch_guild(guild_id)` | Cache-first guild fetch |
+| `await bot.fetch_channel(channel_id)` | Cache-first channel fetch |
+| `await bot.leave_guild(guild_id)` | Make the bot leave a guild |
+| `await bot.create_channel(guild_id, name, *, channel_type, ...)` | Create a text/voice/category/stage/forum channel |
+| `await bot.delete_channel(channel_id, *, reason)` | Delete a channel by ID |
+| `await bot.send_webhook(channel_id, content, *, username, embed, ...)` | One-shot webhook send (auto-creates and caches webhook) |
+| `await bot.create_emoji(guild_id, name, image_path)` | Create a custom emoji from a local file |
+| `await bot.delete_emoji(guild_id, emoji_id)` | Delete a custom emoji |
+| `await bot.fetch_guild_emojis(guild_id)` | Return all custom emojis for a guild |
+| `await bot.set_status(status, *, activity, activity_type)` | Status: `online/idle/dnd/invisible`; type: `playing/watching/listening/streaming` |
 | `await bot.fetch_member(guild_id, user_id)` | Fetch a `discord.Member` by guild + user ID |
 | `bot.run(token)` | Start the bot |
 
@@ -434,6 +556,10 @@ pyproject.toml
 | `await ctx.unreact(message, emoji)` | Remove the bot's own reaction |
 | `await ctx.clear_reactions(message)` | Remove all reactions |
 | `await ctx.delete_message(message, *, delay)` | Delete a message, optionally after a delay |
+| `await ctx.fetch_member(user_id)` | API fetch from within the command (no guild_id needed) |
+| `ctx.bot_permissions` | Bot's own `discord.Permissions` in the current channel |
+| `ctx.typing()` | Context manager — show typing indicator (`async with ctx.typing()`) |
+| `await ctx.fetch_pinned_messages()` | Return all pinned messages in the current channel |
 
 ### `Plugin`
 

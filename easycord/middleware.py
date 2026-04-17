@@ -194,6 +194,74 @@ def rate_limit(
     return handler
 
 
+def boost_only(
+    message: str = "This command is for server boosters only.",
+) -> MiddlewareFn:
+    """Block commands unless the invoking member is currently boosting the server.
+
+    Silently passes in DMs. Combine with ``guild_only()`` if the command must
+    be server-only.
+
+    Example::
+
+        bot.use(boost_only())
+    """
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        member = ctx.guild.get_member(ctx.user.id)
+        if member is None or member.premium_since is None:
+            await ctx.respond(message, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
+
+
+def has_permission(
+    *permissions: str,
+    message: str | None = None,
+) -> MiddlewareFn:
+    """Block commands unless the invoking member holds all of the given permissions.
+
+    ``permissions`` are ``discord.Permissions`` attribute names
+    (e.g. ``"kick_members"``, ``"manage_messages"``).
+
+    Silently passes in DMs. Combine with ``guild_only()`` if the command must
+    be server-only.
+
+    Example::
+
+        bot.use(has_permission("kick_members", "ban_members"))
+    """
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        member = ctx.guild.get_member(ctx.user.id)
+        if member is None:
+            await ctx.respond(
+                message or "Could not verify your permissions.", ephemeral=True
+            )
+            return
+        missing = [
+            p for p in permissions
+            if not getattr(member.guild_permissions, p, False)
+        ]
+        if missing:
+            await ctx.respond(
+                message or f"You need the following permission(s): {', '.join(missing)}.",
+                ephemeral=True,
+            )
+            return
+        await proceed()
+
+    return handler
+
+
 def catch_errors(
     message: str = "Something went wrong. Please try again.",
 ) -> MiddlewareFn:

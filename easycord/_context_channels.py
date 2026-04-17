@@ -113,3 +113,24 @@ class ChannelMixin:
         The channel must be a ``discord.TextChannel`` with the ``news`` type.
         """
         await message.publish()
+
+    # ── Typing indicator ──────────────────────────────────────────────────────
+
+    def typing(self):
+        """Return a context manager that shows the typing indicator in the current channel.
+
+        Use with ``async with``::
+
+            async with ctx.typing():
+                data = await fetch_data()
+                await ctx.respond(data)
+        """
+        if self.channel is None:  # type: ignore[attr-defined]
+            raise RuntimeError("typing requires a channel context")
+        return self.channel.typing()  # type: ignore[attr-defined]
+
+    async def fetch_pinned_messages(self) -> list[discord.Message]:
+        """Return all pinned messages in the current channel."""
+        if self.channel is None:  # type: ignore[attr-defined]
+            raise RuntimeError("fetch_pinned_messages requires a channel context")
+        return await self.channel.pins()  # type: ignore[attr-defined]

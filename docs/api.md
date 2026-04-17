@@ -36,13 +36,41 @@
 
 `await Bot.remove_plugin(plugin)` — unload plugin; removes commands, deregisters handlers, calls `on_unload()`
 
+### Guild / Channel / Webhook / Emoji
+
+`await Bot.fetch_guild(guild_id)` → `discord.Guild` — cache-first; raises `discord.NotFound`
+
+`await Bot.fetch_channel(channel_id)` → channel — cache-first; raises `discord.NotFound` / `discord.Forbidden`
+
+`await Bot.leave_guild(guild_id)` — leave a guild; raises `RuntimeError` if not a member
+
+`await Bot.create_channel(guild_id, name, *, channel_type="text", category_id=None, topic=None, reason=None)` → channel — `channel_type`: `"text" | "voice" | "category" | "stage" | "forum"`
+
+`await Bot.delete_channel(channel_id, *, reason=None)`
+
+`await Bot.send_webhook(channel_id, content=None, *, username=None, avatar_url=None, embed=None, **kwargs)` — one-shot webhook send; creates and caches a webhook on first use per channel
+
+`await Bot.create_emoji(guild_id, name, image_path, *, reason=None)` → `discord.Emoji`
+
+`await Bot.delete_emoji(guild_id, emoji_id, *, reason=None)`
+
+`await Bot.fetch_guild_emojis(guild_id)` → `list[discord.Emoji]`
+
+### Component routing
+
+`@Bot.component` / `@Bot.component("custom_id")` — register a persistent button/select-menu handler; custom ID defaults to function name
+
+`@Bot.component("prefix_")` — prefix match: `"prefix_suffix"` invokes handler with `(ctx, "suffix")`
+
+Middleware runs on component interactions exactly as it does for slash commands.
+
 ### Lookup / Presence / Run
 
 `await Bot.fetch_member(guild_id, user_id)` — cache-first guild member fetch; raises `discord.NotFound`
 
 `await Bot.fetch_user(user_id)` — inherited from `discord.Client`; cache-first
 
-`await Bot.set_status(status="online", *, activity=None, activity_type="playing")` — status: `"online" | "idle" | "dnd" | "invisible"`; activity_type: `"playing" | "watching" | "listening"`
+`await Bot.set_status(status="online", *, activity=None, activity_type="playing")` — status: `"online" | "idle" | "dnd" | "invisible"`; activity_type: `"playing" | "watching" | "listening" | "streaming"`
 
 `Bot.run(token, **kwargs)` — configures logging, starts the bot
 
@@ -64,6 +92,7 @@
 | `ctx.voice_channel` | `VoiceChannel \| StageChannel \| None` | Invoker's current voice channel |
 | `ctx.is_admin` | `bool` | `True` if invoker has administrator permission; `False` in DMs |
 | `ctx.data` | `dict \| None` | Raw interaction data |
+| `ctx.bot_permissions` | `discord.Permissions` | Bot's own permissions in the current channel; raises `RuntimeError` in DMs |
 
 ### Responding
 
@@ -117,6 +146,8 @@
 
 `ctx.get_member(user_id)` → `Member | None` — cache-only lookup
 
+`await ctx.fetch_member(user_id)` → `discord.Member` — API fetch; raises `RuntimeError` in DMs, `discord.NotFound` if not in guild
+
 ### Messages / Reactions / Threads / Channel
 
 `await ctx.purge(limit=10)` → `int` — bulk-delete; returns count
@@ -138,6 +169,10 @@
 `await ctx.lock_channel(*, reason=None)` / `await ctx.unlock_channel(*, reason=None)` — @everyone send_messages
 
 `ctx.fetch_bans(limit=100)` → `list[discord.BanEntry]`
+
+`ctx.typing()` → context manager — show typing indicator; use with `async with ctx.typing()`
+
+`await ctx.fetch_pinned_messages()` → `list[discord.Message]`
 
 ---
 
@@ -199,6 +234,8 @@ All factories return `MiddlewareFn = async (ctx, next) -> None`.
 | `admin_only(message)` | invoker lacks `administrator` permission | yes |
 | `allowed_roles(*role_ids, message)` | invoker holds none of the given role IDs | yes |
 | `channel_only(*channel_ids, message)` | channel not in the given set | yes |
+| `boost_only(message)` | invoker is not a server booster | yes |
+| `has_permission(*perms, message)` | invoker lacks any of the given permissions | yes |
 
 ---
 

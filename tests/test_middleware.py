@@ -340,3 +340,107 @@ async def test_channel_only_custom_message():
     proceed = AsyncMock()
     await channel_only(42, message="Wrong channel!")(ctx, proceed)
     assert "Wrong channel!" in ctx.respond.call_args[0][0]
+
+
+# ── boost_only / has_permission ───────────────────────────────────────────────
+
+from easycord.middleware import boost_only, has_permission
+import datetime
+
+
+def _mw_make_ctx_boost(*, guild=True, is_booster=True):
+    ctx = MagicMock()
+    ctx.respond = AsyncMock()
+    ctx.guild = MagicMock() if guild else None
+    if guild:
+        member = MagicMock()
+        member.premium_since = datetime.datetime.now() if is_booster else None
+        ctx.guild.get_member = MagicMock(return_value=member)
+        ctx.user = MagicMock()
+        ctx.user.id = 1
+    return ctx
+
+
+async def test_boost_only_passes_for_booster():
+    ctx = _mw_make_ctx_boost(is_booster=True)
+    proceed = AsyncMock()
+    await boost_only()(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_boost_only_blocks_non_booster():
+    ctx = _mw_make_ctx_boost(is_booster=False)
+    proceed = AsyncMock()
+    await boost_only()(ctx, proceed)
+    proceed.assert_not_called()
+    assert ctx.respond.call_args.kwargs.get("ephemeral") is True
+
+
+async def test_boost_only_blocks_when_member_not_cached():
+    ctx = _mw_make_ctx_boost(guild=True)
+    ctx.guild.get_member = MagicMock(return_value=None)
+    proceed = AsyncMock()
+    await boost_only()(ctx, proceed)
+    proceed.assert_not_called()
+
+
+async def test_boost_only_passes_in_dm():
+    ctx = _mw_make_ctx_boost(guild=False)
+    proceed = AsyncMock()
+    await boost_only()(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_boost_only_custom_message():
+    ctx = _mw_make_ctx_boost(is_booster=False)
+    proceed = AsyncMock()
+    await boost_only(message="Boosters only!")(ctx, proceed)
+    assert "Boosters only!" in ctx.respond.call_args[0][0]
+
+
+def _mw_make_ctx_perms(*, guild=True, perms=None):
+    ctx = MagicMock()
+    ctx.respond = AsyncMock()
+    ctx.guild = MagicMock() if guild else None
+    if guild:
+        member = MagicMock()
+        gp = MagicMock()
+        for perm in (perms or []):
+            setattr(gp, perm, True)
+        member.guild_permissions = gp
+        ctx.guild.get_member = MagicMock(return_value=member)
+        ctx.user = MagicMock()
+        ctx.user.id = 1
+    return ctx
+
+
+async def test_has_permission_passes_when_member_has_all():
+    ctx = _mw_make_ctx_perms(perms=["kick_members", "ban_members"])
+    proceed = AsyncMock()
+    await has_permission("kick_members", "ban_members")(ctx, proceed)
+    proceed.assert_called_once()
+
+
+async def test_has_permission_blocks_when_missing_one():
+    ctx = _mw_make_ctx_perms(perms=["kick_members"])
+    ctx.guild.get_member.return_value.guild_permissions.ban_members = False
+    proceed = AsyncMock()
+    await has_permission("kick_members", "ban_members")(ctx, proceed)
+    proceed.assert_not_called()
+    assert ctx.respond.call_args.kwargs.get("ephemeral") is True
+    assert "ban_members" in ctx.respond.call_args[0][0]
+
+
+async def test_has_permission_blocks_when_member_not_cached():
+    ctx = _mw_make_ctx_perms(guild=True)
+    ctx.guild.get_member = MagicMock(return_value=None)
+    proceed = AsyncMock()
+    await has_permission("kick_members")(ctx, proceed)
+    proceed.assert_not_called()
+
+
+async def test_has_permission_passes_in_dm():
+    ctx = _mw_make_ctx_perms(guild=False)
+    proceed = AsyncMock()
+    await has_permission("kick_members")(ctx, proceed)
+    proceed.assert_called_once()

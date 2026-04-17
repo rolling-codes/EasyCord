@@ -12,12 +12,13 @@ from .middleware import MiddlewareFn
 from .plugin import Plugin
 from ._bot_commands import _CommandsMixin
 from ._bot_events import _EventsMixin
+from ._bot_guild import _GuildMixin
 from ._bot_plugins import _PluginsMixin
 
 logger = logging.getLogger("easycord")
 
 
-class Bot(_EventsMixin, _PluginsMixin, _CommandsMixin, discord.Client):
+class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Client):
     """
     The main EasyCord bot — a discord.Client with slash commands,
     middleware, event listeners, and plugins built in.
@@ -61,6 +62,8 @@ class Bot(_EventsMixin, _PluginsMixin, _CommandsMixin, discord.Client):
         self._event_handlers: dict[str, list[Callable]] = {}
         self._plugins: list[Plugin] = []
         self._task_handles: dict[int, list[asyncio.Task]] = {}
+        self._webhooks: dict[int, discord.Webhook] = {}
+        self._component_handlers: dict[str, Callable] = {}
 
     async def setup_hook(self) -> None:
         if self._auto_sync:

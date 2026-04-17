@@ -433,3 +433,70 @@ async def test_move_member_disconnects_on_none(ctx, interaction):
     member.edit = AsyncMock()
     await ctx.move_member(member, None)
     member.edit.assert_called_once_with(voice_channel=None, reason=None)
+
+
+# ── fetch_member ──────────────────────────────────────────────────────────────
+
+async def test_fetch_member_returns_member(ctx, interaction):
+    member = MagicMock(spec=discord.Member)
+    interaction.guild.fetch_member = AsyncMock(return_value=member)
+    result = await ctx.fetch_member(42)
+    assert result is member
+    interaction.guild.fetch_member.assert_called_once_with(42)
+
+
+async def test_fetch_member_raises_outside_guild(ctx, interaction):
+    interaction.guild = None
+    with pytest.raises(RuntimeError, match="guild context"):
+        await ctx.fetch_member(42)
+
+
+# ── bot_permissions ───────────────────────────────────────────────────────────
+
+def test_bot_permissions_returns_permissions(ctx, interaction):
+    perms = MagicMock(spec=discord.Permissions)
+    me = MagicMock()
+    interaction.guild.me = me
+    interaction.channel.permissions_for = MagicMock(return_value=perms)
+    result = ctx.bot_permissions
+    assert result is perms
+    interaction.channel.permissions_for.assert_called_once_with(me)
+
+
+def test_bot_permissions_raises_outside_guild(ctx, interaction):
+    interaction.guild = None
+    with pytest.raises(RuntimeError, match="guild context"):
+        _ = ctx.bot_permissions
+
+
+# ── typing ────────────────────────────────────────────────────────────────────
+
+def test_typing_delegates_to_channel(ctx, interaction):
+    typing_cm = MagicMock()
+    interaction.channel.typing = MagicMock(return_value=typing_cm)
+    result = ctx.typing()
+    assert result is typing_cm
+    interaction.channel.typing.assert_called_once()
+
+
+def test_typing_raises_when_no_channel(ctx, interaction):
+    interaction.channel = None
+    with pytest.raises(RuntimeError, match="channel"):
+        ctx.typing()
+
+
+# ── fetch_pinned_messages ─────────────────────────────────────────────────────
+
+async def test_fetch_pinned_messages_returns_list(ctx, interaction):
+    msg1 = MagicMock(spec=discord.Message)
+    msg2 = MagicMock(spec=discord.Message)
+    interaction.channel.pins = AsyncMock(return_value=[msg1, msg2])
+    result = await ctx.fetch_pinned_messages()
+    assert result == [msg1, msg2]
+    interaction.channel.pins.assert_called_once()
+
+
+async def test_fetch_pinned_messages_raises_when_no_channel(ctx, interaction):
+    interaction.channel = None
+    with pytest.raises(RuntimeError, match="channel"):
+        await ctx.fetch_pinned_messages()
