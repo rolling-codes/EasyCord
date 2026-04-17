@@ -32,6 +32,8 @@
 
 `Bot.use(middleware)` — register middleware (decorator or direct call); runs for slash commands only
 
+`@Bot.on_error` / `Bot.on_error(func)` — register a global error handler `async def handler(ctx, error)` called when any slash command raises an unhandled exception; overwrites any previously registered handler
+
 `Bot.add_plugin(plugin)` — load plugin; raises `TypeError` / `ValueError` on bad input or duplicate
 
 `await Bot.remove_plugin(plugin)` — unload plugin; removes commands, deregisters handlers, calls `on_unload()`
@@ -100,7 +102,7 @@ Middleware runs on component interactions exactly as it does for slash commands.
 
 `await ctx.defer(*, ephemeral=False)` — acknowledge without visible reply; use before slow operations
 
-`await ctx.send_embed(title, description=None, *, fields=None, footer=None, color=blue, ephemeral=False)` — fields: `[(name, value)]` or `[(name, value, inline)]`
+`await ctx.send_embed(title, description=None, *, fields=None, footer=None, thumbnail=None, image=None, author=None, timestamp=None, color=blue, ephemeral=False)` — fields: `[(name, value)]` or `[(name, value, inline)]`; `thumbnail`/`image`: URL strings; `author`: name string or `{"name", "icon_url", "url"}` dict; `timestamp=True` uses current UTC time
 
 `await ctx.send_file(path, *, filename=None, content=None, ephemeral=False)`
 
@@ -119,6 +121,8 @@ Middleware runs on component interactions exactly as it does for slash commands.
 `await ctx.choose(prompt, options, *, timeout=60, placeholder="Select an option", ephemeral=False)` → `str | None` — options: strings or `{"label", "value", "description"}` dicts
 
 `await ctx.paginate(pages, *, timeout=120, ephemeral=False)` — Prev/Next multi-page embed/text
+
+`await ctx.prompt(label, *, placeholder=None, max_length=None, timeout=660)` → `str | None` — single-field modal shortcut; returns submitted text or `None` on timeout/dismiss
 
 ### Moderation
 
@@ -287,3 +291,18 @@ Slash commands: `/rank` `/leaderboard` `/give_xp` `/set_rank` `/remove_rank` `/s
 `plugin.get_entry(guild_id, user_id)` → `{"xp": int, "level": int}`
 
 Storage: `<data_dir>/<guild_id>_xp.json`, `<data_dir>/<guild_id>_config.json`
+
+## `TagsPlugin` (`easycord.plugins.tags`)
+
+`TagsPlugin(*, data_dir="tags_data")`
+
+Per-guild text snippet store. All commands require a guild context.
+
+| Command | Args | Description |
+| --- | --- | --- |
+| `/tag get <name>` | name | Retrieve and display a tag |
+| `/tag set <name> <text>` | name, text | Create or overwrite a tag |
+| `/tag delete <name>` | name | Delete a tag (admin or original creator only) |
+| `/tag list` | — | List all tag names in this server |
+
+Storage: `tags_<guild_id>.json` in `data_dir`.
