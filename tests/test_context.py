@@ -500,3 +500,110 @@ async def test_fetch_pinned_messages_raises_when_no_channel(ctx, interaction):
     interaction.channel = None
     with pytest.raises(RuntimeError, match="channel"):
         await ctx.fetch_pinned_messages()
+
+
+# ── ctx.prompt() ──────────────────────────────────────────────────────────────
+
+async def test_prompt_returns_text(ctx):
+    ctx.ask_form = AsyncMock(return_value={"value": "hello there"})
+    result = await ctx.prompt("Enter something")
+    assert result == "hello there"
+
+
+async def test_prompt_returns_none_on_timeout(ctx):
+    ctx.ask_form = AsyncMock(return_value=None)
+    result = await ctx.prompt("Enter something")
+    assert result is None
+
+
+async def test_prompt_passes_placeholder(ctx):
+    ctx.ask_form = AsyncMock(return_value={"value": "x"})
+    await ctx.prompt("Label", placeholder="hint text")
+    call_kwargs = ctx.ask_form.call_args
+    assert call_kwargs[1]["value"]["placeholder"] == "hint text"
+
+
+async def test_prompt_passes_max_length(ctx):
+    ctx.ask_form = AsyncMock(return_value={"value": "x"})
+    await ctx.prompt("Label", max_length=50)
+    call_kwargs = ctx.ask_form.call_args
+    assert call_kwargs[1]["value"]["max_length"] == 50
+
+
+# ── send_embed extras ─────────────────────────────────────────────────────────
+
+async def test_send_embed_thumbnail(ctx):
+    from unittest.mock import patch
+    ctx.interaction.response.send_message = AsyncMock()
+    with patch("discord.Embed") as MockEmbed:
+        instance = MockEmbed.return_value
+        instance.add_field = MagicMock()
+        instance.set_footer = MagicMock()
+        instance.set_thumbnail = MagicMock()
+        await ctx.send_embed("Title", thumbnail="https://example.com/thumb.png")
+    instance.set_thumbnail.assert_called_once_with(url="https://example.com/thumb.png")
+
+
+async def test_send_embed_image(ctx):
+    from unittest.mock import patch
+    ctx.interaction.response.send_message = AsyncMock()
+    with patch("discord.Embed") as MockEmbed:
+        instance = MockEmbed.return_value
+        instance.add_field = MagicMock()
+        instance.set_footer = MagicMock()
+        instance.set_image = MagicMock()
+        await ctx.send_embed("Title", image="https://example.com/img.png")
+    instance.set_image.assert_called_once_with(url="https://example.com/img.png")
+
+
+async def test_send_embed_author_string(ctx):
+    from unittest.mock import patch
+    ctx.interaction.response.send_message = AsyncMock()
+    with patch("discord.Embed") as MockEmbed:
+        instance = MockEmbed.return_value
+        instance.add_field = MagicMock()
+        instance.set_footer = MagicMock()
+        instance.set_author = MagicMock()
+        await ctx.send_embed("Title", author="Bot Name")
+    instance.set_author.assert_called_once_with(name="Bot Name")
+
+
+async def test_send_embed_author_dict(ctx):
+    from unittest.mock import patch
+    ctx.interaction.response.send_message = AsyncMock()
+    with patch("discord.Embed") as MockEmbed:
+        instance = MockEmbed.return_value
+        instance.add_field = MagicMock()
+        instance.set_footer = MagicMock()
+        instance.set_author = MagicMock()
+        await ctx.send_embed("Title", author={"name": "Bot", "icon_url": "https://icon.png", "url": "https://bot.dev"})
+    instance.set_author.assert_called_once_with(name="Bot", icon_url="https://icon.png", url="https://bot.dev")
+
+
+async def test_send_embed_timestamp_true(ctx):
+    from unittest.mock import patch
+    ctx.interaction.response.send_message = AsyncMock()
+    with patch("discord.Embed") as MockEmbed, patch("discord.utils.utcnow") as mock_now:
+        fake_now = MagicMock()
+        mock_now.return_value = fake_now
+        instance = MockEmbed.return_value
+        instance.add_field = MagicMock()
+        instance.set_footer = MagicMock()
+        await ctx.send_embed("Title", timestamp=True)
+    assert MockEmbed.call_args.kwargs.get("timestamp") == fake_now
+
+
+async def test_send_embed_no_extras_unchanged(ctx):
+    from unittest.mock import patch
+    ctx.interaction.response.send_message = AsyncMock()
+    with patch("discord.Embed") as MockEmbed:
+        instance = MockEmbed.return_value
+        instance.add_field = MagicMock()
+        instance.set_footer = MagicMock()
+        instance.set_thumbnail = MagicMock()
+        instance.set_image = MagicMock()
+        instance.set_author = MagicMock()
+        await ctx.send_embed("Title", "Desc")
+    instance.set_thumbnail.assert_not_called()
+    instance.set_image.assert_not_called()
+    instance.set_author.assert_not_called()

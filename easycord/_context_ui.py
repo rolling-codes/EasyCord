@@ -233,3 +233,27 @@ class UIMixin:
         view = _ChooseView(timeout=timeout)
         await self.respond(prompt, ephemeral=ephemeral, view=view)  # type: ignore[attr-defined]
         return await future
+
+    async def prompt(
+        self,
+        label: str,
+        *,
+        placeholder: str | None = None,
+        max_length: int | None = None,
+        timeout: float = 660,
+    ) -> str | None:
+        """Show a single-field modal and return the submitted text, or ``None`` on timeout.
+
+        Shortcut for :meth:`ask_form` when only one text input is needed::
+
+            text = await ctx.prompt("What's your reason?", placeholder="Enter reason…")
+            if text:
+                await ctx.respond(f"Reason: {text}")
+        """
+        field: dict = {"label": label}
+        if placeholder is not None:
+            field["placeholder"] = placeholder
+        if max_length is not None:
+            field["max_length"] = max_length
+        result = await self.ask_form(label, value=field)  # type: ignore[attr-defined]
+        return result["value"] if result else None
