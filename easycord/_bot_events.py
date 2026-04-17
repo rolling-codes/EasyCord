@@ -69,6 +69,24 @@ class _EventsMixin:
         self._middleware.append(middleware)
         return middleware
 
+    def on_error(self, func: Callable) -> Callable:
+        """Register a global error handler called when any slash command raises an unhandled exception.
+
+        Can be used as a decorator or called directly::
+
+            @bot.on_error
+            async def handle_error(ctx, error):
+                await ctx.respond(f"Something went wrong: {error}", ephemeral=True)
+
+        Only one handler can be registered. A second call overwrites the first.
+        """
+        if not callable(func):
+            raise TypeError(
+                f"error handler must be callable, got {type(func).__name__!r}"
+            )
+        self._error_handler = func
+        return func
+
     # ── User & member lookup ──────────────────────────────────
 
     async def fetch_member(self, guild_id: int, user_id: int) -> discord.Member:

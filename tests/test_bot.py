@@ -716,3 +716,47 @@ async def test_fetch_guild_emojis(bot):
     bot.get_guild = MagicMock(return_value=guild)
     result = await bot.fetch_guild_emojis(123)
     assert result == [e1, e2]
+
+
+# ── @bot.on_error ─────────────────────────────────────────────────────────────
+
+async def test_on_error_registers_handler(bot):
+    async def handler(ctx, error):
+        pass
+    bot.on_error(handler)
+    assert bot._error_handler is handler
+
+
+async def test_on_error_as_decorator(bot):
+    @bot.on_error
+    async def handler(ctx, error):
+        pass
+    assert bot._error_handler is handler
+
+
+async def test_on_error_called_on_command_exception(bot):
+    errors_seen = []
+
+    @bot.on_error
+    async def handler(ctx, error):
+        errors_seen.append(error)
+
+    boom = ValueError("boom")
+
+    @bot.slash(description="test")
+    async def bad_cmd(ctx):
+        raise boom
+
+    cmd_obj = bot.tree.add_command.call_args_list[-1][0][0]
+    mock_interaction = MagicMock()
+    mock_interaction.response.send_message = AsyncMock()
+    mock_interaction.response.defer = AsyncMock()
+    mock_interaction.followup.send = AsyncMock()
+    mock_interaction.command = MagicMock()
+    mock_interaction.command.name = "bad_cmd"
+    mock_interaction.guild = None
+    mock_interaction.user = MagicMock()
+    mock_interaction.channel = MagicMock()
+    mock_interaction.client = MagicMock()
+    await cmd_obj.callback(mock_interaction)
+    assert errors_seen == [boom]

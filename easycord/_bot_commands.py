@@ -135,7 +135,13 @@ class _CommandsMixin:
                         )
                         return
                     _cooldown_last_used[uid] = now
-                await func(ctx, **kwargs)
+                try:
+                    await func(ctx, **kwargs)
+                except Exception as exc:
+                    if self._error_handler is not None:
+                        await self._error_handler(ctx, exc)
+                    else:
+                        raise
 
             await build_chain(ctx, invoke, self._middleware)()
 

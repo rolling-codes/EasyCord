@@ -64,6 +64,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self._task_handles: dict[int, list[asyncio.Task]] = {}
         self._webhooks: dict[int, discord.Webhook] = {}
         self._component_handlers: dict[str, Callable] = {}
+        self._error_handler = None
 
     async def setup_hook(self) -> None:
         if self._auto_sync:
