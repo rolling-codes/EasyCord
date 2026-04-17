@@ -1,5 +1,64 @@
 # Changelog
 
+## [2.7] — 2026-04-17
+
+New plugin, a modal shortcut, a global error handler, and expanded embed support.
+
+### New: `TagsPlugin`
+
+Per-guild text snippet store. Drop it in like any other plugin:
+
+```python
+from easycord.plugins import TagsPlugin
+bot.add_plugin(TagsPlugin())
+```
+
+Four slash commands: `/tag get`, `/tag set`, `/tag delete` (admin or creator), `/tag list`.
+Persists to `tags_<guild_id>.json` in the configured `data_dir`.
+
+### New: `ctx.prompt()`
+
+Single-field modal shortcut — replaces the verbose `ask_form` call for the common "ask one question" case:
+
+```python
+text = await ctx.prompt("What's your reason?", max_length=200)
+```
+
+Returns the entered string, or `None` on timeout/dismiss.
+
+### New: `@bot.on_error` decorator
+
+Register a global error handler for unhandled command exceptions without wiring `catch_errors()` middleware:
+
+```python
+@bot.on_error
+async def handle_error(ctx, error):
+    await ctx.respond(f"Something went wrong: {error}", ephemeral=True)
+```
+
+### `send_embed` extras
+
+Four new optional keyword arguments on `ctx.send_embed()`:
+
+| Param | Effect |
+| --- | --- |
+| `thumbnail="url"` | Small thumbnail in top-right corner |
+| `image="url"` | Large image below description |
+| `author="name"` or `author={name, icon_url, url}` | Author line above title |
+| `timestamp=True` | Current UTC timestamp; or pass a `datetime` |
+
+All four are backwards-compatible — existing calls are unaffected.
+
+### Component router, guild management, and context helpers
+
+- `@bot.component(custom_id)` — persistent button/select-menu routing with prefix matching
+- `_GuildMixin` — `fetch_guild`, `fetch_channel`, `leave_guild`, `create_channel`, `delete_channel`, `send_webhook`, `create_emoji`, `delete_emoji`, `fetch_guild_emojis`
+- `ctx.fetch_member`, `ctx.bot_permissions`, `ctx.typing()`, `ctx.fetch_pinned_messages()`
+- `boost_only()` and `has_permission()` middleware factories
+- `set_status`: `activity_type="streaming"` now creates a `discord.Streaming` activity
+
+---
+
 ## [2.6] — 2026-04-16
 
 Internal refactor and framework improvements. No breaking changes to the public API.
