@@ -1,4 +1,4 @@
 {
   "version": "0.2",
-  "words": ["asyncio", "browsable", "cooldown", "cooldowns", "crosspost", "easycord", "easycordbot", "easycordcontext", "easycorddecorators", "easycordserverconfigstore", "guild", "ephemeral", "levelsplugin", "levelups", "messageable", "middleware", "intents", "pytest", "randint", "setuptools", "slowmode", "subclassing", "unban", "unreact"]
+  "words": ["asyncio", "blurple", "browsable", "cooldown", "cooldowns", "crosspost", "easycord", "easycordbot", "easycordcontext", "easycorddecorators", "easycordserverconfigstore", "guild", "ephemeral", "levelsplugin", "levelups", "messageable", "middleware", "intents", "pytest", "randint", "setuptools", "slowmode", "subclassing", "ticketplugin", "unban", "unreact"]
 }

@@ -257,3 +257,79 @@ class UIMixin:
             field["max_length"] = max_length
         result = await self.ask_form(label, value=field)  # type: ignore[attr-defined]
         return result["value"] if result else None
+
+    async def send_buttons(
+        self,
+        prompt: str,
+        buttons: list[str | dict],
+        *,
+        timeout: float = 60,
+        ephemeral: bool = False,
+    ) -> str | None:
+        """Show a row of labeled buttons and return the value of the clicked one.
+
+        ``buttons`` may be a list of strings or dicts with ``label``,
+        optional ``value`` (defaults to label), and optional ``style``
+        (``"green"``, ``"red"``, ``"blue"``, or ``"gray"``; defaults to gray).
+
+        Returns ``None`` if timed out.  Maximum 5 buttons (Discord limit).
+
+        Example::
+
+            action = await ctx.send_buttons(
+                "Confirm action?",
+                buttons=[
+                    {"label": "Approve", "value": "approve", "style": "green"},
+                    {"label": "Deny",    "value": "deny",    "style": "red"},
+                ],
+                timeout=30,
+                ephemeral=True,
+            )
+        """
+        _style_map = {
+            "green": discord.ButtonStyle.green,
+            "red": discord.ButtonStyle.red,
+            "blue": discord.ButtonStyle.blurple,
+            "gray": discord.ButtonStyle.secondary,
+            "grey": discord.ButtonStyle.secondary,
+        }
+
+        future: asyncio.Future[str | None] = asyncio.get_running_loop().create_future()
+        _fut = future
+
+        view = discord.ui.View(timeout=timeout)
+
+        for btn_spec in buttons[:5]:
+            if isinstance(btn_spec, str):
+                label = btn_spec
+                value = btn_spec
+                style = discord.ButtonStyle.secondary
+            else:
+                label = btn_spec.get("label", str(btn_spec))
+                value = btn_spec.get("value", label)
+                style = _style_map.get(
+                    btn_spec.get("style", "gray"), discord.ButtonStyle.secondary
+                )
+
+            button = discord.ui.Button(label=label, style=style)
+            _val = value
+
+            async def _callback(
+                interaction: discord.Interaction, v: str = _val
+            ) -> None:
+                await interaction.response.edit_message(view=discord.ui.View())
+                if not _fut.done():
+                    _fut.set_result(v)
+                view.stop()
+
+            button.callback = _callback
+            view.add_item(button)
+
+        async def on_timeout() -> None:
+            if not _fut.done():
+                _fut.set_result(None)
+
+        view.on_timeout = on_timeout  # type: ignore[method-assign]
+
+        await self.respond(prompt, ephemeral=ephemeral, view=view)  # type: ignore[attr-defined]
+        return await future
