@@ -1,69 +1,386 @@
-# EasyCord — AI context
+# Cloud.md — Claude Code Plugin Specification (Refactored v3)
 
-> Read this file before reading anything else. It tells you where to look so you don't waste tokens.
+## PURPOSE
+Deterministic control-layer for Claude AI execution with:
+- token minimization (enforced)
+- modular generation (schema-validated)
+- context minimization (selective + cached)
+- adaptive model selection (lightweight-first within Claude tiers)
+- failure recovery (self-correcting)
 
-## Commands
+Target: override default Claude coder behavior with structured, minimal, deterministic outputs.
 
-```bash
-pip install -e ".[dev]"        # install with dev deps (one-time)
-pytest                          # run all tests
-pytest tests/test_foo.py        # single file
+---
+
+## EXECUTION PIPELINE
+```
+INPUT
+ → CONTEXT_SELECT
+ → STRIP
+ → ESTIMATE
+ → CLASSIFY
+ → MODE_SELECT
+ → MODEL_SELECT
+ → EXECUTE
+ → VALIDATE
+ → BUDGET_ENFORCE
+ → OUTPUT
 ```
 
-`asyncio_mode = "auto"` is set in `pyproject.toml` — no `@pytest.mark.asyncio` needed.
+---
 
-## Where to look first
+## CONTEXT MANAGEMENT
 
-| Task | File(s) |
-|------|---------|
-| Add a bot command/plugin | `server_commands/` |
-| Add a bundled framework plugin | `easycord/plugins/` |
-| Bot core (slash/event/middleware/plugin wiring) | `easycord/bot.py` |
-| Response helpers | `easycord/context.py` (imports from `_context_*.py`) |
-| Built-in middleware | `easycord/middleware.py` |
-| Per-guild config persistence | `easycord/server_config.py` |
-| Full API reference | `docs/api.md` |
-| Architecture overview | `model.md` |
+### OBJECTIVE
+Use minimum required context; avoid reprocessing history.
 
-## Architecture
-
+### CONTEXT SELECTOR
 ```
-easycord/               framework package
-  bot.py                Bot — slash/event/middleware/plugin registration
-  context.py            Context — aggregates _context_base/_channels/_moderation/_ui
-  _context_base.py      respond, defer, embed, DM, form, confirm, paginate
-  _context_channels.py  slowmode, lock/unlock, threads, reactions, messages
-  _context_moderation.py kick, ban, timeout, unban, roles, nickname, voice
-  _context_ui.py        choose, paginate (select-menu UI)
-  decorators.py         @slash @on @task (for Plugin methods)
-  plugin.py             Plugin base class
-  middleware.py         log_middleware, catch_errors, rate_limit, guild_only
-  composer.py           fluent Composer builder
-  server_config.py      ServerConfigStore — per-guild atomic JSON
-  audit.py              AuditLog — embed logging to a Discord channel
-  group.py              SlashGroup — slash command groups
-  plugins/              bundled drop-in plugins
-    levels.py           LevelsPlugin — XP, leveling, ranks
-    polls.py            PollsPlugin
-    welcome.py          WelcomePlugin
-server_commands/        example bot plugins (add new bot features here)
-tests/                  pytest suite — mirrors easycord/ structure
-docs/                   user-facing documentation
-model.md                AI context map (architecture + extension guide)
+extract: task, constraints, required_prior_outputs
+ignore: all other history
 ```
 
-## Non-obvious patterns
+### CACHE
+Cache:
+- parsed_task
+- constraints
+- validated_outputs
 
-- **Context is split.** `context.py` assembles `Context` from four `_context_*.py` mixin files. Edit the right mixin, not `context.py` directly.
-- **Middleware only wraps slash commands** — not events. `bot.use(fn)` has no effect on `@bot.on(...)` handlers.
-- **`on_load()` timing differs.** Plugins added before `bot.run()` have `on_load()` awaited in `setup_hook`. Plugins added after (bot already ready) get `on_load()` scheduled via `asyncio.create_task`.
-- **`auto_sync=True` by default** syncs ALL commands globally on startup. Global commands take ~1 h to appear in Discord. Use `guild_id=YOUR_SERVER_ID` on `@bot.slash` during development for instant registration.
-- **ServerConfigStore writes are atomic.** Write-to-temp + rename, protected by per-guild async locks. Don't write config JSON directly.
-- **`server_commands/` vs `easycord/plugins/`.** `server_commands/` = example bot-specific plugins (not part of the installable package). `easycord/plugins/` = bundled, reusable plugins shipped with the framework.
+Reuse:
+```
+if input == previous_input:
+  reuse previous_output
+```
 
-## Token discipline
+### DELTA PROCESSING
+```
+input_delta = new_input - previous_input
+process(input_delta)
+merge(previous_output)
+```
 
-- Check `model.md` for architecture before reading source files.
-- Check `docs/api.md` for signatures before reading implementation.
-- Read only the `_context_*.py` mixin you need, not all four.
-- Run `pytest` before claiming tests pass.
+### COLD START
+```
+if no context:
+  skip STRIP + CACHE
+```
+
+---
+
+## CONTEXT STRIPPING ENGINE
+
+### FREQUENCY
+- always on
+- rerun before output if over budget
+
+### REMOVE
+- filler, repetition, convo text, unused history, verbose phrasing
+
+### KEEP
+- task, constraints, required data
+
+### COMPACTION
+- sentences → key:value
+- remove stopwords
+- collapse lists
+- symbol replace
+- shorten identifiers (safe)
+
+---
+
+## TOKEN MINIMIZATION (ENFORCED)
+
+### RULES
+- structure > prose
+- no full sentences
+- reuse tokens
+- compress repetition
+
+### BUDGET GOVERNOR
+```
+MAX_TOKENS: <value>
+
+if output > MAX_TOKENS:
+  compress → retry
+  if still > limit:
+    degrade MODE (MODULE→TOKEN)
+```
+
+---
+
+## PRE-EXECUTION ESTIMATION
+
+```
+ESTIMATE:
+- tokens_in
+- tokens_out_pred
+- complexity_score
+
+if tokens_out_pred > budget:
+  force MODE=TOKEN or STRIP
+```
+
+---
+
+## TASK CLASSIFIER
+
+```
+type: [format | generate | refactor | analyze]
+size: [small | medium | large]
+noise: [low | high]
+```
+
+---
+
+## CORE MODES
+
+### TOKEN
+- ultra-compact
+- no explanation
+
+### MODULE
+- structured reusable output
+- schema required
+
+### STRIP
+- context reduction only
+
+---
+
+## MODE SELECTION
+
+```
+if noise == high → STRIP
+else if type == format → TOKEN
+else → MODULE
+```
+
+### MODE PIPELINING (CONTROLLED)
+
+Allowed:
+```
+STRIP → MODULE
+STRIP → TOKEN
+TOKEN → MODULE (compressed)
+```
+
+---
+
+## MODEL SELECTION (CLAUDE TIERS, LIGHTWEIGHT-FIRST)
+
+### TIERS (ABSTRACTED FOR CLAUDE)
+- SMALL → fastest Claude variant (low cost)
+- MEDIUM → balanced Claude variant
+- LARGE → highest-capability Claude variant
+
+### DEFAULT
+```
+start: SMALL
+```
+
+### ESCALATION
+```
+SMALL → MEDIUM → LARGE
+
+if output incomplete OR invalid:
+  escalate
+```
+
+### MODE DEFAULTS
+```
+TOKEN → SMALL
+STRIP → SMALL
+MODULE → MEDIUM
+```
+
+### COMPLEXITY
+```
+if type == refactor OR size == large → LARGE
+```
+
+### OVERRIDE
+```
+MODEL: SMALL | MEDIUM | LARGE
+```
+```
+MODEL: SMALL | MEDIUM | LARGE
+```
+
+---
+
+## ARCHITECTURE (MODULE MODE)
+
+```
+/core
+/services
+/adapters
+/ui
+```
+
+Rules:
+- core: no deps
+- services: core only
+- adapters: services + core
+- ui: no logic
+
+---
+
+## OUTPUT CONTRACTS
+
+### MODULE SCHEMA
+```
+{
+ module: string,
+ layer: enum(core|services|adapters|ui),
+ code: string
+}
+```
+
+Reject if invalid.
+
+---
+
+## VALIDATION
+
+Checks:
+- mode compliance
+- schema validity
+- token budget
+- architecture rules
+- determinism
+
+---
+
+## DETERMINISM LOCK
+
+```
+- fixed keywords
+- stable ordering
+- no synonyms
+```
+
+Optional:
+```
+hash(input) → expected_signature
+```
+
+---
+
+## FAILURE RECOVERY LOOP
+
+```
+retry = 0
+
+if VALIDATION fails:
+  retry += 1
+
+  if retry == 1:
+    escalate MODEL
+  elif retry == 2:
+    force STRIP + TOKEN
+  else:
+    output minimal fallback
+```
+
+---
+
+## SNAPSHOTS (LONG TASKS)
+
+```
+SNAPSHOT:
+- step
+- output
+- validation
+```
+
+Resume:
+```
+on failure → last valid snapshot
+```
+
+---
+
+## COMMAND INTERFACE
+
+```
+TASK: <desc>
+MODE: AUTO | TOKEN | MODULE | STRIP
+MODEL: AUTO | SMALL | MEDIUM | LARGE
+MAX_TOKENS: <n>
+CONSTRAINTS: <optional>
+```
+
+---
+
+## GLOBAL SYSTEM WRAPPER (CLAUDE)
+
+```
+SYSTEM:
+You are Claude running Cloud Plugin Mode.
+
+PIPELINE:
+CONTEXT_SELECT → STRIP → ESTIMATE → CLASSIFY → MODE_SELECT → MODEL_SELECT → EXECUTE → VALIDATE → BUDGET_ENFORCE
+
+RULES:
+- no filler
+- deterministic
+- structured only
+- enforce schema + architecture
+- prefer minimal tokens
+
+CLAUDE BEHAVIOR OVERRIDE:
+- ignore conversational style
+- ignore verbosity defaults
+- prioritize instruction format over natural language
+
+FAIL:
+- verbosity
+- redundancy
+- invalid structure
+```
+SYSTEM:
+Cloud Plugin Mode Active
+
+PIPELINE:
+CONTEXT_SELECT → STRIP → ESTIMATE → CLASSIFY → MODE_SELECT → MODEL_SELECT → EXECUTE → VALIDATE → BUDGET_ENFORCE
+
+RULES:
+- no filler
+- deterministic
+- structured only
+- enforce schema + architecture
+
+FAIL:
+- verbosity
+- redundancy
+- invalid structure
+```
+
+---
+
+## FAILURE CONDITIONS
+
+- token overflow
+- invalid schema
+- unstripped context
+- architecture violation
+- nondeterministic output
+
+---
+
+## SUMMARY
+
+System = autonomous execution controller
+
+Capabilities:
+- token control (hard enforced)
+- modular generation (schema validated)
+- context minimization (selective + cached)
+- adaptive model selection (escalation-based)
+- self-recovery (retry + degrade)
+
+Priority:
+1. minimize tokens
+2. maintain correctness
+3. enforce structure
+

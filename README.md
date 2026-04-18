@@ -199,8 +199,13 @@ async def my_command(ctx, member: discord.Member):
 
     # Interactive UI
     result = await ctx.ask_form("Feedback", subject=dict(label="Subject"), body=dict(label="Body", style="paragraph"))
+    text   = await ctx.prompt("What's your reason?", max_length=200)
     confirmed = await ctx.confirm("Are you sure?", timeout=30)
     choice = await ctx.choose("Pick one", ["Option A", "Option B", "Option C"])
+    action = await ctx.send_buttons("Action?", [
+        {"label": "Approve", "value": "approve", "style": "green"},
+        {"label": "Deny",    "value": "deny",    "style": "red"},
+    ])
     await ctx.paginate(["Page 1", "Page 2", "Page 3"])
 
     # Moderation
@@ -310,6 +315,7 @@ from easycord.middleware import (
     dm_only,           # block guild usage
     admin_only,        # require administrator permission
     allowed_roles,     # require one of a set of role IDs
+    block_roles,       # block members who hold any of a set of role IDs
     channel_only,      # restrict to specific channels
     boost_only,        # require server booster status
     has_permission,    # require specific discord permissions
@@ -319,6 +325,7 @@ bot.use(log_middleware())
 bot.use(catch_errors(message="Something broke"))
 bot.use(rate_limit(limit=5, window=10))
 bot.use(guild_only())
+bot.use(block_roles(MUTED_ROLE_ID))                      # block specific roles
 bot.use(boost_only())                                    # server boosters only
 bot.use(has_permission("kick_members", "ban_members"))   # require permissions
 ```
@@ -348,6 +355,27 @@ class FunPlugin(Plugin):
         await member.send("Welcome!")
 
 bot.add_plugin(FunPlugin())
+```
+
+### Built-in plugins
+
+Drop any of these in with `bot.add_plugin(...)`:
+
+| Plugin | Import | What it adds |
+| --- | --- | --- |
+| `LevelsPlugin` | `easycord.plugins.levels` | Per-guild XP, levels, named ranks, role rewards |
+| `WelcomePlugin` | `easycord.plugins.welcome` | Welcome/goodbye embeds, auto-role on join |
+| `PollsPlugin` | `easycord.plugins.polls` | Reaction-based polls |
+| `TagsPlugin` | `easycord.plugins.tags` | Per-guild custom text snippets (`/tag get/set/delete/list`) |
+| `TicketPlugin` | `easycord.plugins.tickets` | Private support-ticket channels (`/open_ticket`, `/close_ticket`, …) |
+
+```python
+from easycord.plugins.tickets import TicketPlugin
+
+bot.add_plugin(TicketPlugin())
+# Registers: /open_ticket, /close_ticket, /add_to_ticket,
+#            /remove_from_ticket, /set_ticket_category,
+#            /set_support_role, /ticket_config
 ```
 
 ### Unloading plugins at runtime
@@ -514,6 +542,7 @@ pyproject.toml
 | `.catch_errors(message)` | Add error-handler middleware |
 | `.rate_limit(limit, window)` | Add per-user rate-limit middleware |
 | `.guild_only()` | Add guild-only guard middleware |
+| `.block_roles(*role_ids)` | Add blocked-roles guard middleware |
 | `.use(middleware)` | Add a custom middleware function |
 | `.add_plugin(plugin)` | Queue a plugin to be loaded |
 | `.build()` | Return the fully configured `Bot` |
@@ -535,6 +564,8 @@ pyproject.toml
 | `await ctx.ask_form(title, **fields)` | Show a modal form; returns `dict` or `None` |
 | `await ctx.confirm(prompt, ...)` | Yes/No buttons; returns `True`, `False`, or `None` |
 | `await ctx.choose(prompt, options, ...)` | Select-menu; returns chosen string or `None` |
+| `await ctx.send_buttons(prompt, buttons, ...)` | Button row; returns clicked value or `None` on timeout |
+| `await ctx.prompt(label, ...)` | Single-field modal; returns submitted text or `None` |
 | `await ctx.paginate(pages, ...)` | Multi-page Prev/Next browsing |
 | `await ctx.kick(member, *, reason)` | Kick a member |
 | `await ctx.ban(member, *, reason, delete_message_days)` | Ban a member |
