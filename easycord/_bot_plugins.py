@@ -39,6 +39,20 @@ class _PluginsMixin:
                     choices=getattr(method, "_slash_choices", None),
                     parent=parent,
                 )
+                for alias in getattr(method, "_slash_aliases", []):
+                    self._register_slash(
+                        method,
+                        name=alias,
+                        description=method._slash_desc,
+                        guild_id=method._slash_guild,
+                        guild_only=getattr(method, "_slash_guild_only", False),
+                        ephemeral=getattr(method, "_slash_ephemeral", False),
+                        permissions=getattr(method, "_slash_permissions", None),
+                        cooldown=getattr(method, "_slash_cooldown", None),
+                        autocomplete=getattr(method, "_slash_autocomplete", None),
+                        choices=getattr(method, "_slash_choices", None),
+                        parent=parent,
+                    )
             if getattr(method, "_is_event", False):
                 self._event_handlers.setdefault(
                     method._event_name, []
@@ -86,13 +100,14 @@ class _PluginsMixin:
                     if method._slash_guild
                     else None
                 )
-                try:
-                    self.tree.remove_command(method._slash_name, guild=guild)
-                except Exception:  # noqa: BLE001
-                    logger.debug(
-                        "Could not remove command %r during unload",
-                        method._slash_name,
-                    )
+                for cmd_name in [method._slash_name] + list(getattr(method, "_slash_aliases", [])):
+                    try:
+                        self.tree.remove_command(cmd_name, guild=guild)
+                    except Exception:  # noqa: BLE001
+                        logger.debug(
+                            "Could not remove command %r during unload",
+                            cmd_name,
+                        )
             if getattr(method, "_is_event", False):
                 try:
                     self._event_handlers[method._event_name].remove(method)

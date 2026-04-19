@@ -30,6 +30,7 @@ class _CommandsMixin:
         cooldown: float | None = None,
         autocomplete: dict[str, Callable] | None = None,
         choices: dict[str, list] | None = None,
+        aliases: list[str] | None = None,
     ) -> Callable:
         """Decorator that registers a top-level slash command.
 
@@ -57,9 +58,10 @@ class _CommandsMixin:
         """
 
         def decorator(func: Callable) -> Callable:
+            primary = name or func.__name__
             self._register_slash(
                 func,
-                name=name or func.__name__,
+                name=primary,
                 description=description,
                 guild_id=guild_id,
                 guild_only=guild_only,
@@ -69,6 +71,19 @@ class _CommandsMixin:
                 autocomplete=autocomplete,
                 choices=choices,
             )
+            for alias in (aliases or []):
+                self._register_slash(
+                    func,
+                    name=alias,
+                    description=description,
+                    guild_id=guild_id,
+                    guild_only=guild_only,
+                    ephemeral=ephemeral,
+                    permissions=permissions,
+                    cooldown=cooldown,
+                    autocomplete=autocomplete,
+                    choices=choices,
+                )
             return func
 
         return decorator

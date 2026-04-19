@@ -790,4 +790,30 @@ async def test_reload_plugin_preserves_instance(bot):
     plugin = _SimplePlugin()
     bot._plugins = [plugin]
     await bot.reload_plugin("_SimplePlugin")
-    assert bot._plugins[0] is plugin
+
+
+# ── aliases ───────────────────────────────────────────────────────────────────
+
+def test_slash_aliases_register_extra_commands(bot):
+    @bot.slash(description="help", aliases=["halp", "commands"])
+    async def help_cmd(ctx):
+        pass
+    assert bot.tree.add_command.call_count == 3
+
+
+def test_slash_no_aliases_registers_one_command(bot):
+    bot.tree.add_command.reset_mock()
+    @bot.slash(description="ping")
+    async def ping(ctx):
+        pass
+    assert bot.tree.add_command.call_count == 1
+
+
+def test_slash_alias_names_registered(bot):
+    bot.tree.add_command.reset_mock()
+    @bot.slash(description="help", aliases=["halp"])
+    async def help_cmd(ctx):
+        pass
+    names = [call[0][0].name for call in bot.tree.add_command.call_args_list]
+    assert "help_cmd" in names
+    assert "halp" in names

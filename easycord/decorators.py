@@ -15,6 +15,7 @@ def slash(
     cooldown: float | None = None,
     autocomplete: dict[str, Callable] | None = None,
     choices: dict[str, list] | None = None,
+    aliases: list[str] | None = None,
 ) -> Callable:
     """Mark a Plugin method as a slash command.
 
@@ -60,6 +61,7 @@ def slash(
         func._slash_cooldown = cooldown
         func._slash_autocomplete = autocomplete or {}
         func._slash_choices = choices or {}
+        func._slash_aliases = aliases or []
         return func
 
     return decorator
