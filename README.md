@@ -1,22 +1,100 @@
 # EasyCord
 
-## 🚀 EasyCord v3.0.0 Released
+![PyPI](https://img.shields.io/pypi/v/easycord)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-EasyCord now includes:
-- Modal support (`@modal`)
-- Plugin UI namespacing
-- Central InteractionRegistry
-- Full interaction support in plugins
-
-👉 See the release notes for details.
+> A modern, plugin-first Discord interaction framework with full support for components, context menus, and modals.
 
 ---
 
-EasyCord is a modern wrapper framework built on top of discord.py 2.x (not affiliated with other projects using the same name).
+## 🚀 EasyCord v3.0.0
 
-A developer-friendly Python framework for building Discord bots, built on top of [discord.py 2.x](https://discordpy.readthedocs.io/).
+EasyCord now includes a **fully unified interaction system**:
 
-EasyCord keeps the full power of discord.py within reach while removing the boilerplate — decorators handle slash commands and events, a middleware chain wraps every command, and plugins let you organise code into clean, reusable modules.
+- 🧩 Components (buttons, selects)
+- 📜 Context Menus (user & message)
+- 🧠 Modals (`@modal`)
+- 🏷️ Automatic Plugin Namespacing
+- 🗂️ Central Interaction Registry
+
+👉 Build complex, collision-free Discord UIs with clean plugin architecture.
+
+---
+
+## ⚡ Quick Start
+
+```python
+from easycord import Bot
+
+bot = Bot()
+
+@bot.slash("ping")
+async def ping(ctx):
+    await ctx.respond("Pong!")
+
+bot.run("YOUR_TOKEN")
+```
+
+### Install:
+
+```bash
+pip install easycord
+```
+
+### 🧩 Example Plugin
+```python
+from easycord import Plugin, component, modal
+
+class FeedbackPlugin(Plugin):
+
+    @component("open_feedback")
+    async def open_feedback(self, interaction):
+        await interaction.open_modal("feedback_form")
+
+    @modal("feedback_form")
+    async def handle_feedback(self, interaction, data):
+        await interaction.respond("Feedback received!")
+```
+
+### 🏷️ Namespacing
+
+Plugins automatically prevent collisions:
+
+```text
+feedbackplugin:open_feedback
+```
+
+Override if needed:
+
+```python
+@component("global_btn", scoped=False)
+```
+
+### 📚 Documentation
+- [Components](#persistent-components)
+- [Modals](#modals--context-menus)
+- [Context Menus](#context-menus)
+- [Plugin System](#plugins)
+- [Namespacing](#plugin-ui-namespacing)
+
+---
+
+## 🚀 What's New in v3.0.0
+- Added `@modal` support
+- Introduced `InteractionRegistry`
+- Automatic plugin namespacing
+- Full plugin interaction support
+
+---
+
+## 🤝 Contributing
+
+Pull requests are welcome! For major changes, please open an issue first.
+
+## 📄 License
+
+MIT
 
 ---
 
@@ -26,6 +104,8 @@ EasyCord keeps the full power of discord.py within reach while removing the boil
 - [Quick Start](#quick-start)
 - [Slash Commands](#slash-commands)
 - [Persistent Components](#persistent-components)
+- [Modals & Context Menus](#modals--context-menus)
+- [Plugin UI Namespacing](#plugin-ui-namespacing)
 - [Event Handling](#event-handling)
 - [Middleware](#middleware)
 - [Plugins](#plugins)
