@@ -760,3 +760,34 @@ async def test_on_error_called_on_command_exception(bot):
     mock_interaction.client = MagicMock()
     await cmd_obj.callback(mock_interaction)
     assert errors_seen == [boom]
+
+
+# ── reload_plugin ─────────────────────────────────────────────────────────────
+
+async def test_reload_plugin_calls_on_unload_then_on_load(bot):
+    order = []
+
+    class _OrderedPlugin(Plugin):
+        async def on_unload(self): order.append("unload")
+        async def on_load(self): order.append("load")
+
+    plugin = _OrderedPlugin()
+    bot._plugins = [plugin]
+    await bot.reload_plugin("_OrderedPlugin")
+    assert order == ["unload", "load"]
+
+
+async def test_reload_plugin_unknown_raises(bot):
+    with pytest.raises(ValueError, match="No plugin named"):
+        await bot.reload_plugin("DoesNotExist")
+
+
+async def test_reload_plugin_preserves_instance(bot):
+    class _SimplePlugin(Plugin):
+        async def on_load(self): pass
+        async def on_unload(self): pass
+
+    plugin = _SimplePlugin()
+    bot._plugins = [plugin]
+    await bot.reload_plugin("_SimplePlugin")
+    assert bot._plugins[0] is plugin

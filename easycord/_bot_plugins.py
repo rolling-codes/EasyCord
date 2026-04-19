@@ -106,6 +106,19 @@ class _PluginsMixin:
                 pass
         await plugin.on_unload()
 
+    async def reload_plugin(self, name: str) -> None:
+        """Reload a plugin by class name — calls ``on_unload`` then ``on_load`` in-place.
+
+        The same instance is kept, so constructor arguments and in-memory state
+        are preserved. Raises ``ValueError`` if no loaded plugin has that class name.
+        """
+        for plugin in self._plugins:
+            if type(plugin).__name__ == name:
+                await plugin.on_unload()
+                await plugin.on_load()
+                return
+        raise ValueError(f"No plugin named {name!r} is loaded")
+
     # ── Background tasks ──────────────────────────────────────
 
     def _start_plugin_tasks(self, plugin: Plugin) -> None:
