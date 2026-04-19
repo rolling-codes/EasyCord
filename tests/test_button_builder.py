@@ -1,6 +1,5 @@
 """Tests for easycord.builders.button — ButtonRowBuilder."""
 import discord
-import pytest
 
 from easycord.builders.button import ButtonRowBuilder
 

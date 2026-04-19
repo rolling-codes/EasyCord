@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.8] — 2026-04-18
+
+Fluent UI builders, plugin hot-reload, and command aliases.
+
+### New: UI Builders
+
+Four fluent builders in `easycord.builders` — all exported from `easycord` directly:
+
+- **`EmbedBuilder`** — chain `.title()`, `.description()`, `.field()`, `.footer()`, `.color()`, call `.build()` for a `discord.Embed`
+- **`ButtonRowBuilder`** — chain `.button()` calls, `.build()` returns a `discord.ui.View`; handlers wired via `@bot.component`
+- **`SelectMenuBuilder`** — chain `.option()` calls, `.build(custom_id)` returns a `discord.ui.View`
+- **`ModalBuilder`** — chain `.field()` calls, `await .send(ctx)` delegates to `ctx.ask_form()`
+
+### New: `bot.reload_plugin(name)`
+
+Reload a loaded plugin in-place — calls `on_unload()` then `on_load()` without re-instantiating:
+
+```python
+await bot.reload_plugin("TagsPlugin")
+```
+
+### New: `@slash(aliases=[...])`
+
+Register extra command names that trigger the same handler:
+
+```python
+@bot.slash(description="Show help", aliases=["help2", "commands"])
+async def help(ctx): ...
+```
+
+Works on both `@bot.slash` and the `@slash` decorator for Plugin methods. Plugin `remove_plugin` also cleans up alias registrations from the command tree.
+
+---
+
 ## [2.7] — 2026-04-17
 
 New plugin, a modal shortcut, a global error handler, and expanded embed support.

@@ -19,6 +19,7 @@
 | `cooldown` | `float` | Per-user cooldown in seconds |
 | `autocomplete` | `dict[str, async (str) -> list[str]]` | Live suggestions per parameter |
 | `choices` | `dict[str, list]` | Fixed dropdown values per parameter |
+| `aliases` | `list[str] \| None` | Extra command names that trigger the same handler |
 
 ### Context menus
 
@@ -37,6 +38,8 @@
 `Bot.add_plugin(plugin)` — load plugin; raises `TypeError` / `ValueError` on bad input or duplicate
 
 `await Bot.remove_plugin(plugin)` — unload plugin; removes commands, deregisters handlers, calls `on_unload()`
+
+`await Bot.reload_plugin(name: str)` — reload a plugin in-place by class name; calls `on_unload()` then `on_load()` on the same instance; constructor arguments and in-memory state preserved; raises `ValueError` if no loaded plugin has that class name
 
 ### Guild / Channel / Webhook / Emoji
 
@@ -144,6 +147,60 @@ Middleware runs on component interactions exactly as it does for slash commands.
 
 `await ctx.remove_role(member, role_id, *, reason=None)`
 
+---
+
+## Builders (`easycord.builders`)
+
+Fluent wrappers that produce discord.py UI objects. Import from `easycord` directly:
+
+```python
+from easycord import EmbedBuilder, ButtonRowBuilder, SelectMenuBuilder, ModalBuilder
+```
+
+### `EmbedBuilder`
+
+| Method | Description |
+|---|---|
+| `.title(text)` | Set the embed title (required) |
+| `.description(text)` | Set the description |
+| `.field(name, value, inline=True)` | Add a field (repeatable) |
+| `.footer(text)` | Set the footer |
+| `.color(color)` | Set the embed colour (default `discord.Color.blue()`) |
+| `.build()` | Return the `discord.Embed` |
+
+Raises `ValueError` if `.title()` was not called before `.build()`.
+
+### `ButtonRowBuilder`
+
+| Method | Description |
+|---|---|
+| `.button(label, custom_id=None, style="primary", url=None)` | Add a button (repeatable) |
+| `.build()` | Return a `discord.ui.View` |
+
+Valid `style` values: `"primary"`, `"secondary"`, `"success"`, `"danger"`, `"link"`.
+For link buttons use `style="link"` and `url="https://..."` instead of `custom_id`.
+Non-link buttons handled by `@bot.component(custom_id)`.
+
+### `SelectMenuBuilder`
+
+| Method | Description |
+|---|---|
+| `.placeholder(text)` | Set the placeholder text |
+| `.option(label, value)` | Add an option (repeatable) |
+| `.build(custom_id)` | Return a `discord.ui.View` |
+
+Raises `ValueError` if no options were added. Handler wired via `@bot.component(custom_id)`.
+
+### `ModalBuilder`
+
+| Method | Description |
+|---|---|
+| `.title(text)` | Set the modal title (required) |
+| `.field(key, label, *, placeholder=None, required=True)` | Add a text field (repeatable) |
+| `await .send(ctx)` | Show the modal; returns `dict[str, str]` or `None` on timeout |
+
+Raises `ValueError` if `.title()` was not called before `.send()`.
+
 `await ctx.create_role(name, *, color=default, hoist=False, mentionable=False, reason=None)` → `discord.Role`
 
 `await ctx.delete_role(role_id, *, reason=None)`
@@ -192,7 +249,7 @@ Middleware runs on component interactions exactly as it does for slash commands.
 
 ## Plugin decorators (`easycord.decorators`)
 
-`@slash(name=None, *, description, guild_id=None, guild_only=False, ephemeral=False, permissions=None, cooldown=None, autocomplete=None, choices=None)` — same parameters as `Bot.slash`
+`@slash(name=None, *, description, guild_id=None, guild_only=False, ephemeral=False, permissions=None, cooldown=None, autocomplete=None, choices=None, aliases=None)` — same parameters as `Bot.slash`
 
 `@on(event)` — mark method as event handler
 

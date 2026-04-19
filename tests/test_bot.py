@@ -790,6 +790,7 @@ async def test_reload_plugin_preserves_instance(bot):
     plugin = _SimplePlugin()
     bot._plugins = [plugin]
     await bot.reload_plugin("_SimplePlugin")
+    assert bot._plugins[0] is plugin
 
 
 # ── aliases ───────────────────────────────────────────────────────────────────
