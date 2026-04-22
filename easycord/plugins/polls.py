@@ -6,6 +6,14 @@ import discord
 from easycord import Plugin, slash
 
 
+def _poll_options(*options: str) -> list[str]:
+    return [option for option in options if option.strip()]
+
+
+def _is_valid_duration(duration: int) -> bool:
+    return duration >= 5
+
+
 class _PollView(discord.ui.View):
     """A live poll with one vote per user. Closes after *duration* seconds."""
 
@@ -15,14 +23,20 @@ class _PollView(discord.ui.View):
         self.options = options
         self.votes: dict[int, int] = {}  # user_id → option index
 
-        for i, option in enumerate(options):
-            btn = discord.ui.Button(
-                label=option,
-                style=discord.ButtonStyle.primary,
-                custom_id=f"poll_opt_{i}",
-            )
-            btn.callback = self._make_callback(i)
-            self.add_item(btn)
+        self._register_buttons()
+
+    def _register_buttons(self) -> None:
+        for option_index, option in enumerate(self.options):
+            self.add_item(self._make_button(option, option_index))
+
+    def _make_button(self, label: str, option_index: int) -> discord.ui.Button:
+        button = discord.ui.Button(
+            label=label,
+            style=discord.ButtonStyle.primary,
+            custom_id=f"poll_opt_{option_index}",
+        )
+        button.callback = self._make_callback(option_index)
+        return button
 
     def _make_callback(self, option_index: int):
         async def callback(interaction: discord.Interaction) -> None:
@@ -39,15 +53,19 @@ class _PollView(discord.ui.View):
     def _bar(self, filled: int) -> str:
         return "█" * filled + "░" * (10 - filled)
 
+    def _format_option_line(self, option: str, count: int, total: int) -> str:
+        pct = count / total
+        bar = self._bar(round(pct * 10))
+        votes_str = f"{count} vote{'s' if count != 1 else ''} ({pct:.0%})"
+        return f"**{option}**\n`{bar}` {votes_str}"
+
     def build_embed(self, *, closed: bool = False) -> discord.Embed:
         counts = self._tally()
         total = sum(counts) or 1
-        lines = []
-        for opt, count in zip(self.options, counts):
-            pct = count / total
-            bar = self._bar(round(pct * 10))
-            votes_str = f"{count} vote{'s' if count != 1 else ''} ({pct:.0%})"
-            lines.append(f"**{opt}**\n`{bar}` {votes_str}")
+        lines = [
+            self._format_option_line(option, count, total)
+            for option, count in zip(self.options, counts)
+        ]
 
         color = discord.Color.greyple() if closed else discord.Color.blurple()
         footer = "📊 Poll closed" if closed else f"⏱️ Closes in {self.timeout:.0f}s"
@@ -95,11 +113,11 @@ class PollsPlugin(Plugin):
         option5: str = "",
         duration: int = 60,
     ) -> None:
-        options = [o for o in [option1, option2, option3, option4, option5] if o.strip()]
+        options = _poll_options(option1, option2, option3, option4, option5)
         if len(options) < 2:
             await ctx.respond("A poll needs at least 2 options.", ephemeral=True)
             return
-        if duration < 5:
+        if not _is_valid_duration(duration):
             await ctx.respond("Duration must be at least 5 seconds.", ephemeral=True)
             return
 

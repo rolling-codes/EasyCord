@@ -10,23 +10,21 @@ Run:
     DISCORD_TOKEN=<token> python examples/plugin_bot.py
 """
 
-import os
-
 from easycord import Bot
-from easycord.middleware import catch_errors, log_middleware, rate_limit
-from server_commands import FunPlugin, InfoPlugin, ModerationPlugin
+from server_commands import load_default_plugins
 
-bot = Bot()
+from _runtime import run_bot
 
-bot.use(log_middleware())
-bot.use(catch_errors())
-bot.use(rate_limit(limit=5, window=10))
 
-bot.add_plugin(FunPlugin())
-bot.add_plugin(ModerationPlugin())
-bot.add_plugin(InfoPlugin())
+def build_bot() -> Bot:
+    bot = Bot()
+    load_default_plugins(bot)
+    return bot
+
+
+def main() -> None:
+    run_bot(build_bot())
+
 
 if __name__ == "__main__":
-    if not (token := os.environ.get("DISCORD_TOKEN")):
-        raise RuntimeError("Set the DISCORD_TOKEN environment variable.")
-    bot.run(token)
+    main()

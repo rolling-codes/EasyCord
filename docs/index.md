@@ -11,6 +11,7 @@ The documentation is organized around one beginner-friendly path: install the pa
 3. [`examples.md`](examples.md) — copy smaller patterns into your own bot.
 4. [`fork-and-expand.md`](fork-and-expand.md) — turn a starter bot into a real project structure.
 5. [`api.md`](api.md) — reference signatures when you already know what you want to build.
+6. [`release-notes.md`](release-notes.md) — summary of the latest refactor and feature update.
 
 ## What EasyCord removes
 

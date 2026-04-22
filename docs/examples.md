@@ -1,17 +1,17 @@
 # Examples and patterns
 
-This project includes example scripts (`examples/basic_bot.py`, `examples/plugin_bot.py`) demonstrating typical usage.
+These snippets are designed to be copied into a first bot project.
 
-## Inline middleware for timing
+## Smallest starter bot
 
 ```python
-@bot.use
-async def timing_middleware(ctx, next):
-    import time
-    start = time.monotonic()
-    await next()
-    elapsed = (time.monotonic() - start) * 1000
-    print(f"/{ctx.command_name} finished in {elapsed:.1f}ms")
+from easycord import Bot
+
+bot = Bot()
+
+@bot.slash(description="Ping the bot.")
+async def ping(ctx):
+    await ctx.respond("Pong!")
 ```
 
 ## Command validation with ephemeral errors
@@ -43,6 +43,22 @@ class MyPlugin(Plugin):
         await member.send("Welcome!")
 
 bot.add_plugin(MyPlugin())
+```
+
+For the bundled example plugins, `server_commands/__init__.py` keeps the default plugin list in one place and exposes `load_default_plugins(bot)` so bot startup stays simple.
+
+## Grouped commands
+
+```python
+from easycord import Composer, SlashGroup, slash
+
+class ModerationGroup(SlashGroup, name="mod", description="Moderation commands"):
+    @slash(description="Kick a member")
+    async def kick(self, ctx, member):
+        await member.kick()
+        await ctx.respond(f"Kicked {member.display_name}.")
+
+bot = Composer().add_groups(ModerationGroup()).build()
 ```
 
 ## Using `respond()` vs follow-ups

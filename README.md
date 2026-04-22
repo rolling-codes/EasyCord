@@ -17,7 +17,7 @@ from easycord import Bot
 
 bot = Bot()
 
-@bot.slash(description="Ping the bot")
+@bot.slash()
 async def ping(ctx):
     await ctx.respond("Pong!")
 
@@ -74,9 +74,11 @@ my_bot/
 
 - [`examples/basic_bot.py`](examples/basic_bot.py): the smallest practical starter bot
 - [`examples/plugin_bot.py`](examples/plugin_bot.py): a feature split across plugins
+- [`examples/group_bot.py`](examples/group_bot.py): grouped slash commands with `SlashGroup`
 - [`docs/index.md`](docs/index.md): documentation home
 - [`docs/examples.md`](docs/examples.md): patterns and snippets
 - [`docs/fork-and-expand.md`](docs/fork-and-expand.md): how to grow a real bot project
+- [`server_commands/__init__.py`](server_commands/__init__.py): one place to load the bundled plugins
 
 ## Project backstory
 

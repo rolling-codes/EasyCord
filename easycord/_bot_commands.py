@@ -34,6 +34,9 @@ class _CommandsMixin:
         autocomplete: dict[str, Callable] | None = None,
         choices: dict[str, list] | None = None,
         aliases: list[str] | None = None,
+        nsfw: bool = False,
+        allowed_contexts: discord.AppCommandContext | None = None,
+        allowed_installs: discord.AppInstallationType | None = None,
     ) -> Callable:
         """Decorator that registers a top-level slash command.
 
@@ -73,6 +76,9 @@ class _CommandsMixin:
                 cooldown=cooldown,
                 autocomplete=autocomplete,
                 choices=choices,
+                nsfw=nsfw,
+                allowed_contexts=allowed_contexts,
+                allowed_installs=allowed_installs,
             )
             for alias in (aliases or []):
                 self._register_slash(
@@ -86,6 +92,9 @@ class _CommandsMixin:
                     cooldown=cooldown,
                     autocomplete=autocomplete,
                     choices=choices,
+                    nsfw=nsfw,
+                    allowed_contexts=allowed_contexts,
+                    allowed_installs=allowed_installs,
                 )
             return func
 
@@ -99,6 +108,9 @@ class _CommandsMixin:
         ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
+        nsfw: bool = False,
+        allowed_contexts: discord.AppCommandContext | None = None,
+        allowed_installs: discord.AppInstallationType | None = None,
     ) -> Callable:
         """Build a discord.py-compatible callback with guild, permission, and cooldown guards."""
         sig = inspect.signature(func)
@@ -186,6 +198,9 @@ class _CommandsMixin:
         cooldown: float | None = None,
         autocomplete: dict[str, Callable] | None = None,
         choices: dict[str, list] | None = None,
+        nsfw: bool = False,
+        allowed_contexts: discord.AppCommandContext | None = None,
+        allowed_installs: discord.AppInstallationType | None = None,
         parent: app_commands.Group | None = None,
     ) -> None:
         """Register a callable as a slash command.
@@ -204,7 +219,12 @@ class _CommandsMixin:
         if choices:
             self._inject_choices(callback, choices)
         cmd = app_commands.Command(
-            name=name, description=description, callback=callback
+            name=name,
+            description=description,
+            callback=callback,
+            nsfw=nsfw,
+            allowed_contexts=allowed_contexts,
+            allowed_installs=allowed_installs,
         )
         for param_name, handler in (autocomplete or {}).items():
             async def _ac(
@@ -246,6 +266,11 @@ class _CommandsMixin:
         discord_group = app_commands.Group(
             name=group._group_name,
             description=group._group_description,
+            guild_only=group._group_guild_only,
+            allowed_contexts=group._group_allowed_contexts,
+            allowed_installs=group._group_allowed_installs,
+            nsfw=group._group_nsfw,
+            default_permissions=group._group_default_permissions,
         )
         self._scan_methods(group, parent=discord_group)
 
@@ -256,6 +281,11 @@ class _CommandsMixin:
             asyncio.create_task(group.on_load())
             self._start_plugin_tasks(group)
 
+    def add_groups(self, *groups: "SlashGroup") -> None:  # type: ignore[name-defined]
+        """Register several SlashGroup namespaces in one call."""
+        for group in groups:
+            self.add_group(group)
+
     # ── Context menus ─────────────────────────────────────────
 
     def user_command(
@@ -263,6 +293,9 @@ class _CommandsMixin:
         name: str | None = None,
         *,
         guild_id: int | None = None,
+        nsfw: bool = False,
+        allowed_contexts: discord.AppCommandContext | None = None,
+        allowed_installs: discord.AppInstallationType | None = None,
     ) -> Callable:
         """Decorator that registers a right-click User context menu command.
 
@@ -275,6 +308,9 @@ class _CommandsMixin:
                 name=name or func.__name__,
                 menu_type=discord.AppCommandType.user,
                 guild_id=guild_id,
+                nsfw=nsfw,
+                allowed_contexts=allowed_contexts,
+                allowed_installs=allowed_installs,
             )
             return func
         return decorator
@@ -284,6 +320,9 @@ class _CommandsMixin:
         name: str | None = None,
         *,
         guild_id: int | None = None,
+        nsfw: bool = False,
+        allowed_contexts: discord.AppCommandContext | None = None,
+        allowed_installs: discord.AppInstallationType | None = None,
     ) -> Callable:
         """Decorator that registers a right-click Message context menu command.
 
@@ -296,6 +335,9 @@ class _CommandsMixin:
                 name=name or func.__name__,
                 menu_type=discord.AppCommandType.message,
                 guild_id=guild_id,
+                nsfw=nsfw,
+                allowed_contexts=allowed_contexts,
+                allowed_installs=allowed_installs,
             )
             return func
         return decorator
@@ -307,6 +349,9 @@ class _CommandsMixin:
         name: str,
         menu_type: discord.AppCommandType,
         guild_id: int | None,
+        nsfw: bool = False,
+        allowed_contexts: discord.AppCommandContext | None = None,
+        allowed_installs: discord.AppInstallationType | None = None,
     ) -> None:
         """Build and register an app_commands.ContextMenu from a user-provided handler."""
         guild = discord.Object(id=guild_id) if guild_id else None
@@ -339,7 +384,14 @@ class _CommandsMixin:
         callback.__signature__ = inspect.Signature(
             parameters=[interaction_param, target_param]
         )
-        menu = app_commands.ContextMenu(name=name, callback=callback)
+        menu = app_commands.ContextMenu(
+            name=name,
+            callback=callback,
+            type=menu_type,
+            nsfw=nsfw,
+            allowed_contexts=allowed_contexts,
+            allowed_installs=allowed_installs,
+        )
         self.tree.add_command(menu, guild=guild)
         logger.debug("Registered context menu %r (type=%s)", name, menu_type.name)
 

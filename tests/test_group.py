@@ -100,3 +100,26 @@ def test_slash_group_guild_scoped(bot):
     _, kwargs = bot.tree.add_command.call_args
     assert kwargs.get("guild") is not None
     assert kwargs["guild"].id == 99999
+
+
+def test_slash_group_nsfw_and_guild_only_forwarded(bot):
+    class G(SlashGroup, name="g", description="g", guild_only=True, nsfw=True):
+        @slash(description="x")
+        async def x(self, ctx):
+            pass
+
+    bot.add_group(G())
+    group_arg = bot.tree.add_command.call_args[0][0]
+    assert getattr(group_arg, "nsfw", False) is True
+    assert getattr(group_arg, "guild_only", False) is True
+
+
+def test_add_groups_registers_multiple_groups(bot):
+    class A(SlashGroup, name="a", description="A"):
+        pass
+
+    class B(SlashGroup, name="b", description="B"):
+        pass
+
+    bot.add_groups(A(), B())
+    assert bot.tree.add_command.call_count == 2

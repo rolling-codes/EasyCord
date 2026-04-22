@@ -128,9 +128,19 @@ class Composer:
         self._plugins.append(plugin)
         return self
 
+    def add_plugins(self, *plugins: Plugin) -> Composer:
+        """Queue several plugins to be added to the bot."""
+        self._plugins.extend(plugins)
+        return self
+
     def add_group(self, group) -> Composer:
         """Queue a SlashGroup to be added to the bot."""
         self._groups.append(group)
+        return self
+
+    def add_groups(self, *groups) -> Composer:
+        """Queue several SlashGroup namespaces to be added to the bot."""
+        self._groups.extend(groups)
         return self
 
     # ── Build ─────────────────────────────────────────────────

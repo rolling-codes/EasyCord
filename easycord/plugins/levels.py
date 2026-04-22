@@ -16,6 +16,10 @@ from ._levels_data import (
 )
 
 
+def _positive_level(level: int) -> bool:
+    return level >= 1
+
+
 class LevelsPlugin(Plugin):
     """Per-guild XP, leveling, and customisable named ranks.
 
@@ -75,6 +79,78 @@ class LevelsPlugin(Plugin):
         """Return a read-only XP/level snapshot for a user."""
         return self._store.get_entry(guild_id, user_id)
 
+    def _build_rank_embed(self, ctx, entry: dict, config: dict) -> discord.Embed:
+        level = entry["level"]
+        xp = entry["xp"]
+        next_xp = xp_for_level(level + 1)
+        current_floor = xp_for_level(level)
+        embed = discord.Embed(
+            title=f"{ctx.user.display_name}'s Rank",
+            color=discord.Color.blue(),
+        )
+        embed.add_field(name="Level", value=str(level), inline=True)
+        embed.add_field(name="XP", value=f"{xp:,}", inline=True)
+        rank_name = rank_for_level(config, level)
+        if rank_name:
+            embed.add_field(name="Rank", value=rank_name, inline=True)
+        bar = progress_bar(xp, level)
+        embed.add_field(
+            name=f"Progress to Level {level + 1}",
+            value=f"`{bar}` {xp - current_floor:,} / {next_xp - current_floor:,} XP",
+            inline=False,
+        )
+        return embed
+
+    def _build_leaderboard_embed(self, ctx, data: dict, config: dict) -> discord.Embed:
+        top = sorted(data.items(), key=lambda kv: kv[1]["xp"], reverse=True)[:10]
+        medals = ["🥇", "🥈", "🥉"]
+        lines = []
+        for i, (uid, entry) in enumerate(top):
+            prefix = medals[i] if i < 3 else f"`{i + 1}.`"
+            member = ctx.guild.get_member(int(uid))
+            name = member.display_name if member else f"User {uid}"
+            rank_name = rank_for_level(config, entry["level"])
+            rank_text = f" · *{rank_name}*" if rank_name else ""
+            lines.append(
+                f"{prefix} **{name}** — Level {entry['level']}{rank_text} ({entry['xp']:,} XP)"
+            )
+        return discord.Embed(
+            title=f"🏆 {ctx.guild.name} Leaderboard",
+            description="\n".join(lines),
+            color=discord.Color.gold(),
+        )
+
+    def _build_ranks_embed(self, ctx, config: dict) -> discord.Embed:
+        rank_map: dict[str, str] = config.get("ranks", {})
+        role_map: dict[str, int] = config.get("role_rewards", {})
+        all_levels = sorted(set(rank_map) | set(role_map), key=int)
+        lines = []
+        for lvl_str in all_levels:
+            parts = [f"**Level {lvl_str}**"]
+            if lvl_str in rank_map:
+                parts.append(f"*{rank_map[lvl_str]}*")
+            if lvl_str in role_map:
+                role = ctx.guild.get_role(role_map[lvl_str])
+                parts.append(role.mention if role else f"Role {role_map[lvl_str]}")
+            lines.append(" — ".join(parts))
+        return discord.Embed(
+            title=f"📊 {ctx.guild.name} Ranks",
+            description="\n".join(lines),
+            color=discord.Color.blurple(),
+        )
+
+    async def _set_config_value(self, guild_id: int, section: str, key: int, value) -> None:
+        def updater(config: dict) -> None:
+            config.setdefault(section, {})[str(key)] = value
+
+        await self._store.update_config(guild_id, updater)
+
+    async def _remove_config_value(self, guild_id: int, section: str, key: int):
+        def updater(config: dict):
+            return config.get(section, {}).pop(str(key), None)
+
+        return await self._store.update_config(guild_id, updater)
+
     # ── Event: award XP on message ────────────────────────────
 
     @on("message")
@@ -126,28 +202,7 @@ class LevelsPlugin(Plugin):
     async def rank(self, ctx) -> None:
         entry = self._store.get_entry(ctx.guild.id, ctx.user.id)
         config = self._store.read_config(ctx.guild.id)
-        level = entry["level"]
-        xp = entry["xp"]
-        next_xp = xp_for_level(level + 1)
-        current_floor = xp_for_level(level)
-
-        embed = discord.Embed(
-            title=f"{ctx.user.display_name}'s Rank",
-            color=discord.Color.blue(),
-        )
-        embed.add_field(name="Level", value=str(level), inline=True)
-        embed.add_field(name="XP", value=f"{xp:,}", inline=True)
-        rank_name = rank_for_level(config, level)
-        if rank_name:
-            embed.add_field(name="Rank", value=rank_name, inline=True)
-
-        bar = progress_bar(xp, level)
-        embed.add_field(
-            name=f"Progress to Level {level + 1}",
-            value=f"`{bar}` {xp - current_floor:,} / {next_xp - current_floor:,} XP",
-            inline=False,
-        )
-        await ctx.respond(embed=embed, ephemeral=True)
+        await ctx.respond(embed=self._build_rank_embed(ctx, entry, config), ephemeral=True)
 
     @slash(description="Show the server's top-10 XP leaderboard.", guild_only=True)
     async def leaderboard(self, ctx) -> None:
@@ -157,26 +212,7 @@ class LevelsPlugin(Plugin):
             return
 
         config = self._store.read_config(ctx.guild.id)
-        top = sorted(data.items(), key=lambda kv: kv[1]["xp"], reverse=True)[:10]
-
-        medals = ["🥇", "🥈", "🥉"]
-        lines = []
-        for i, (uid, entry) in enumerate(top):
-            prefix = medals[i] if i < 3 else f"`{i + 1}.`"
-            member = ctx.guild.get_member(int(uid))
-            name = member.display_name if member else f"User {uid}"
-            rank_name = rank_for_level(config, entry["level"])
-            rank_text = f" · *{rank_name}*" if rank_name else ""
-            lines.append(
-                f"{prefix} **{name}** — Level {entry['level']}{rank_text} ({entry['xp']:,} XP)"
-            )
-
-        embed = discord.Embed(
-            title=f"🏆 {ctx.guild.name} Leaderboard",
-            description="\n".join(lines),
-            color=discord.Color.gold(),
-        )
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=self._build_leaderboard_embed(ctx, data, config))
 
     @slash(description="Award XP to a member.", permissions=["manage_guild"], guild_only=True)
     async def give_xp(self, ctx, member: discord.Member, amount: int) -> None:
@@ -191,22 +227,16 @@ class LevelsPlugin(Plugin):
 
     @slash(description="Name a rank for a specific level.", permissions=["manage_guild"], guild_only=True)
     async def set_rank(self, ctx, level: int, name: str) -> None:
-        if level < 1:
+        if not _positive_level(level):
             await ctx.respond("Level must be at least 1.", ephemeral=True)
             return
 
-        await self._store.update_config(
-            ctx.guild.id,
-            lambda config: config.setdefault("ranks", {}).__setitem__(str(level), name),
-        )
+        await self._set_config_value(ctx.guild.id, "ranks", level, name)
         await ctx.respond(f"Rank **{name}** set for Level {level}.", ephemeral=True)
 
     @slash(description="Remove the rank name for a specific level.", permissions=["manage_guild"], guild_only=True)
     async def remove_rank(self, ctx, level: int) -> None:
-        removed = await self._store.update_config(
-            ctx.guild.id,
-            lambda config: config.get("ranks", {}).pop(str(level), None),
-        )
+        removed = await self._remove_config_value(ctx.guild.id, "ranks", level)
         if removed is None:
             await ctx.respond(f"No rank is configured at level {level}.", ephemeral=True)
             return
@@ -214,14 +244,11 @@ class LevelsPlugin(Plugin):
 
     @slash(description="Assign a role reward when a member reaches a level.", permissions=["manage_guild"], guild_only=True)
     async def set_level_role(self, ctx, level: int, role: discord.Role) -> None:
-        if level < 1:
+        if not _positive_level(level):
             await ctx.respond("Level must be at least 1.", ephemeral=True)
             return
 
-        await self._store.update_config(
-            ctx.guild.id,
-            lambda config: config.setdefault("role_rewards", {}).__setitem__(str(level), role.id),
-        )
+        await self._set_config_value(ctx.guild.id, "role_rewards", level, role.id)
         await ctx.respond(
             f"Members who reach **Level {level}** will receive {role.mention}.",
             ephemeral=True,
@@ -230,31 +257,11 @@ class LevelsPlugin(Plugin):
     @slash(description="List all configured ranks and role rewards.", guild_only=True)
     async def ranks(self, ctx) -> None:
         config = self._store.read_config(ctx.guild.id)
-        rank_map: dict[str, str] = config.get("ranks", {})
-        role_map: dict[str, int] = config.get("role_rewards", {})
-
-        all_levels = sorted(set(rank_map) | set(role_map), key=int)
-        if not all_levels:
+        if not (config.get("ranks") or config.get("role_rewards")):
             await ctx.respond(
                 "No ranks or role rewards configured yet.\n"
                 "Use `/set_rank` or `/set_level_role` to add some.",
                 ephemeral=True,
             )
             return
-
-        lines = []
-        for lvl_str in all_levels:
-            parts = [f"**Level {lvl_str}**"]
-            if lvl_str in rank_map:
-                parts.append(f"*{rank_map[lvl_str]}*")
-            if lvl_str in role_map:
-                role = ctx.guild.get_role(role_map[lvl_str])
-                parts.append(role.mention if role else f"Role {role_map[lvl_str]}")
-            lines.append(" — ".join(parts))
-
-        embed = discord.Embed(
-            title=f"📊 {ctx.guild.name} Ranks",
-            description="\n".join(lines),
-            color=discord.Color.blurple(),
-        )
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=self._build_ranks_embed(ctx, config))

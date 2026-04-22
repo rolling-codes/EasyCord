@@ -3,6 +3,18 @@ import random
 from easycord import Plugin, slash
 
 
+def _parse_choices(choices: str) -> list[str]:
+    return [choice.strip() for choice in choices.split(",") if choice.strip()]
+
+
+def _choose_rps_outcome(user_move: str, bot_move: str) -> str:
+    if user_move == bot_move:
+        return "It's a tie!"
+    if {"rock": "scissors", "paper": "rock", "scissors": "paper"}[user_move] == bot_move:
+        return "You win! 🎉"
+    return "I win! 🤖"
+
+
 class FunPlugin(Plugin):
     """Silly fun commands."""
 
@@ -38,7 +50,7 @@ class FunPlugin(Plugin):
 
     @slash(description="Let the bot choose between your options (comma-separated).")
     async def pick(self, ctx, choices: str):
-        options = [c.strip() for c in choices.split(",") if c.strip()]
+        options = _parse_choices(choices)
         if len(options) < 2:
             await ctx.respond("Give me at least 2 comma-separated options!", ephemeral=True)
             return
@@ -52,13 +64,7 @@ class FunPlugin(Plugin):
             await ctx.respond("Choose **rock**, **paper**, or **scissors**.", ephemeral=True)
             return
         bot_move = random.choice(list(moves.keys()))
-        wins_against = {"rock": "scissors", "paper": "rock", "scissors": "paper"}
-        if user_move == bot_move:
-            outcome = "It's a tie!"
-        elif wins_against[user_move] == bot_move:
-            outcome = "You win! 🎉"
-        else:
-            outcome = "I win! 🤖"
+        outcome = _choose_rps_outcome(user_move, bot_move)
         await ctx.respond(
             f"You: {moves[user_move]} **{user_move}**\n"
             f"Me:  {moves[bot_move]} **{bot_move}**\n\n"

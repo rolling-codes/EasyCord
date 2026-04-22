@@ -35,7 +35,7 @@ from easycord import Bot
 
 bot = Bot()
 
-@bot.slash(description="Ping the bot")
+@bot.slash()
 async def ping(ctx):
     await ctx.respond("Pong!")
 
@@ -73,7 +73,7 @@ A simple rule helps beginners stay organized:
 from easycord import Plugin, slash
 
 class FunPlugin(Plugin):
-    @slash(description="Roll a die")
+    @slash()
     async def roll(self, ctx, sides: int = 6):
         import random
         await ctx.respond(str(random.randint(1, sides)))
@@ -83,10 +83,10 @@ Then load it from `bot.py`:
 
 ```python
 from easycord import Bot
-from plugins.fun import FunPlugin
+from server_commands import load_default_plugins
 
 bot = Bot()
-bot.add_plugin(FunPlugin())
+load_default_plugins(bot)
 bot.run(os.environ["DISCORD_TOKEN"])
 ```
 

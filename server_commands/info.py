@@ -3,6 +3,29 @@ import discord
 from easycord import Plugin, slash
 
 
+def _channel_fields(channel: discord.TextChannel) -> list[tuple[str, str]]:
+    fields = [
+        ("ID", str(channel.id)),
+        ("Category", channel.category.name if channel.category else "None"),
+        ("Slowmode", f"{channel.slowmode_delay}s"),
+        ("NSFW", "Yes" if channel.is_nsfw() else "No"),
+    ]
+    if channel.topic:
+        fields.append(("Topic", channel.topic))
+    return fields
+
+
+def _role_fields(role: discord.Role) -> list[tuple[str, str]]:
+    return [
+        ("ID", str(role.id)),
+        ("Color", str(role.color)),
+        ("Hoisted", "Yes" if role.hoist else "No"),
+        ("Mentionable", "Yes" if role.mentionable else "No"),
+        ("Members", str(len(role.members))),
+        ("Position", str(role.position)),
+    ]
+
+
 class InfoPlugin(Plugin):
     """Informational commands."""
 
@@ -32,14 +55,7 @@ class InfoPlugin(Plugin):
         await ctx.send_embed(
             f"🏷️ Role: {role.name}",
             color=role.color,
-            fields=[
-                ("ID", str(role.id)),
-                ("Color", str(role.color)),
-                ("Hoisted", "Yes" if role.hoist else "No"),
-                ("Mentionable", "Yes" if role.mentionable else "No"),
-                ("Members", str(len(role.members))),
-                ("Position", str(role.position)),
-            ],
+            fields=_role_fields(role),
         )
 
     @slash(description="Show information about this channel.")
@@ -48,15 +64,7 @@ class InfoPlugin(Plugin):
         if not isinstance(channel, discord.TextChannel):
             await ctx.respond("This command only works in a text channel.", ephemeral=True)
             return
-        fields = [
-            ("ID", str(channel.id)),
-            ("Category", channel.category.name if channel.category else "None"),
-            ("Slowmode", f"{channel.slowmode_delay}s"),
-            ("NSFW", "Yes" if channel.is_nsfw() else "No"),
-        ]
-        if channel.topic:
-            fields.append(("Topic", channel.topic, False))
-        await ctx.send_embed(f"#️⃣ #{channel.name}", color=discord.Color.blurple(), fields=fields)
+        await ctx.send_embed(f"#️⃣ #{channel.name}", color=discord.Color.blurple(), fields=_channel_fields(channel))
 
     @slash(description="Show the bot's latency.")
     async def ping(self, ctx):
@@ -65,8 +73,11 @@ class InfoPlugin(Plugin):
 
     @slash(description="Show the top roles in this server.", guild_only=True)
     async def roles(self, ctx):
-        sorted_roles = sorted(ctx.guild.roles[1:], key=lambda r: r.position, reverse=True)[:15]
-        lines = [f"{r.mention} — {len(r.members)} member{'s' if len(r.members) != 1 else ''}" for r in sorted_roles]
+        sorted_roles = sorted(ctx.guild.roles[1:], key=lambda role: role.position, reverse=True)[:15]
+        lines = [
+            f"{role.mention} — {len(role.members)} member{'s' if len(role.members) != 1 else ''}"
+            for role in sorted_roles
+        ]
         await ctx.send_embed(
             f"🏅 Roles in {ctx.guild.name}",
             "\n".join(lines) or "No roles.",

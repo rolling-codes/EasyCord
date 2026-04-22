@@ -1,13 +1,19 @@
 """Configurable welcome / goodbye plugin for EasyCord bots."""
 from __future__ import annotations
 
-import json
-import os
 from pathlib import Path
 
 import discord
 
 from easycord import Plugin, on, slash
+from ._shared import (
+    channel_reference,
+    format_template,
+    read_json_file,
+    require_guild,
+    role_reference,
+    write_json_file,
+)
 
 
 class WelcomePlugin(Plugin):
@@ -43,18 +49,10 @@ class WelcomePlugin(Plugin):
         return self._data_dir / f"{guild_id}.json"
 
     def _read_config(self, guild_id: int) -> dict:
-        path = self._cfg_path(guild_id)
-        if not path.exists():
-            return {}
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
+        return read_json_file(self._cfg_path(guild_id))
 
     def _write_config(self, guild_id: int, config: dict) -> None:
-        path = self._cfg_path(guild_id)
-        tmp = path.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
-        os.replace(tmp, path)
+        write_json_file(self._cfg_path(guild_id), config)
 
     def _update(self, guild_id: int, **kwargs) -> None:
         cfg = self._read_config(guild_id)
@@ -77,7 +75,6 @@ class WelcomePlugin(Plugin):
                 except discord.HTTPException:
                     pass
 
-        # Welcome message
         channel_id = cfg.get("welcome_channel")
         if not channel_id:
             return
@@ -90,7 +87,7 @@ class WelcomePlugin(Plugin):
             "welcome_message",
             "👋 Welcome to **{server}**, {user}! Glad to have you here.",
         )
-        text = template.format(user=member.mention, server=member.guild.name)
+        text = format_template(template, user=member.mention, server=member.guild.name)
 
         embed = discord.Embed(description=text, color=discord.Color.green())
         embed.set_thumbnail(url=member.display_avatar.url)
@@ -112,7 +109,7 @@ class WelcomePlugin(Plugin):
             "goodbye_message",
             "👋 **{user}** has left **{server}**. Farewell!",
         )
-        text = template.format(user=str(member), server=member.guild.name)
+        text = format_template(template, user=str(member), server=member.guild.name)
         embed = discord.Embed(description=text, color=discord.Color.red())
         await channel.send(embed=embed)
 
@@ -120,75 +117,82 @@ class WelcomePlugin(Plugin):
 
     @slash(description="Set the channel for welcome messages.", permissions=["manage_guild"])
     async def set_welcome_channel(self, ctx, channel: discord.TextChannel) -> None:
-        if not ctx.guild:
+        guild = require_guild(ctx)
+        if guild is None:
             await ctx.respond("This command only works in a server.", ephemeral=True)
             return
-        self._update(ctx.guild.id, welcome_channel=channel.id)
+        self._update(guild.id, welcome_channel=channel.id)
         await ctx.respond(f"Welcome messages will be posted in {channel.mention}.", ephemeral=True)
 
     @slash(description="Set the channel for goodbye messages.", permissions=["manage_guild"])
     async def set_goodbye_channel(self, ctx, channel: discord.TextChannel) -> None:
-        if not ctx.guild:
+        guild = require_guild(ctx)
+        if guild is None:
             await ctx.respond("This command only works in a server.", ephemeral=True)
             return
-        self._update(ctx.guild.id, goodbye_channel=channel.id)
+        self._update(guild.id, goodbye_channel=channel.id)
         await ctx.respond(f"Goodbye messages will be posted in {channel.mention}.", ephemeral=True)
 
     @slash(description="Assign a role automatically when a member joins.", permissions=["manage_guild"])
     async def set_auto_role(self, ctx, role: discord.Role) -> None:
-        if not ctx.guild:
+        guild = require_guild(ctx)
+        if guild is None:
             await ctx.respond("This command only works in a server.", ephemeral=True)
             return
-        self._update(ctx.guild.id, auto_role=role.id)
+        self._update(guild.id, auto_role=role.id)
         await ctx.respond(f"New members will automatically receive {role.mention}.", ephemeral=True)
 
     @slash(description="Customise the welcome message. Use {user} and {server} as placeholders.", permissions=["manage_guild"])
     async def set_welcome_message(self, ctx, message: str) -> None:
-        if not ctx.guild:
+        guild = require_guild(ctx)
+        if guild is None:
             await ctx.respond("This command only works in a server.", ephemeral=True)
             return
-        self._update(ctx.guild.id, welcome_message=message)
-        preview = message.format(user=ctx.user.mention, server=ctx.guild.name)
+        self._update(guild.id, welcome_message=message)
+        preview = format_template(message, user=ctx.user.mention, server=guild.name)
         await ctx.respond(f"Welcome message updated!\n**Preview:** {preview}", ephemeral=True)
 
     @slash(description="Customise the goodbye message. Use {user} and {server} as placeholders.", permissions=["manage_guild"])
     async def set_goodbye_message(self, ctx, message: str) -> None:
-        if not ctx.guild:
+        guild = require_guild(ctx)
+        if guild is None:
             await ctx.respond("This command only works in a server.", ephemeral=True)
             return
-        self._update(ctx.guild.id, goodbye_message=message)
-        preview = message.format(user=str(ctx.user), server=ctx.guild.name)
+        self._update(guild.id, goodbye_message=message)
+        preview = format_template(message, user=str(ctx.user), server=guild.name)
         await ctx.respond(f"Goodbye message updated!\n**Preview:** {preview}", ephemeral=True)
 
     @slash(description="Show the current welcome configuration for this server.")
     async def welcome_config(self, ctx) -> None:
-        if not ctx.guild:
+        guild = require_guild(ctx)
+        if guild is None:
             await ctx.respond("This command only works in a server.", ephemeral=True)
             return
 
-        cfg = self._read_config(ctx.guild.id)
-
-        def _channel_str(key: str) -> str:
-            cid = cfg.get(key)
-            if not cid:
-                return "*not set*"
-            ch = ctx.guild.get_channel(cid)
-            return ch.mention if ch else f"<#{cid}> *(deleted?)*"
-
-        def _role_str() -> str:
-            rid = cfg.get("auto_role")
-            if not rid:
-                return "*not set*"
-            r = ctx.guild.get_role(rid)
-            return r.mention if r else f"<@&{rid}> *(deleted?)*"
+        cfg = self._read_config(guild.id)
+        welcome_channel = cfg.get("welcome_channel")
+        goodbye_channel = cfg.get("goodbye_channel")
+        auto_role = cfg.get("auto_role")
 
         embed = discord.Embed(
-            title=f"⚙️ Welcome config — {ctx.guild.name}",
+            title=f"⚙️ Welcome config — {guild.name}",
             color=discord.Color.blurple(),
         )
-        embed.add_field(name="Welcome channel", value=_channel_str("welcome_channel"), inline=True)
-        embed.add_field(name="Goodbye channel", value=_channel_str("goodbye_channel"), inline=True)
-        embed.add_field(name="Auto-role", value=_role_str(), inline=True)
+        embed.add_field(
+            name="Welcome channel",
+            value=channel_reference(guild, welcome_channel) if welcome_channel else "*not set*",
+            inline=True,
+        )
+        embed.add_field(
+            name="Goodbye channel",
+            value=channel_reference(guild, goodbye_channel) if goodbye_channel else "*not set*",
+            inline=True,
+        )
+        embed.add_field(
+            name="Auto-role",
+            value=role_reference(guild, auto_role) if auto_role else "*not set*",
+            inline=True,
+        )
         embed.add_field(
             name="Welcome message",
             value=cfg.get("welcome_message", "*default*"),

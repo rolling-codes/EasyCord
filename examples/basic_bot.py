@@ -1,78 +1,30 @@
-"""
-examples/basic_bot.py
-~~~~~~~~~~~~~~~~~~~~~
-The simplest possible EasyCord bot.
-
-Run:
-    pip install "discord.py>=2.0"
-    python examples/basic_bot.py
-"""
-
-import os
-
-import discord
+"""The smallest practical EasyCord bot."""
 
 from easycord import Bot
-from easycord.middleware import catch_errors, log_middleware
 
-bot = Bot()
-
-bot.use(log_middleware())
-bot.use(catch_errors())
+from _runtime import run_bot
 
 
-@bot.use
-async def timing_middleware(ctx, proceed):
-    import time
+def build_bot() -> Bot:
+    bot = Bot()
 
-    start = time.monotonic()
-    await proceed()
-    elapsed = (time.monotonic() - start) * 1000
-    print(f"  /{ctx.command_name} finished in {elapsed:.1f}ms")
+    @bot.slash()
+    async def ping(ctx):
+        await ctx.respond("Pong!")
 
+    @bot.slash()
+    async def echo(ctx, message: str, times: int = 1):
+        if times < 1 or times > 5:
+            await ctx.respond("`times` must be between 1 and 5.", ephemeral=True)
+            return
+        await ctx.respond("\n".join([message] * times))
 
-@bot.slash(description="Ping the bot and see its latency.")
-async def ping(ctx):
-    latency_ms = round(bot.latency * 1000)
-    await ctx.respond(f"🏓 Pong!  Latency: **{latency_ms}ms**")
-
-
-@bot.slash(description="Echo your message back to you.")
-async def echo(ctx, message: str, times: int = 1):
-    if times < 1 or times > 5:
-        await ctx.respond("⚠️ `times` must be between 1 and 5.", ephemeral=True)
-        return
-    await ctx.respond("\n".join([message] * times))
+    return bot
 
 
-@bot.slash(description="Show info about a user.")
-async def userinfo(ctx, member: discord.Member = None):
-    target = member or ctx.user
-    created = target.created_at.strftime("%Y-%m-%d")
-    await ctx.send_embed(
-        title=f"👤 {target.display_name}",
-        description=(
-            f"**ID:** `{target.id}`\n"
-            f"**Account created:** {created}\n"
-            f"**Bot:** {target.bot}"
-        ),
-    )
-
-
-@bot.on("message")
-async def on_message(message):
-    if message.author.bot:
-        return
-    if "hello bot" in message.content.lower():
-        await message.reply("👋 Hello there!")
-
-
-@bot.on("member_join")
-async def on_member_join(member):
-    print(f"New member: {member.name} joined {member.guild.name}")
+def main() -> None:
+    run_bot(build_bot())
 
 
 if __name__ == "__main__":
-    if not (token := os.environ.get("DISCORD_TOKEN")):
-        raise RuntimeError("Set the DISCORD_TOKEN environment variable.")
-    bot.run(token)
+    main()

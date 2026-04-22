@@ -106,6 +106,11 @@ class _PluginsMixin:
             asyncio.create_task(plugin.on_load())
             self._start_plugin_tasks(plugin)
 
+    def add_plugins(self, *plugins: Plugin) -> None:
+        """Add several plugins in one call."""
+        for plugin in plugins:
+            self.add_plugin(plugin)
+
     async def remove_plugin(self, plugin: Plugin) -> None:
         """Remove a plugin, deregistering its commands and event handlers.
 

@@ -1,6 +1,17 @@
 from easycord import Plugin, on, slash
 
 
+def _announcement_footer(user) -> str:
+    return f"Posted by {user.display_name}"
+
+
+def _welcome_message(member) -> str:
+    return (
+        f"👋 Welcome to **{member.guild.name}**, {member.name}!\n"
+        "Feel free to introduce yourself."
+    )
+
+
 class ModerationPlugin(Plugin):
     """Server moderation helpers."""
 
@@ -14,16 +25,13 @@ class ModerationPlugin(Plugin):
             "📢 Announcement",
             message,
             color=discord.Color.gold(),
-            footer=f"Posted by {ctx.user.display_name}",
+            footer=_announcement_footer(ctx.user),
         )
 
     @on("member_join")
     async def greet_member(self, member):
         """DM new members a welcome message."""
         try:
-            await member.send(
-                f"👋 Welcome to **{member.guild.name}**, {member.name}!\n"
-                "Feel free to introduce yourself."
-            )
+            await member.send(_welcome_message(member))
         except Exception:
-            pass  # DMs may be disabled
+            pass

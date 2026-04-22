@@ -42,7 +42,7 @@ Decorator-first Python framework for Discord bots on `discord.py>=2.0`. Removes 
 
 **Events** — `Bot.on("message")` supports multiple handlers. Dispatched via `asyncio.create_task` — one failure doesn't block others.
 
-**Plugins** — `add_plugin()` scans attributes for `_is_slash` / `_is_event` / `_is_task` tags. `on_load()` awaited in `setup_hook` if pre-run; `create_task` if bot already ready.
+**Plugins** — `add_plugin()` and `add_plugins()` scan attributes for `_is_slash` / `_is_event` / `_is_task` tags. `on_load()` awaited in `setup_hook` if pre-run; `create_task` if bot already ready.
 
 **ServerConfigStore** — atomic writes (write-to-temp + rename), per-guild `asyncio.Lock`.
 

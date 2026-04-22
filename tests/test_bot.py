@@ -93,6 +93,25 @@ def test_slash_guild_scoped(bot):
     assert kwargs["guild"].id == 12345
 
 
+def test_slash_nsfw_flag_is_forwarded(bot):
+    @bot.slash(description="Secret", nsfw=True)
+    async def secret(ctx):
+        pass
+
+    cmd = bot.tree.add_command.call_args[0][0]
+    assert getattr(cmd, "nsfw", False) is True
+
+
+def test_user_command_metadata_is_forwarded(bot):
+    @bot.user_command(name="Inspect", nsfw=True)
+    async def inspect_user(ctx, member):
+        pass
+
+    cmd = bot.tree.add_command.call_args[0][0]
+    assert cmd.name == "Inspect"
+    assert getattr(cmd, "nsfw", False) is True
+
+
 async def test_slash_guild_only_blocks_dm(bot):
     """guild_only=True on @bot.slash rejects interactions with no guild."""
     handler_called = False
@@ -202,6 +221,21 @@ def test_add_multiple_plugins(bot):
 
     bot.add_plugin(PluginA())
     bot.add_plugin(PluginB())
+
+    assert bot.tree.add_command.call_count == 2
+    assert len(bot._plugins) == 2
+
+
+def test_add_plugins_registers_multiple(bot):
+    class PluginA(Plugin):
+        @slash(description="A")
+        async def cmd_a(self, ctx): pass
+
+    class PluginB(Plugin):
+        @slash(description="B")
+        async def cmd_b(self, ctx): pass
+
+    bot.add_plugins(PluginA(), PluginB())
 
     assert bot.tree.add_command.call_count == 2
     assert len(bot._plugins) == 2

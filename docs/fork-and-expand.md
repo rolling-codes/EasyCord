@@ -1,32 +1,42 @@
 # Fork and expand this project
 
-This repo is a good starting point for a “real” bot codebase: commands live in their own modules and configuration is persisted per server.
+EasyCord works best when you split the bot into small feature files early.
 
 ## Recommended structure
 
-```
+```text
 my_bot/
-├── easycord/                 # the framework source (vendored)
-├── server_commands/          # your command plugins (per-feature modules)
+├── bot.py
+├── plugins/
 │   ├── __init__.py
 │   ├── fun.py
 │   ├── moderation.py
-│   ├── info.py
-│   └── config.py             # (recommended) config commands
-├── main.py                   # create bot, load plugins, run
-├── requirements.txt
-└── .easycord/
-    └── server-config/        # auto-created by ServerConfigStore (JSON per guild)
+│   └── info.py
+├── config/
+│   └── server_config.py
+└── pyproject.toml
 ```
 
-## Add a new command module
+## Keep `bot.py` tiny
 
-1. Create a new file in `server_commands/`, for example `server_commands/music.py`.
-2. Add a `Plugin` subclass and decorate methods with `@slash` / `@on`.
-3. Export it from `server_commands/__init__.py` (optional but convenient).
-4. Load it in your bot (`bot.add_plugin(...)`).
+Use `bot.py` only for startup and plugin loading:
 
-Example:
+```python
+import os
+from easycord import Bot
+from server_commands import load_default_plugins
+
+bot = Bot()
+load_default_plugins(bot)
+bot.run(os.environ["DISCORD_TOKEN"])
+```
+
+## Add a new feature
+
+1. Create a new plugin module in `plugins/`, for example `plugins/music.py`.
+2. Put one related feature set in that file.
+3. Use `@slash`, `@on`, `@component`, or `@modal` as needed.
+4. Load the plugin from `bot.py` or add it to `server_commands/__init__.py` if it should be part of the default bot setup.
 
 ```python
 from easycord import Plugin, slash
@@ -39,7 +49,7 @@ class MusicPlugin(Plugin):
 
 ## Add server-specific configuration
 
-Use `ServerConfigStore` to persist roles/channels/other settings per guild:
+Use `ServerConfigStore` when a guild needs settings:
 
 ```python
 from easycord import ServerConfigStore
@@ -53,15 +63,10 @@ cfg.set_other("prefix", "!")
 await store.save(cfg)
 ```
 
-Suggested keys:
+## Beginner-friendly rules
 
-- **roles**: `"moderator"`, `"admin"`, `"verified"`, `"muted"`
-- **channels**: `"welcome"`, `"logs"`, `"announcements"`
-- **other**: feature flags, rate limits, per-guild settings, etc.
-
-## Production tips
-
-- Put tokens/URLs in environment variables (never hardcode).
-- Prefer **guild-only** commands during development (`guild_id=...`) to avoid global propagation delays.
-- Add your own middleware for permission checks and audit logging.
+- Start with one command before introducing plugins.
+- Prefer guild-only commands while testing.
+- Keep shared setup in middleware instead of repeating it in commands.
+- Put each feature in the file where a beginner would expect to find it later.
 

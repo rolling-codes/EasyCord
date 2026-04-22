@@ -1,14 +1,13 @@
 """Per-guild text snippet storage and slash commands."""
 from __future__ import annotations
 
-import json
-import os
 from pathlib import Path
 
 import discord
 
 from easycord.decorators import slash
 from easycord.plugin import Plugin
+from ._shared import read_json_file, write_json_file
 
 
 class TagsStore:
@@ -22,18 +21,10 @@ class TagsStore:
         return self._data_dir / f"tags_{guild_id}.json"
 
     def _load(self, guild_id: int) -> dict[str, dict]:
-        path = self._path(guild_id)
-        if not path.exists():
-            return {}
-        with path.open() as f:
-            return json.load(f)
+        return read_json_file(self._path(guild_id))
 
     def _save(self, guild_id: int, data: dict[str, dict]) -> None:
-        path = self._path(guild_id)
-        tmp = path.with_suffix(".tmp")
-        with tmp.open("w") as f:
-            json.dump(data, f, indent=2)
-        os.replace(tmp, path)
+        write_json_file(self._path(guild_id), data)
 
     def get(self, guild_id: int, name: str) -> dict | None:
         return self._load(guild_id).get(name)

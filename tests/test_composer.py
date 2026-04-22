@@ -103,6 +103,32 @@ def test_multiple_plugins_all_registered():
     assert bot._plugins == [a, b]
 
 
+def test_add_plugins_registers_many():
+    class A(Plugin):
+        pass
+
+    class B(Plugin):
+        pass
+
+    a, b = A(), B()
+    bot = Composer().add_plugins(a, b).build()
+    assert bot._plugins == [a, b]
+
+
+def test_add_groups_registers_many():
+    from easycord import SlashGroup
+
+    class A(SlashGroup, name="a", description="A"):
+        pass
+
+    class B(SlashGroup, name="b", description="B"):
+        pass
+
+    a, b = A(), B()
+    bot = Composer().add_groups(a, b).build()
+    assert bot._plugins == [a, b]
+
+
 # ── Fluent interface ──────────────────────────────────────────
 
 
@@ -118,3 +144,5 @@ def test_all_methods_return_composer():
     assert c.catch_errors() is c
     assert c.use(dummy_mw) is c
     assert c.add_plugin(Plugin()) is c
+    assert c.add_plugins(Plugin(), Plugin()) is c
+    assert c.add_groups() is c

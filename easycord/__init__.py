@@ -21,7 +21,7 @@ from .bot import Bot
 from .builders import ButtonRowBuilder, EmbedBuilder, ModalBuilder, SelectMenuBuilder
 from .composer import Composer
 from .context import Context
-from .decorators import on, slash, task
+from .decorators import component, message_command, modal, on, slash, task, user_command
 from .group import SlashGroup
 from .plugin import Plugin
 from .server_config import ServerConfig, ServerConfigStore
@@ -33,12 +33,16 @@ __all__ = [
     "Composer",
     "Context",
     "EmbedBuilder",
+    "component",
     "ModalBuilder",
+    "message_command",
+    "modal",
     "Plugin",
     "SelectMenuBuilder",
     "SlashGroup",
     "slash",
     "on",
+    "user_command",
     "task",
     "ServerConfig",
     "ServerConfigStore",

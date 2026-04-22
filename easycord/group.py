@@ -33,15 +33,30 @@ class SlashGroup(Plugin):
     _group_name: str = ""
     _group_description: str = "No description provided."
     _group_guild: int | None = None
+    _group_guild_only: bool = False
+    _group_allowed_contexts = None
+    _group_allowed_installs = None
+    _group_nsfw: bool = False
+    _group_default_permissions = None
 
     def __init_subclass__(
         cls,
         name: str = "",
         description: str = "No description provided.",
         guild_id: int | None = None,
+        guild_only: bool = False,
+        allowed_contexts=None,
+        allowed_installs=None,
+        nsfw: bool = False,
+        default_permissions=None,
         **kwargs,
     ) -> None:
         super().__init_subclass__(**kwargs)
         cls._group_name = name or cls.__name__.lower()
         cls._group_description = description
         cls._group_guild = guild_id
+        cls._group_guild_only = guild_only
+        cls._group_allowed_contexts = allowed_contexts
+        cls._group_allowed_installs = allowed_installs
+        cls._group_nsfw = nsfw
+        cls._group_default_permissions = default_permissions
