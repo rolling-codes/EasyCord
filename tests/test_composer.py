@@ -125,7 +125,10 @@ def test_add_groups_registers_many():
         pass
 
     a, b = A(), B()
-    bot = Composer().add_groups(a, b).build()
+    composer = Composer().add_groups(a, b)
+    assert composer._groups == [a, b]
+
+    bot = composer.build()
     assert bot._plugins == [a, b]
 
 

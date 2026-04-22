@@ -1,5 +1,7 @@
 # Release notes for 3.1.0
 
+Release date: 2026-04-22
+
 This update focuses on two things: making the framework easier to learn, and exposing more of the `discord.py` features that beginners keep reaching for.
 
 ## What changed
@@ -23,3 +25,5 @@ This update focuses on two things: making the framework easier to learn, and exp
 
 - `python -m pytest tests/test_group.py tests/test_bot.py tests/test_composer.py tests/test_server_commands.py tests/test_package_exports.py tests/test_decorators.py`
 - `python -m compileall easycord examples docs tests`
+
+Note: On Windows, pytest may emit temp/cache permission warnings that can be safely ignored if the test slice passes.

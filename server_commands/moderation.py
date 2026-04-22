@@ -1,4 +1,11 @@
+from __future__ import annotations
+
+import logging
+
+import discord
 from easycord import Plugin, on, slash
+
+logger = logging.getLogger(__name__)
 
 
 def _announcement_footer(user) -> str:
@@ -20,7 +27,6 @@ class ModerationPlugin(Plugin):
 
     @slash(description="Announce a message to this channel.", guild_only=True)
     async def announce(self, ctx, message: str):
-        import discord
         await ctx.send_embed(
             "📢 Announcement",
             message,
@@ -33,5 +39,11 @@ class ModerationPlugin(Plugin):
         """DM new members a welcome message."""
         try:
             await member.send(_welcome_message(member))
-        except Exception:
-            pass
+        except discord.Forbidden:
+            return
+        except discord.HTTPException:
+            logger.warning("Failed sending welcome DM to %s", member, exc_info=True)
+            return
+        except Exception as exc:
+            logger.exception("Failed sending welcome DM to %s: %s", member, exc)
+            raise

@@ -108,9 +108,6 @@ class _CommandsMixin:
         ephemeral: bool = False,
         permissions: list[str] | None = None,
         cooldown: float | None = None,
-        nsfw: bool = False,
-        allowed_contexts: discord.AppCommandContext | None = None,
-        allowed_installs: discord.AppInstallationType | None = None,
     ) -> Callable:
         """Build a discord.py-compatible callback with guild, permission, and cooldown guards."""
         sig = inspect.signature(func)

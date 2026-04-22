@@ -65,6 +65,10 @@ need, then register a few slash commands on top.
 
 `Bot.add_plugins(*plugins)` — load several plugins in one call
 
+`Bot.add_group(group)` — load one SlashGroup namespace; raises `TypeError` / `ValueError` on bad input or duplicate
+
+`Bot.add_groups(*groups)` — load several SlashGroup namespaces in one call
+
 `await Bot.remove_plugin(plugin)` — unload plugin; removes commands, deregisters handlers, calls `on_unload()`
 
 `await Bot.reload_plugin(name: str)` — reload a plugin in-place by class name; calls `on_unload()` then `on_load()` on the same instance; constructor arguments and in-memory state preserved; raises `ValueError` if no loaded plugin has that class name
@@ -314,6 +318,8 @@ Fluent builder — chains middleware + plugins, returns a configured `Bot`.
 | `.use(middleware)` | Add custom middleware |
 | `.add_plugin(plugin)` | Queue a plugin |
 | `.add_plugins(*plugins)` | Queue several plugins |
+| `.add_group(group)` | Queue a SlashGroup namespace |
+| `.add_groups(*groups)` | Queue several SlashGroup namespaces |
 | `.build()` | Return configured `Bot` |
 
 ---

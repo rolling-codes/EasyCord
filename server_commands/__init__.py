@@ -3,7 +3,7 @@ Server command plugins.
 
 Import plugins from here (or from individual modules) and load them into your bot:
 
-    from server_commands import FunPlugin, ModerationPlugin, InfoPlugin
+    from server_commands import FunPlugin, ModerationPlugin, InfoPlugin, load_default_plugins
     load_default_plugins(bot)
 """
 

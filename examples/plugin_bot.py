@@ -13,7 +13,7 @@ Run:
 from easycord import Bot
 from server_commands import load_default_plugins
 
-from _runtime import run_bot
+from examples._runtime import run_bot
 
 
 def build_bot() -> Bot:

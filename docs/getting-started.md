@@ -82,6 +82,7 @@ class FunPlugin(Plugin):
 Then load it from `bot.py`:
 
 ```python
+import os
 from easycord import Bot
 from server_commands import load_default_plugins
 

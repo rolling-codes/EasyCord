@@ -94,22 +94,42 @@ def test_slash_guild_scoped(bot):
 
 
 def test_slash_nsfw_flag_is_forwarded(bot):
-    @bot.slash(description="Secret", nsfw=True)
+    contexts = discord.AppCommandContext(guild=True, dm_channel=False, private_channel=True)
+    installs = discord.AppInstallationType(guild=True, user=False)
+
+    @bot.slash(
+        description="Secret",
+        nsfw=True,
+        allowed_contexts=contexts,
+        allowed_installs=installs,
+    )
     async def secret(ctx):
         pass
 
     cmd = bot.tree.add_command.call_args[0][0]
     assert getattr(cmd, "nsfw", False) is True
+    assert getattr(cmd, "allowed_contexts", None) == contexts
+    assert getattr(cmd, "allowed_installs", None) == installs
 
 
 def test_user_command_metadata_is_forwarded(bot):
-    @bot.user_command(name="Inspect", nsfw=True)
+    contexts = discord.AppCommandContext(guild=False, dm_channel=True, private_channel=False)
+    installs = discord.AppInstallationType(guild=False, user=True)
+
+    @bot.user_command(
+        name="Inspect",
+        nsfw=True,
+        allowed_contexts=contexts,
+        allowed_installs=installs,
+    )
     async def inspect_user(ctx, member):
         pass
 
     cmd = bot.tree.add_command.call_args[0][0]
     assert cmd.name == "Inspect"
     assert getattr(cmd, "nsfw", False) is True
+    assert getattr(cmd, "allowed_contexts", None) == contexts
+    assert getattr(cmd, "allowed_installs", None) == installs
 
 
 async def test_slash_guild_only_blocks_dm(bot):

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from easycord import Composer, SlashGroup, slash
 
-from examples._runtime import read_token, run_bot
+from examples._runtime import run_bot
 
 
 class ModerationGroup(SlashGroup, name="mod", description="Moderation commands"):
@@ -23,7 +23,7 @@ def build_bot():
 
 
 def main() -> None:
-    run_bot(build_bot(), read_token())
+    run_bot(build_bot())
 
 
 if __name__ == "__main__":

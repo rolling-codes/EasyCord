@@ -2,7 +2,7 @@
 
 from easycord import Bot
 
-from _runtime import run_bot
+from examples._runtime import run_bot
 
 
 def build_bot() -> Bot:

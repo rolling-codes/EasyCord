@@ -8,7 +8,7 @@ from pathlib import Path
 import discord
 
 
-def require_guild(ctx):
+def require_guild(ctx: object) -> discord.Guild | None:
     """Return the invoking guild, or ``None`` when the command ran in DMs."""
     return getattr(ctx, "guild", None)
 
@@ -22,8 +22,12 @@ def read_json_file(path: Path) -> dict:
     """Read a JSON file if it exists, otherwise return an empty mapping."""
     if not path.exists():
         return {}
-    with path.open(encoding="utf-8") as handle:
-        return json.load(handle)
+    try:
+        with path.open(encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def write_json_file(path: Path, data: dict) -> None:

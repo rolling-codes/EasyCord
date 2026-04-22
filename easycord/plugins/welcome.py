@@ -148,8 +148,15 @@ class WelcomePlugin(Plugin):
         if guild is None:
             await ctx.respond("This command only works in a server.", ephemeral=True)
             return
+        try:
+            preview = format_template(message, user=ctx.user.mention, server=guild.name)
+        except (KeyError, ValueError):
+            await ctx.respond(
+                "Invalid template. Only {user} and {server} placeholders are supported.",
+                ephemeral=True,
+            )
+            return
         self._update(guild.id, welcome_message=message)
-        preview = format_template(message, user=ctx.user.mention, server=guild.name)
         await ctx.respond(f"Welcome message updated!\n**Preview:** {preview}", ephemeral=True)
 
     @slash(description="Customise the goodbye message. Use {user} and {server} as placeholders.", permissions=["manage_guild"])
@@ -158,8 +165,15 @@ class WelcomePlugin(Plugin):
         if guild is None:
             await ctx.respond("This command only works in a server.", ephemeral=True)
             return
+        try:
+            preview = format_template(message, user=str(ctx.user), server=guild.name)
+        except (KeyError, ValueError):
+            await ctx.respond(
+                "Invalid template. Only {user} and {server} placeholders are supported.",
+                ephemeral=True,
+            )
+            return
         self._update(guild.id, goodbye_message=message)
-        preview = format_template(message, user=str(ctx.user), server=guild.name)
         await ctx.respond(f"Goodbye message updated!\n**Preview:** {preview}", ephemeral=True)
 
     @slash(description="Show the current welcome configuration for this server.")

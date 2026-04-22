@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from typing import Any
 
 import discord
 
@@ -123,7 +124,14 @@ class LevelsPlugin(Plugin):
     def _build_ranks_embed(self, ctx, config: dict) -> discord.Embed:
         rank_map: dict[str, str] = config.get("ranks", {})
         role_map: dict[str, int] = config.get("role_rewards", {})
-        all_levels = sorted(set(rank_map) | set(role_map), key=int)
+        all_levels: list[str] = []
+        for level_key in set(rank_map) | set(role_map):
+            try:
+                int(level_key)
+            except (TypeError, ValueError):
+                continue
+            all_levels.append(level_key)
+        all_levels.sort(key=int)
         lines = []
         for lvl_str in all_levels:
             parts = [f"**Level {lvl_str}**"]
@@ -145,8 +153,10 @@ class LevelsPlugin(Plugin):
 
         await self._store.update_config(guild_id, updater)
 
-    async def _remove_config_value(self, guild_id: int, section: str, key: int):
-        def updater(config: dict):
+    async def _remove_config_value(
+        self, guild_id: int, section: str, key: int
+    ) -> Any | None:
+        def updater(config: dict) -> Any | None:
             return config.get(section, {}).pop(str(key), None)
 
         return await self._store.update_config(guild_id, updater)

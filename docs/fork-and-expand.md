@@ -24,10 +24,12 @@ Use `bot.py` only for startup and plugin loading:
 ```python
 import os
 from easycord import Bot
-from server_commands import load_default_plugins
+from plugins.fun import FunPlugin
+from plugins.info import InfoPlugin
+from plugins.moderation import ModerationPlugin
 
 bot = Bot()
-load_default_plugins(bot)
+bot.add_plugins(FunPlugin(), ModerationPlugin(), InfoPlugin())
 bot.run(os.environ["DISCORD_TOKEN"])
 ```
 
@@ -36,7 +38,7 @@ bot.run(os.environ["DISCORD_TOKEN"])
 1. Create a new plugin module in `plugins/`, for example `plugins/music.py`.
 2. Put one related feature set in that file.
 3. Use `@slash`, `@on`, `@component`, or `@modal` as needed.
-4. Load the plugin from `bot.py` or add it to `server_commands/__init__.py` if it should be part of the default bot setup.
+4. Load the plugin from `bot.py`, or gather the always-on plugins in one small startup helper if several features should ship together.
 
 ```python
 from easycord import Plugin, slash
