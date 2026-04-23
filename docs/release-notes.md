@@ -37,6 +37,12 @@ This release focuses on lowering the amount of boilerplate you need to write at 
 - Use `EmbedCard` and the themed embed wrappers when you want an existing embed plus buttons or select menus.
 - Use `LocalizationManager` and `ctx.t(...)` for translated strings, especially framework-facing error text or reusable command copy.
 
+## Upgrade notes
+
+- Existing bots can adopt the new features incrementally.
+- Nothing in this release requires a code migration for existing slash commands or plugins.
+- If you only want the new localization helpers, you can start by wrapping a single response string and expand from there.
+
 ## Validation
 
 - `python -m pytest tests/test_group.py tests/test_bot.py tests/test_composer.py tests/test_server_commands.py tests/test_package_exports.py tests/test_decorators.py tests/test_context.py tests/test_i18n.py`
