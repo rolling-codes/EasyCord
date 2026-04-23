@@ -92,14 +92,27 @@ class AuditLog:
                 )
             return
 
+        client = ctx.interaction.client
+        if client is None:
+            if not self._silent:
+                logger.warning(
+                    "AuditLog: cannot resolve channel %s because the interaction has no client",
+                    channel_id,
+                )
+            return
+
         try:
-            channel = (
-                ctx.interaction.client.get_channel(channel_id)
-                or await ctx.interaction.client.fetch_channel(channel_id)
-            )
+            channel = client.get_channel(channel_id) or await client.fetch_channel(channel_id)
         except (discord.NotFound, discord.Forbidden) as exc:
             logger.warning(
                 "AuditLog: cannot access channel %s: %s", channel_id, exc
+            )
+            return
+
+        if not hasattr(channel, "send"):
+            logger.warning(
+                "AuditLog: channel %s is not messageable; skipping audit post",
+                channel_id,
             )
             return
 
@@ -119,7 +132,7 @@ class AuditLog:
             )
 
         try:
-            await channel.send(embed=embed)  # type: ignore[union-attr]
+            await channel.send(embed=embed)
         except discord.HTTPException as exc:
             logger.warning(
                 "AuditLog: failed to post to channel %s: %s", channel_id, exc

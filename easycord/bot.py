@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import logging
 from typing import Callable
 
 import discord
 from discord import app_commands
 
+from .builtin_plugins import build_builtin_plugins
+from .database import DatabaseConfig, EasyCordDatabase, MemoryDatabase, SQLiteDatabase
 from .middleware import MiddlewareFn
 from .plugin import Plugin
 from ._bot_commands import _CommandsMixin
@@ -54,6 +57,11 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         *,
         intents: discord.Intents | None = None,
         auto_sync: bool = True,
+        load_builtin_plugins: bool = False,
+        database: EasyCordDatabase | None = None,
+        db_backend: str | None = None,
+        db_path: str | None = None,
+        db_auto_sync_guilds: bool | None = None,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
@@ -66,8 +74,47 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self._webhooks: dict[int, discord.Webhook] = {}
         self.registry = InteractionRegistry()
         self._error_handler = None
+        self.db = database or self._create_database(
+            db_backend=db_backend,
+            db_path=db_path,
+            db_auto_sync_guilds=db_auto_sync_guilds,
+        )
+        if load_builtin_plugins:
+            self.load_builtin_plugins()
+
+    def _create_database(
+        self,
+        *,
+        db_backend: str | None,
+        db_path: str | None,
+        db_auto_sync_guilds: bool | None,
+    ) -> EasyCordDatabase:
+        config = DatabaseConfig.from_env()
+        backend = db_backend or config.backend
+        path = db_path or os.getenv("EASYCORD_DB_PATH") or config.path
+        auto_sync = config.auto_sync_guilds if db_auto_sync_guilds is None else db_auto_sync_guilds
+
+        if backend == "memory":
+            return MemoryDatabase(auto_sync_guilds=auto_sync)
+        if backend == "sqlite":
+            return SQLiteDatabase(path=path, auto_sync_guilds=auto_sync)
+        raise ValueError(
+            f"Unknown database backend {backend!r}. Must be 'sqlite' or 'memory'."
+        )
+
+    def load_builtin_plugins(self) -> None:
+        """Load the framework's bundled first-party plugins."""
+        loaded_types = {type(plugin) for plugin in self._plugins}
+        for plugin in build_builtin_plugins():
+            if type(plugin) in loaded_types:
+                continue
+            self.add_plugin(plugin)
+            loaded_types.add(type(plugin))
 
     async def setup_hook(self) -> None:
+        await self.db.ensure_schema()
+        if self.db.auto_sync_guilds:
+            await self.db.sync_guilds([guild.id for guild in getattr(self, "guilds", [])])
         if self._auto_sync:
             await self.tree.sync()
         for plugin in self._plugins:
@@ -75,7 +122,13 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             self._start_plugin_tasks(plugin)
 
     async def on_ready(self) -> None:
+        if self.db.auto_sync_guilds:
+            await self.db.sync_guilds([guild.id for guild in getattr(self, "guilds", [])])
         logger.info("Logged in as %s (ID: %s)", self.user, self.user.id)  # type: ignore[union-attr]
+
+    async def close(self) -> None:  # type: ignore[override]
+        await self.db.close()
+        await super().close()
 
     def run(self, token: str, **kwargs) -> None:  # type: ignore[override]
         """Configure basic logging and start the bot."""

@@ -156,37 +156,33 @@ def message_command(
 
 def component(id_or_func=None, *, scoped: bool = True) -> Callable:
     """Mark a Plugin method as a persistent component (button / select-menu) handler."""
-    if callable(id_or_func):
-        id_or_func._is_component = True
-        id_or_func._component_id = id_or_func.__name__
-        id_or_func._component_scoped = scoped
-        return id_or_func
-
-    custom_id: str = id_or_func
-
-    def decorator(func: Callable) -> Callable:
+    def _apply(func: Callable, custom_id: str | None) -> Callable:
         func._is_component = True
-        func._component_id = custom_id
+        func._component_id = custom_id or func.__name__
         func._component_scoped = scoped
         return func
+
+    if callable(id_or_func):
+        return _apply(id_or_func, None)
+
+    def decorator(func: Callable) -> Callable:
+        return _apply(func, id_or_func)
 
     return decorator
 
 
 def modal(id_or_func=None, *, scoped: bool = True) -> Callable:
     """Mark a Plugin method as a modal submission handler."""
-    if callable(id_or_func):
-        id_or_func._is_modal = True
-        id_or_func._modal_id = id_or_func.__name__
-        id_or_func._modal_scoped = scoped
-        return id_or_func
-
-    custom_id: str = id_or_func
-
-    def decorator(func: Callable) -> Callable:
+    def _apply(func: Callable, custom_id: str | None) -> Callable:
         func._is_modal = True
-        func._modal_id = custom_id
+        func._modal_id = custom_id or func.__name__
         func._modal_scoped = scoped
         return func
+
+    if callable(id_or_func):
+        return _apply(id_or_func, None)
+
+    def decorator(func: Callable) -> Callable:
+        return _apply(func, id_or_func)
 
     return decorator

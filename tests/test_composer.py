@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+from unittest.mock import MagicMock, patch
 
 from easycord.bot import Bot
 from easycord.composer import Composer
@@ -23,6 +24,25 @@ def test_default_auto_sync_is_true():
 def test_auto_sync_disabled():
     bot = Composer().auto_sync(False).build()
     assert bot._auto_sync is False
+
+
+def test_database_settings_forward_to_bot():
+    db = MagicMock()
+    with patch("easycord.composer.Bot", return_value=MagicMock()) as mock_bot:
+        Composer().database(db).db_backend("memory").db_path("x.db").db_auto_sync_guilds(False).build()
+
+    kwargs = mock_bot.call_args.kwargs
+    assert kwargs["database"] is db
+    assert kwargs["db_backend"] == "memory"
+    assert kwargs["db_path"] == "x.db"
+    assert kwargs["db_auto_sync_guilds"] is False
+
+
+def test_builtin_plugins_flag_forwards_to_bot():
+    with patch("easycord.composer.Bot", return_value=MagicMock()) as mock_bot:
+        Composer().builtin_plugins().build()
+
+    assert mock_bot.call_args.kwargs["load_builtin_plugins"] is True
 
 
 # ── Middleware registration ───────────────────────────────────

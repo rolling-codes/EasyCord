@@ -7,6 +7,7 @@ import discord
 
 from . import middleware as _mw
 from .bot import Bot
+from .database import EasyCordDatabase
 from .middleware import MiddlewareFn
 from .plugin import Plugin
 
@@ -40,6 +41,11 @@ class Composer:
     def __init__(self) -> None:
         self._intents: discord.Intents | None = None
         self._auto_sync: bool = True
+        self._load_builtin_plugins: bool = False
+        self._database: EasyCordDatabase | None = None
+        self._db_backend: str | None = None
+        self._db_path: str | None = None
+        self._db_auto_sync_guilds: bool | None = None
         self._middleware: list[MiddlewareFn] = []
         self._plugins: list[Plugin] = []
         self._groups: list = []
@@ -54,6 +60,31 @@ class Composer:
     def auto_sync(self, enabled: bool = True) -> Composer:
         """Enable or disable automatic slash-command syncing on startup."""
         self._auto_sync = enabled
+        return self
+
+    def builtin_plugins(self, enabled: bool = True) -> Composer:
+        """Enable or disable the bundled first-party plugin pack."""
+        self._load_builtin_plugins = enabled
+        return self
+
+    def database(self, database: EasyCordDatabase) -> Composer:
+        """Use an explicit database backend instance."""
+        self._database = database
+        return self
+
+    def db_backend(self, backend: str) -> Composer:
+        """Set the auto-configured database backend name."""
+        self._db_backend = backend
+        return self
+
+    def db_path(self, path: str) -> Composer:
+        """Set the SQLite database path used by the auto-configured backend."""
+        self._db_path = path
+        return self
+
+    def db_auto_sync_guilds(self, enabled: bool = True) -> Composer:
+        """Enable or disable automatic guild-row creation."""
+        self._db_auto_sync_guilds = enabled
         return self
 
     # ── Built-in middleware ───────────────────────────────────
@@ -150,6 +181,11 @@ class Composer:
         bot = Bot(
             intents=self._intents,
             auto_sync=self._auto_sync,
+            load_builtin_plugins=self._load_builtin_plugins,
+            database=self._database,
+            db_backend=self._db_backend,
+            db_path=self._db_path,
+            db_auto_sync_guilds=self._db_auto_sync_guilds,
         )
         for mw in self._middleware:
             bot.use(mw)

@@ -147,3 +147,29 @@ async def test_log_fetch_channel_when_not_cached():
 
     ctx.interaction.client.fetch_channel.assert_called_once_with(999)
     mock_channel.send.assert_called_once()
+
+
+async def test_log_skips_when_client_missing():
+    store = MagicMock(spec=ServerConfigStore)
+    cfg = ServerConfig(12345)
+    cfg.set_channel("audit_log", 999)
+    store.load = AsyncMock(return_value=cfg)
+
+    ctx = _make_ctx()
+    ctx.interaction.client = None
+
+    audit = AuditLog(store)
+    await audit.log(ctx, action="kick")
+
+
+async def test_log_skips_non_messageable_channel():
+    store = MagicMock(spec=ServerConfigStore)
+    cfg = ServerConfig(12345)
+    cfg.set_channel("audit_log", 999)
+    store.load = AsyncMock(return_value=cfg)
+
+    ctx = _make_ctx()
+    ctx.interaction.client.get_channel = MagicMock(return_value=object())
+
+    audit = AuditLog(store)
+    await audit.log(ctx, action="kick")

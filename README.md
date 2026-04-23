@@ -15,6 +15,7 @@
 from easycord import Bot
 
 bot = Bot()
+bot.load_builtin_plugins()
 
 @bot.slash()
 async def ping(ctx):
@@ -56,8 +57,11 @@ my_bot/
 ## Core pieces
 
 - `Bot` for slash commands, events, components, and plugin loading
+- `Bot.load_builtin_plugins()` for the bundled first-party plugin pack
+- `Bot.db` for automatic guild-scoped storage with SQLite or in-memory backends
 - `Plugin` for reusable feature bundles
 - `Composer` for a fluent setup style
+- `EmbedCard` and the themed embed helpers for embeds with buttons/selects
 - `Context` for the common reply, DM, embed, and moderation actions
 - Middleware for logging, error handling, rate limiting, and guards
 - `ServerConfigStore` for per-guild settings without a database

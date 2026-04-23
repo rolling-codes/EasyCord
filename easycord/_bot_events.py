@@ -242,3 +242,10 @@ class _EventsMixin:
             await self._dispatch_component(interaction)
         elif interaction.type == discord.InteractionType.modal_submit:
             await self._dispatch_modal(interaction)
+
+    async def on_guild_join(self, guild: discord.Guild) -> None:
+        """Auto-create a database row when the bot joins a new guild."""
+        db = getattr(self, "db", None)
+        if db is None or not getattr(db, "auto_sync_guilds", True):
+            return
+        await db.ensure_guild(guild.id)

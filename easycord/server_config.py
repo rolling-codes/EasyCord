@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import copy
 import json
 import os
@@ -32,7 +33,16 @@ class ServerConfig:  # pylint: disable=too-many-public-methods
     def _normalize(data: object) -> dict:
         if not isinstance(data, dict):
             return copy.deepcopy(ServerConfig._SCHEMA)
-        return {k: dict(data.get(k) or {}) for k in ("roles", "channels", "other")}
+        normalized = copy.deepcopy(ServerConfig._SCHEMA)
+        for section in ("roles", "channels", "other"):
+            raw_section = data.get(section)
+            if raw_section is None:
+                continue
+            try:
+                normalized[section] = copy.deepcopy(dict(raw_section))
+            except (TypeError, ValueError):
+                normalized[section] = {}
+        return normalized
 
     def _s(self, section: str) -> dict:
         return self._data[section]
@@ -169,7 +179,10 @@ class ServerConfigStore:
                 with open(tmp, "w", encoding="utf-8") as f:
                     json.dump(config.to_dict(), f, indent=2)
                 os.replace(tmp, path)
-            except OSError as exc:
+            except (OSError, TypeError, ValueError) as exc:
+                with contextlib.suppress(OSError):
+                    if tmp.exists():
+                        tmp.unlink()
                 raise RuntimeError(
                     f"Failed to save config for guild {config.guild_id}: {exc}"
                 ) from exc

@@ -108,7 +108,7 @@ def test_plugin_component_collision():
         async def handler2(self, ctx):
             pass
 
-    bot = Bot()
+    bot = Bot(db_backend="memory")
     bot.add_plugin(PluginA())
     
     with pytest.raises(ValueError, match="already registered by"):
@@ -128,7 +128,7 @@ def test_plugin_namespacing():
         async def handler2(self, ctx):
             pass
 
-    bot = Bot()
+    bot = Bot(db_backend="memory")
     bot.add_plugin(PluginC())
     bot.add_plugin(PluginD())
     

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "3.1.2"
+version = "3.2.0"
 description = "Decorator-first Discord bot framework — slash commands, context menus, components, modals, and a powerful plugin architecture"
 readme = "README.md"
 license = "MIT"
@@ -38,10 +38,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage       = "https://github.com/rolling-codes"
-Repository     = "https://github.com/rolling-codes"
-Issues         = "https://github.com/rolling-codes/issues"
-Documentation  = "https://github.com/rolling-codes"
+Homepage       = "https://github.com/rolling-codes/EasyCord"
+Repository     = "https://github.com/rolling-codes/EasyCord"
+Issues         = "https://github.com/rolling-codes/EasyCord/issues"
+Documentation  = "https://github.com/rolling-codes/EasyCord"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

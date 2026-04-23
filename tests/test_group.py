@@ -15,7 +15,7 @@ def bot():
 
     with patch("discord.Client.__init__", return_value=None), \
          patch("easycord.bot.app_commands.CommandTree", return_value=mock_tree):
-        b = Bot(intents=MagicMock(), auto_sync=False)
+        b = Bot(intents=MagicMock(), auto_sync=False, db_backend="memory")
         b.is_ready = MagicMock(return_value=False)
         return b
 

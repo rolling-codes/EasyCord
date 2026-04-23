@@ -106,6 +106,47 @@ def test_on_different_event_names():
     assert h2._event_name == "reaction_add"
 
 
+# ── component / modal ────────────────────────────────────────────────────────
+
+from easycord.decorators import component, modal
+
+
+def test_component_called_without_id_defaults_to_function_name():
+    @component()
+    async def save(ctx):
+        pass
+
+    assert save._is_component is True
+    assert save._component_id == "save"
+
+
+def test_component_called_without_id_respects_scoped_flag():
+    @component(scoped=False)
+    async def save(ctx):
+        pass
+
+    assert save._component_scoped is False
+    assert save._component_id == "save"
+
+
+def test_modal_called_without_id_defaults_to_function_name():
+    @modal()
+    async def feedback(ctx, data):
+        pass
+
+    assert feedback._is_modal is True
+    assert feedback._modal_id == "feedback"
+
+
+def test_modal_called_without_id_respects_scoped_flag():
+    @modal(scoped=False)
+    async def feedback(ctx, data):
+        pass
+
+    assert feedback._modal_scoped is False
+    assert feedback._modal_id == "feedback"
+
+
 # ── task ──────────────────────────────────────────────────────────────────────
 
 from easycord.decorators import task

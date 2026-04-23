@@ -157,6 +157,12 @@ class TestServerConfigNormalize:
         cfg = ServerConfig(guild_id=1, data={"roles": None, "channels": None, "other": None})
         assert cfg.list_roles() == {}
 
+    def test_invalid_subsection_values_fall_back_to_empty_dicts(self):
+        cfg = ServerConfig(guild_id=1, data={"roles": 123, "channels": ["bad"], "other": object()})
+        assert cfg.list_roles() == {}
+        assert cfg.list_channels() == {}
+        assert cfg.list_other() == {}
+
 
 # ── ServerConfigStore ─────────────────────────────────────────────────────────
 

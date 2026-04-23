@@ -261,6 +261,21 @@ def test_add_plugins_registers_multiple(bot):
     assert len(bot._plugins) == 2
 
 
+def test_load_builtin_plugins_registers_bundled_plugins(bot):
+    from easycord.plugin import Plugin
+
+    class A(Plugin):
+        pass
+
+    class B(Plugin):
+        pass
+
+    with patch("easycord.bot.build_builtin_plugins", return_value=(A(), B())):
+        bot.load_builtin_plugins()
+
+    assert len(bot._plugins) == 2
+
+
 # ── remove_plugin ─────────────────────────────────────────────────────────────
 
 async def test_remove_plugin_removes_command(bot):

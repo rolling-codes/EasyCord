@@ -14,6 +14,8 @@ If you are learning the framework for the first time, these are the main buildin
 | Add context menus | `@bot.user_command(...)` / `@bot.message_command(...)` |
 | Build a bot in steps | `Composer()` |
 | Save guild settings | `ServerConfigStore` |
+| Load bundled plugins | `bot.load_builtin_plugins()` |
+| Store guild data | `bot.db` |
 
 ```python
 from easycord import Bot
@@ -28,7 +30,20 @@ need, then register a few slash commands on top.
 
 ## `easycord.Bot`
 
-`Bot(*, intents=None, auto_sync=True, **kwargs)`
+`Bot(*, intents=None, auto_sync=True, load_builtin_plugins=False, database=None, db_backend=None, db_path=None, db_auto_sync_guilds=None, **kwargs)`
+
+`bot.db` is auto-configured if you do not pass a database object. The default
+backend is SQLite and the default path is `.easycord/library.db`. You can
+override that behavior with environment variables:
+
+| Env var | Meaning |
+| --- | --- |
+| `EASYCORD_DB_BACKEND` | `sqlite` or `memory` |
+| `EASYCORD_DB_PATH` | SQLite file path |
+| `EASYCORD_DB_AUTO_SYNC_GUILDS` | `1`/`0` toggle for auto-creating guild rows |
+
+`Bot.load_builtin_plugins()` loads the bundled first-party plugin pack:
+`WelcomePlugin`, `TagsPlugin`, `PollsPlugin`, and `LevelsPlugin`.
 
 ### Slash commands
 
@@ -69,9 +84,25 @@ need, then register a few slash commands on top.
 
 `Bot.add_groups(*groups)` — load several SlashGroup namespaces in one call
 
+`Bot.load_builtin_plugins()` — load the bundled plugin pack once; safe to call before startup
+
 `await Bot.remove_plugin(plugin)` — unload plugin; removes commands, deregisters handlers, calls `on_unload()`
 
 `await Bot.reload_plugin(name: str)` — reload a plugin in-place by class name; calls `on_unload()` then `on_load()` on the same instance; constructor arguments and in-memory state preserved; raises `ValueError` if no loaded plugin has that class name
+
+### Database
+
+`bot.db` — framework-owned database service with guild-row sync and JSON values
+
+`await bot.db.ensure_guild(guild_id)` — create a row for a guild if missing
+
+`await bot.db.get(guild_id, key, default=None)` — read a guild-scoped value
+
+`await bot.db.set(guild_id, key, value)` — store a guild-scoped value
+
+`await bot.db.delete(guild_id, key)` — delete a guild-scoped value
+
+`await bot.db.list_guilds()` — return all known guild records
 
 ### Guild / Channel / Webhook / Emoji
 
@@ -201,6 +232,39 @@ from easycord import EmbedBuilder, ButtonRowBuilder, SelectMenuBuilder, ModalBui
 | `.build()` | Return the `discord.Embed` |
 
 Raises `ValueError` if `.title()` was not called before `.build()`.
+
+### `EmbedCard`
+
+Wrap an existing embed and optionally attach buttons/select menus:
+
+```python
+from easycord import EmbedCard
+
+card = (
+    EmbedCard.from_embed(embed)
+    .button("Approve", custom_id="approve", style="success")
+    .button("Reject", custom_id="reject", style="danger")
+)
+
+await ctx.respond(**card.to_kwargs())
+```
+
+Common helpers:
+
+| Method | Description |
+|---|---|
+| `.button(label, custom_id=None, style="primary", url=None)` | Add a button |
+| `.link(label, url)` | Add a link button |
+| `.select(custom_id, *, placeholder=None, options=(), min_values=1, max_values=1)` | Add a select menu |
+| `.to_kwargs()` | Return kwargs for `ctx.respond` or `channel.send` |
+| `.respond(ctx, *, content=None, ephemeral=False, **kwargs)` | Send the card directly |
+
+Theme presets:
+
+- `InfoEmbed`
+- `SuccessEmbed`
+- `WarningEmbed`
+- `ErrorEmbed`
 
 ### `ButtonRowBuilder`
 

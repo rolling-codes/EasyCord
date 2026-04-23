@@ -1,3 +1,30 @@
+# Release notes for 3.1.3
+
+Release date: 2026-04-22
+
+This update adds the framework-owned database service and automatic guild-row
+sync, plus a cleaner default path for storing bot data.
+
+## What changed
+
+- Added `bot.db` as an auto-configured SQLite or in-memory database surface.
+- Added `DatabaseConfig`, `SQLiteDatabase`, `MemoryDatabase`, and `GuildRecord`.
+- Seeded guild rows automatically on startup and when the bot joins a guild.
+- Exposed the database API from `easycord.__init__`.
+- Updated docs and tests to cover the new backend.
+
+## User impact
+
+- Bots can now store guild-scoped JSON data without wiring their own storage layer.
+- Tests can use the in-memory backend to stay isolated.
+- Real bots get a default SQLite file at `.easycord/library.db` unless overridden.
+
+## Validation
+
+- `pytest`
+
+---
+
 # Release notes for 3.1.0
 
 Release date: 2026-04-22
