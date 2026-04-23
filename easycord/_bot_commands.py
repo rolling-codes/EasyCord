@@ -122,21 +122,31 @@ class _CommandsMixin:
             async def invoke() -> None:
                 if guild_only and not ctx.guild:
                     await ctx.respond(
-                        "This command can only be used inside a server.",
+                        ctx.t(
+                            "errors.guild_only",
+                            default="This command can only be used inside a server.",
+                        ),
                         ephemeral=True,
                     )
                     return
                 if permissions:
                     if not ctx.guild:
                         await ctx.respond(
-                            "This command can only be used inside a server.",
+                            ctx.t(
+                                "errors.guild_only",
+                                default="This command can only be used inside a server.",
+                            ),
                             ephemeral=True,
                         )
                         return
                     member = ctx.guild.get_member(ctx.user.id)
                     if not member:
                         await ctx.respond(
-                            "Could not verify your permissions.", ephemeral=True
+                            ctx.t(
+                                "errors.permissions_unverified",
+                                default="Could not verify your permissions.",
+                            ),
+                            ephemeral=True,
                         )
                         return
                     missing = [
@@ -145,8 +155,11 @@ class _CommandsMixin:
                     ]
                     if missing:
                         await ctx.respond(
-                            f"You need the following permission(s): "
-                            f"{', '.join(missing)}.",
+                            ctx.t(
+                                "errors.permissions_missing",
+                                default="You need the following permission(s): {permissions}.",
+                                permissions=", ".join(missing),
+                            ),
                             ephemeral=True,
                         )
                         return
@@ -156,8 +169,11 @@ class _CommandsMixin:
                     remaining = cooldown - (now - _cooldown_last_used.get(uid, 0.0))
                     if remaining > 0:
                         await ctx.respond(
-                            f"This command is on cooldown. "
-                            f"Try again in {remaining:.1f}s.",
+                            ctx.t(
+                                "errors.cooldown",
+                                default="This command is on cooldown. Try again in {seconds:.1f}s.",
+                                seconds=remaining,
+                            ),
                             ephemeral=True,
                         )
                         return

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from easycord import Plugin
 from easycord.decorators import slash, on as ec_on, task
+from easycord.i18n import LocalizationManager
 
 
 # ── use ───────────────────────────────────────────────────────────────────────
@@ -155,6 +156,33 @@ async def test_slash_guild_only_blocks_dm(bot):
     assert not handler_called
     interaction.response.send_message.assert_called_once()
     assert interaction.response.send_message.call_args.kwargs.get("ephemeral") is True
+
+
+async def test_slash_guild_only_uses_localization(bot):
+    @bot.slash(description="server only", guild_only=True)
+    async def _server_cmd(_ctx):
+        pass
+
+    bot.localization = LocalizationManager()
+    bot.localization.register("es-ES", {
+        "errors.guild_only": "Solo se puede usar en un servidor.",
+    })
+
+    cmd = bot.tree.add_command.call_args[0][0]
+
+    interaction = MagicMock()
+    interaction.guild = None
+    interaction.response.send_message = AsyncMock()
+    interaction.followup.send = AsyncMock()
+    interaction.command = MagicMock()
+    interaction.command.name = "server_cmd"
+    interaction.user = MagicMock()
+    interaction.client = bot
+    interaction.locale = "es-ES"
+
+    await cmd.callback(interaction)
+    message = interaction.response.send_message.call_args.args[0]
+    assert message == "Solo se puede usar en un servidor."
 
 
 async def test_slash_ephemeral_forces_ephemeral_response(bot):

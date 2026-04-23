@@ -14,6 +14,7 @@ from ._bot_commands import _CommandsMixin
 from ._bot_events import _EventsMixin
 from ._bot_guild import _GuildMixin
 from ._bot_plugins import _PluginsMixin
+from .i18n import LocalizationManager
 from .registry import InteractionRegistry
 
 logger = logging.getLogger("easycord")
@@ -54,6 +55,9 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         *,
         intents: discord.Intents | None = None,
         auto_sync: bool = True,
+        localization: LocalizationManager | None = None,
+        default_locale: str = "en-US",
+        translations: dict[str, dict[str, str]] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
@@ -66,6 +70,11 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self._webhooks: dict[int, discord.Webhook] = {}
         self.registry = InteractionRegistry()
         self._error_handler = None
+        self.localization = localization or LocalizationManager(
+            default_locale=default_locale,
+            translations=translations,
+        )
+        self.i18n = self.localization
 
     async def setup_hook(self) -> None:
         if self._auto_sync:

@@ -9,6 +9,7 @@ from . import middleware as _mw
 from .bot import Bot
 from .middleware import MiddlewareFn
 from .plugin import Plugin
+from .i18n import LocalizationManager
 
 
 class Composer:
@@ -40,6 +41,9 @@ class Composer:
     def __init__(self) -> None:
         self._intents: discord.Intents | None = None
         self._auto_sync: bool = True
+        self._localization: LocalizationManager | None = None
+        self._default_locale: str = "en-US"
+        self._translations: dict[str, dict[str, str]] | None = None
         self._middleware: list[MiddlewareFn] = []
         self._plugins: list[Plugin] = []
         self._groups: list = []
@@ -54,6 +58,25 @@ class Composer:
     def auto_sync(self, enabled: bool = True) -> Composer:
         """Enable or disable automatic slash-command syncing on startup."""
         self._auto_sync = enabled
+        return self
+
+    def localization(self, localization: LocalizationManager) -> Composer:
+        """Provide a shared localization manager for the bot."""
+        self._localization = localization
+        return self
+
+    def i18n(self, localization: LocalizationManager) -> Composer:
+        """Alias for :meth:`localization`."""
+        return self.localization(localization)
+
+    def default_locale(self, locale: str) -> Composer:
+        """Set the default locale used by the localization manager."""
+        self._default_locale = locale
+        return self
+
+    def translations(self, translations: dict[str, dict[str, str]]) -> Composer:
+        """Seed the localization manager with locale catalogs."""
+        self._translations = translations
         return self
 
     # ── Built-in middleware ───────────────────────────────────
@@ -150,6 +173,9 @@ class Composer:
         bot = Bot(
             intents=self._intents,
             auto_sync=self._auto_sync,
+            localization=self._localization,
+            default_locale=self._default_locale,
+            translations=self._translations,
         )
         for mw in self._middleware:
             bot.use(mw)

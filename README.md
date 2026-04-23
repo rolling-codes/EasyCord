@@ -56,9 +56,10 @@ my_bot/
 ## Core pieces
 
 - `Bot` for slash commands, events, components, and plugin loading
+- `LocalizationManager` for lightweight locale-aware strings and fallback
 - `Plugin` for reusable feature bundles
 - `Composer` for a fluent setup style
-- `Context` for the common reply, DM, embed, and moderation actions
+- `Context` for the common reply, DM, embed, moderation, and localization helpers
 - Middleware for logging, error handling, rate limiting, and guards
 - `ServerConfigStore` for per-guild settings without a database
 

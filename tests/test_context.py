@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from easycord.context import Context
+from easycord.i18n import LocalizationManager
 
 
 @pytest.fixture
@@ -46,6 +47,13 @@ def test_command_name(ctx, interaction):
 def test_command_name_no_command(ctx, interaction):
     interaction.command = None
     assert ctx.command_name is None
+
+
+def test_locale_properties(ctx, interaction):
+    interaction.locale = "es-ES"
+    interaction.guild_locale = "es-MX"
+    assert ctx.locale == "es-ES"
+    assert ctx.guild_locale == "es-MX"
 
 
 def test_member_returns_member_in_guild(ctx, interaction):
@@ -607,3 +615,18 @@ async def test_send_embed_no_extras_unchanged(ctx):
     instance.set_thumbnail.assert_not_called()
     instance.set_image.assert_not_called()
     instance.set_author.assert_not_called()
+
+
+def test_translate_uses_bot_localization(ctx, interaction):
+    bot = MagicMock()
+    bot.localization = LocalizationManager()
+    bot.localization.register("es-ES", {"greeting": "Hola {name}"})
+    interaction.client = bot
+    interaction.locale = "es-ES"
+
+    assert ctx.t("greeting", name="Tom") == "Hola Tom"
+
+
+def test_translate_falls_back_without_bot(ctx, interaction):
+    interaction.client = None
+    assert ctx.t("missing", default="Fallback") == "Fallback"

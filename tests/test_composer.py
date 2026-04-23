@@ -4,6 +4,7 @@ import pytest
 
 from easycord.bot import Bot
 from easycord.composer import Composer
+from easycord.i18n import LocalizationManager
 from easycord.plugin import Plugin
 
 
@@ -20,9 +21,29 @@ def test_default_auto_sync_is_true():
     assert bot._auto_sync is True
 
 
+def test_default_localization_manager_is_created():
+    bot = Composer().build()
+    assert hasattr(bot, "localization")
+    assert bot.localization is bot.i18n
+
+
 def test_auto_sync_disabled():
     bot = Composer().auto_sync(False).build()
     assert bot._auto_sync is False
+
+
+def test_localization_is_forwarded():
+    manager = LocalizationManager()
+    composer = Composer().localization(manager)
+    bot = composer.build()
+    assert bot.localization is manager
+
+
+def test_translations_seed_localization_manager():
+    bot = Composer().translations(
+        {"en-US": {"hello": "world"}}
+    ).build()
+    assert bot.localization.get("hello", locale="en-US") == "world"
 
 
 # ── Middleware registration ───────────────────────────────────

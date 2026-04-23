@@ -12,6 +12,7 @@ If you are learning the framework for the first time, these are the main buildin
 | Group related commands | subclass `SlashGroup` |
 | Add buttons or select menus | `@bot.component(...)` |
 | Add context menus | `@bot.user_command(...)` / `@bot.message_command(...)` |
+| Add locale-aware strings | `LocalizationManager` + `ctx.t(...)` |
 | Build a bot in steps | `Composer()` |
 | Save guild settings | `ServerConfigStore` |
 
@@ -28,7 +29,7 @@ need, then register a few slash commands on top.
 
 ## `easycord.Bot`
 
-`Bot(*, intents=None, auto_sync=True, **kwargs)`
+`Bot(*, intents=None, auto_sync=True, localization=None, default_locale="en-US", translations=None, **kwargs)`
 
 ### Slash commands
 
@@ -58,6 +59,8 @@ need, then register a few slash commands on top.
 `Bot.on(event)` — decorator; event name without `on_` prefix; multiple handlers per event supported
 
 `Bot.use(middleware)` — register middleware (decorator or direct call); runs for slash commands only
+
+`bot.localization` / `bot.i18n` — `LocalizationManager` instance used by `Context.t(...)`
 
 `@Bot.on_error` / `Bot.on_error(func)` — register a global error handler `async def handler(ctx, error)` called when any slash command raises an unhandled exception; overwrites any previously registered handler
 
@@ -111,6 +114,12 @@ Middleware runs on component interactions exactly as it does for slash commands.
 
 `Bot.run(token, **kwargs)` — configures logging, starts the bot
 
+### Localization
+
+`LocalizationManager(default_locale="en-US", translations=None)` — store string templates by locale and resolve fallback chains
+
+`bot.localization.register(locale, translations)` — add or merge a locale catalog
+
 ---
 
 ## `easycord.Context`
@@ -124,6 +133,8 @@ Middleware runs on component interactions exactly as it does for slash commands.
 | `ctx.member` | `Member \| None` | Invoking user as `Member` (has `.roles`, `.nick`, `.guild_permissions`); `None` in DMs |
 | `ctx.guild` | `Guild \| None` | Server or `None` in DMs |
 | `ctx.guild_id` | `int \| None` | `ctx.guild.id` safe shortcut; `None` in DMs |
+| `ctx.locale` | `discord.Locale \| str \| None` | The invoking user's locale when Discord provides one |
+| `ctx.guild_locale` | `discord.Locale \| str \| None` | The guild locale when Discord provides one |
 | `ctx.channel` | `Messageable \| None` | Channel |
 | `ctx.command_name` | `str \| None` | Slash command name |
 | `ctx.voice_channel` | `VoiceChannel \| StageChannel \| None` | Invoker's current voice channel |
@@ -138,6 +149,8 @@ Middleware runs on component interactions exactly as it does for slash commands.
 `await ctx.defer(*, ephemeral=False)` — acknowledge without visible reply; use before slow operations
 
 `await ctx.send_embed(title, description=None, *, fields=None, footer=None, thumbnail=None, image=None, author=None, timestamp=None, color=blue, ephemeral=False)` — fields: `[(name, value)]` or `[(name, value, inline)]`; `thumbnail`/`image`: URL strings; `author`: name string or `{"name", "icon_url", "url"}` dict; `timestamp=True` uses current UTC time
+
+`ctx.t(key, *, default=None, locale=None, guild_locale=None, **kwargs)` — translate and format a string key using the bot's localization manager
 
 `await ctx.send_file(path, *, filename=None, content=None, ephemeral=False)`
 
@@ -311,6 +324,9 @@ Fluent builder — chains middleware + plugins, returns a configured `Bot`.
 | --- | --- |
 | `.intents(intents)` | Set gateway intents |
 | `.auto_sync(enabled)` | Enable/disable startup sync |
+| `.localization(manager)` / `.i18n(manager)` | Provide a shared `LocalizationManager` |
+| `.default_locale(locale)` | Set the manager's default locale |
+| `.translations(mapping)` | Seed locale catalogs |
 | `.log(level, fmt)` | Add `log_middleware` |
 | `.catch_errors(message)` | Add `catch_errors` middleware |
 | `.rate_limit(limit, window)` | Add `rate_limit` middleware |

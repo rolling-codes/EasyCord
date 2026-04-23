@@ -6,6 +6,10 @@
 
 Decorator-first Python framework for Discord bots on `discord.py>=2.0`. Removes boilerplate: decorators register slash commands, middleware wraps every invocation, plugins group commands/events into classes.
 
+Current roadmap state: database auto-configuration, bundled plugins, embed-card helpers, and a lightweight localization manager are now in place. `Context.t(...)` can resolve translated strings through `Bot.localization` / `Bot.i18n`.
+
+Release notes now emphasize the practical uses of each feature, especially `Bot.db`, `bot.load_builtin_plugins()`, `EmbedCard`, and `LocalizationManager`, so they can guide the next implementation pass instead of only recording history.
+
 ## Layout
 
 | Path | Purpose |
