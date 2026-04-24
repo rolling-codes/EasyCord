@@ -43,7 +43,11 @@ def dm_only() -> MiddlewareFn:
     async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
         if ctx.guild is not None:
             await ctx.respond(
-                "This command can only be used in a direct message.", ephemeral=True
+                ctx.t(
+                    "errors.dm_only",
+                    default="This command can only be used in a direct message.",
+                ),
+                ephemeral=True,
             )
             return
         await proceed()
@@ -155,7 +159,11 @@ def guild_only() -> MiddlewareFn:
     async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
         if ctx.guild is None:
             await ctx.respond(
-                "This command can only be used inside a server.", ephemeral=True
+                ctx.t(
+                    "errors.guild_only",
+                    default="This command can only be used inside a server.",
+                ),
+                ephemeral=True,
             )
             return
         await proceed()
@@ -183,7 +191,11 @@ def rate_limit(
         if len(_history[uid]) >= limit:
             wait = window - (now - _history[uid][0])
             await ctx.respond(
-                f"You're being rate limited. Try again in {wait:.1f}s.",
+                ctx.t(
+                    "errors.rate_limited",
+                    default="You're being rate limited. Try again in {seconds:.1f}s.",
+                    seconds=wait,
+                ),
                 ephemeral=True,
             )
             return
