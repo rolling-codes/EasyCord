@@ -119,7 +119,13 @@ class WelcomePlugin(Plugin):
     async def set_welcome_channel(self, ctx, channel: discord.TextChannel) -> None:
         guild = require_guild(ctx)
         if guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await ctx.respond(
+                ctx.t(
+                    "errors.guild_only",
+                    default="This command only works in a server.",
+                ),
+                ephemeral=True,
+            )
             return
         self._update(guild.id, welcome_channel=channel.id)
         await ctx.respond(f"Welcome messages will be posted in {channel.mention}.", ephemeral=True)
