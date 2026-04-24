@@ -126,6 +126,13 @@ def _make_ctx(guild_id: int = 1, user_id: int = 42) -> MagicMock:
     ctx.user.display_name = f"User{user_id}"
     ctx.guild.get_member = MagicMock(return_value=member)
     ctx.guild.get_role = MagicMock(return_value=None)
+    # Mock ctx.t() to return the default value
+    def t_mock(key, default=None, **kwargs):
+        if default is not None:
+            # Simple substitution of kwargs into default
+            return default.format(**kwargs) if kwargs else default
+        return key
+    ctx.t = MagicMock(side_effect=t_mock)
     return ctx
 
 

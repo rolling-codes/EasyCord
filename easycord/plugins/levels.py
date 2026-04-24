@@ -89,14 +89,14 @@ class LevelsPlugin(Plugin):
             title=f"{ctx.user.display_name}'s Rank",
             color=discord.Color.blue(),
         )
-        embed.add_field(name="Level", value=str(level), inline=True)
-        embed.add_field(name="XP", value=f"{xp:,}", inline=True)
+        embed.add_field(name=ctx.t("levels.embed.level", default="Level"), value=str(level), inline=True)
+        embed.add_field(name=ctx.t("levels.embed.xp", default="XP"), value=f"{xp:,}", inline=True)
         rank_name = rank_for_level(config, level)
         if rank_name:
-            embed.add_field(name="Rank", value=rank_name, inline=True)
+            embed.add_field(name=ctx.t("levels.embed.rank", default="Rank"), value=rank_name, inline=True)
         bar = progress_bar(xp, level)
         embed.add_field(
-            name=f"Progress to Level {level + 1}",
+            name=ctx.t("levels.embed.progress", default="Progress to Level {level}", level=level + 1),
             value=f"`{bar}` {xp - current_floor:,} / {next_xp - current_floor:,} XP",
             inline=False,
         )
@@ -200,6 +200,7 @@ class LevelsPlugin(Plugin):
             if role:
                 try:
                     await message.author.add_roles(role, reason=f"Reached level {level}")
+                    # Note: ctx not available in event handler; use bot's LocalizationManager if needed
                     embed.add_field(name="Role awarded", value=role.mention, inline=False)
                 except discord.HTTPException:
                     pass
@@ -218,7 +219,7 @@ class LevelsPlugin(Plugin):
     async def leaderboard(self, ctx) -> None:
         data = self._store.read_xp(ctx.guild.id)
         if not data:
-            await ctx.respond("No one has earned XP yet!", ephemeral=True)
+            await ctx.respond(ctx.t("levels.no_xp_yet", default="No one has earned XP yet!"), ephemeral=True)
             return
 
         config = self._store.read_config(ctx.guild.id)
@@ -227,7 +228,7 @@ class LevelsPlugin(Plugin):
     @slash(description="Award XP to a member.", permissions=["manage_guild"], guild_only=True)
     async def give_xp(self, ctx, member: discord.Member, amount: int) -> None:
         if amount <= 0:
-            await ctx.respond("Amount must be a positive number.", ephemeral=True)
+            await ctx.respond(ctx.t("levels.amount_positive", default="Amount must be a positive number."), ephemeral=True)
             return
         xp, level, leveled_up = await self._store.add_xp(ctx.guild.id, member.id, amount)
         msg = f"Gave **{amount:,} XP** to {member.mention}. They now have **{xp:,} XP** (Level {level})."
@@ -238,29 +239,38 @@ class LevelsPlugin(Plugin):
     @slash(description="Name a rank for a specific level.", permissions=["manage_guild"], guild_only=True)
     async def set_rank(self, ctx, level: int, name: str) -> None:
         if not _positive_level(level):
-            await ctx.respond("Level must be at least 1.", ephemeral=True)
+            await ctx.respond(ctx.t("levels.level_min", default="Level must be at least 1."), ephemeral=True)
             return
 
         await self._set_config_value(ctx.guild.id, "ranks", level, name)
-        await ctx.respond(f"Rank **{name}** set for Level {level}.", ephemeral=True)
+        await ctx.respond(
+            ctx.t("levels.rank_set", default="Rank **{name}** set for Level {level}.", name=name, level=level),
+            ephemeral=True,
+        )
 
     @slash(description="Remove the rank name for a specific level.", permissions=["manage_guild"], guild_only=True)
     async def remove_rank(self, ctx, level: int) -> None:
         removed = await self._remove_config_value(ctx.guild.id, "ranks", level)
         if removed is None:
-            await ctx.respond(f"No rank is configured at level {level}.", ephemeral=True)
+            await ctx.respond(
+                ctx.t("levels.no_rank_at_level", default="No rank is configured at level {level}.", level=level),
+                ephemeral=True,
+            )
             return
-        await ctx.respond(f"Removed rank **{removed}** from Level {level}.", ephemeral=True)
+        await ctx.respond(
+            ctx.t("levels.rank_removed", default="Removed rank **{removed}** from Level {level}.", removed=removed, level=level),
+            ephemeral=True,
+        )
 
     @slash(description="Assign a role reward when a member reaches a level.", permissions=["manage_guild"], guild_only=True)
     async def set_level_role(self, ctx, level: int, role: discord.Role) -> None:
         if not _positive_level(level):
-            await ctx.respond("Level must be at least 1.", ephemeral=True)
+            await ctx.respond(ctx.t("levels.level_min", default="Level must be at least 1."), ephemeral=True)
             return
 
         await self._set_config_value(ctx.guild.id, "role_rewards", level, role.id)
         await ctx.respond(
-            f"Members who reach **Level {level}** will receive {role.mention}.",
+            ctx.t("levels.role_reward_set", default="Members who reach **Level {level}** will receive {role}.", level=level, role=role.mention),
             ephemeral=True,
         )
 
@@ -269,8 +279,7 @@ class LevelsPlugin(Plugin):
         config = self._store.read_config(ctx.guild.id)
         if not (config.get("ranks") or config.get("role_rewards")):
             await ctx.respond(
-                "No ranks or role rewards configured yet.\n"
-                "Use `/set_rank` or `/set_level_role` to add some.",
+                ctx.t("levels.no_ranks_configured", default="No ranks or role rewards configured yet.\nUse `/set_rank` or `/set_level_role` to add some."),
                 ephemeral=True,
             )
             return
