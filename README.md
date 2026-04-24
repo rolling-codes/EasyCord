@@ -1,7 +1,9 @@
 # EasyCord 
 ![PyPI](https://img.shields.io/pypi/v/easycord)
+![Version](https://img.shields.io/badge/v-1.1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![Tests](https://img.shields.io/badge/tests-460%20passing-brightgreen)
 
 > This framework helps beginners build Discord bots faster by removing boilerplate around slash commands, components, plugins, and moderation helpers.
 
@@ -59,6 +61,24 @@ bot = Bot(localization=locales, default_locale="en")
 ```
 
 Translations fallback gracefully: user locale → guild locale → default locale → English. See [`docs/localization.md`](docs/localization.md) for the full guide.
+
+## AI Integration (OpenClaude)
+
+Ask Claude directly from Discord:
+
+```python
+from easycord import Bot
+from easycord.plugins import OpenClaudePlugin
+
+bot = Bot()
+bot.add_plugin(OpenClaudePlugin(api_key="sk-ant-..."))  # or ANTHROPIC_API_KEY env var
+
+bot.run("YOUR_TOKEN")
+```
+
+Members use `/ask "your question"` to query Claude API. Responses are automatically truncated to Discord's 2000-char limit.
+
+**Setup:** Install `anthropic` SDK and set `ANTHROPIC_API_KEY` environment variable.
 
 ## Why this exists
 
