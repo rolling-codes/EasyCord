@@ -115,10 +115,10 @@ class PollsPlugin(Plugin):
     ) -> None:
         options = _poll_options(option1, option2, option3, option4, option5)
         if len(options) < 2:
-            await ctx.respond("A poll needs at least 2 options.", ephemeral=True)
+            await ctx.respond(ctx.t("polls.min_options", default="A poll needs at least 2 options."), ephemeral=True)
             return
         if not _is_valid_duration(duration):
-            await ctx.respond("Duration must be at least 5 seconds.", ephemeral=True)
+            await ctx.respond(ctx.t("polls.min_duration", default="Duration must be at least 5 seconds."), ephemeral=True)
             return
 
         view = _PollView(question, options, duration)
