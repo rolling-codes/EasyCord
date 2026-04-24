@@ -55,7 +55,7 @@ def dm_only() -> MiddlewareFn:
     return handler
 
 
-def allowed_roles(*role_ids: int, message: str = "You don't have the required role to use this command.") -> MiddlewareFn:
+def allowed_roles(*role_ids: int, message: str | None = None) -> MiddlewareFn:
     """Block commands unless the invoking member holds at least one of *role_ids*.
 
     Silently passes when used outside a guild (DMs), so combine with
@@ -73,7 +73,11 @@ def allowed_roles(*role_ids: int, message: str = "You don't have the required ro
             return
         member = ctx.guild.get_member(ctx.user.id)
         if member is None or role_set.isdisjoint(r.id for r in member.roles):
-            await ctx.respond(message, ephemeral=True)
+            text = message or ctx.t(
+                "errors.missing_role",
+                default="You don't have the required role to use this command.",
+            )
+            await ctx.respond(text, ephemeral=True)
             return
         await proceed()
 
@@ -82,7 +86,7 @@ def allowed_roles(*role_ids: int, message: str = "You don't have the required ro
 
 def channel_only(
     *channel_ids: int,
-    message: str = "This command cannot be used in this channel.",
+    message: str | None = None,
 ) -> MiddlewareFn:
     """Block commands invoked outside of the specified channel(s).
 
@@ -99,7 +103,11 @@ def channel_only(
             await proceed()
             return
         if ctx.channel is None or ctx.channel.id not in channel_set:  # type: ignore[union-attr]
-            await ctx.respond(message, ephemeral=True)
+            text = message or ctx.t(
+                "errors.wrong_channel",
+                default="This command cannot be used in this channel.",
+            )
+            await ctx.respond(text, ephemeral=True)
             return
         await proceed()
 
@@ -107,7 +115,7 @@ def channel_only(
 
 
 def admin_only(
-    message: str = "This command requires administrator permissions.",
+    message: str | None = None,
 ) -> MiddlewareFn:
     """Block commands unless the invoking member has the administrator permission.
 
@@ -125,7 +133,11 @@ def admin_only(
             return
         member = ctx.guild.get_member(ctx.user.id)
         if member is None or not member.guild_permissions.administrator:
-            await ctx.respond(message, ephemeral=True)
+            text = message or ctx.t(
+                "errors.admin_only",
+                default="This command requires administrator permissions.",
+            )
+            await ctx.respond(text, ephemeral=True)
             return
         await proceed()
 
@@ -207,7 +219,7 @@ def rate_limit(
 
 
 def boost_only(
-    message: str = "This command is for server boosters only.",
+    message: str | None = None,
 ) -> MiddlewareFn:
     """Block commands unless the invoking member is currently boosting the server.
 
@@ -225,7 +237,11 @@ def boost_only(
             return
         member = ctx.guild.get_member(ctx.user.id)
         if member is None or member.premium_since is None:
-            await ctx.respond(message, ephemeral=True)
+            text = message or ctx.t(
+                "errors.booster_only",
+                default="This command is for server boosters only.",
+            )
+            await ctx.respond(text, ephemeral=True)
             return
         await proceed()
 
@@ -255,19 +271,23 @@ def has_permission(
             return
         member = ctx.guild.get_member(ctx.user.id)
         if member is None:
-            await ctx.respond(
-                message or "Could not verify your permissions.", ephemeral=True
+            text = message or ctx.t(
+                "errors.permissions_unverified",
+                default="Could not verify your permissions.",
             )
+            await ctx.respond(text, ephemeral=True)
             return
         missing = [
             p for p in permissions
             if not getattr(member.guild_permissions, p, False)
         ]
         if missing:
-            await ctx.respond(
-                message or f"You need the following permission(s): {', '.join(missing)}.",
-                ephemeral=True,
+            text = message or ctx.t(
+                "errors.permissions_missing",
+                default="You need the following permission(s): {permissions}.",
+                permissions=", ".join(missing),
             )
+            await ctx.respond(text, ephemeral=True)
             return
         await proceed()
 
@@ -275,7 +295,7 @@ def has_permission(
 
 
 def catch_errors(
-    message: str = "Something went wrong. Please try again.",
+    message: str | None = None,
 ) -> MiddlewareFn:
     """Catch unhandled exceptions, log them, and send an ephemeral error reply."""
     logger = logging.getLogger("easycord")
@@ -286,6 +306,10 @@ def catch_errors(
         except Exception as exc:  # noqa: BLE001 — intentional broad catch for error handler
             logger.exception("Unhandled error in /%s: %s", ctx.command_name, exc)
             with contextlib.suppress(Exception):
-                await ctx.respond(message, ephemeral=True)
+                text = message or ctx.t(
+                    "errors.internal",
+                    default="Something went wrong. Please try again.",
+                )
+                await ctx.respond(text, ephemeral=True)
 
     return handler

@@ -423,12 +423,14 @@ async def test_has_permission_passes_when_member_has_all():
 
 async def test_has_permission_blocks_when_missing_one():
     ctx = _mw_make_ctx_perms(perms=["kick_members"])
+    ctx.t.return_value = "Missing permissions: ban_members"
     ctx.guild.get_member.return_value.guild_permissions.ban_members = False
     proceed = AsyncMock()
     await has_permission("kick_members", "ban_members")(ctx, proceed)
     proceed.assert_not_called()
     assert ctx.respond.call_args.kwargs.get("ephemeral") is True
-    assert "ban_members" in ctx.respond.call_args[0][0]
+    ctx.t.assert_called_once()
+    assert ctx.t.call_args.kwargs.get("permissions") == "ban_members"
 
 
 async def test_has_permission_blocks_when_member_not_cached():
