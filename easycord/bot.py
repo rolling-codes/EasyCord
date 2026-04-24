@@ -11,6 +11,7 @@ from discord import app_commands
 
 from .builtin_plugins import build_builtin_plugins
 from .database import DatabaseConfig, EasyCordDatabase, MemoryDatabase, SQLiteDatabase
+from .i18n import LocalizationManager
 from .middleware import MiddlewareFn
 from .plugin import Plugin
 from ._bot_commands import _CommandsMixin
@@ -62,6 +63,9 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         db_backend: str | None = None,
         db_path: str | None = None,
         db_auto_sync_guilds: bool | None = None,
+        localization: LocalizationManager | None = None,
+        default_locale: str = "en-US",
+        translations: dict | None = None,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
@@ -78,6 +82,11 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             db_backend=db_backend,
             db_path=db_path,
             db_auto_sync_guilds=db_auto_sync_guilds,
+        )
+        self.localization: LocalizationManager | None = localization or (
+            LocalizationManager(default_locale=default_locale, translations=translations)
+            if translations
+            else None
         )
         if load_builtin_plugins:
             self.load_builtin_plugins()

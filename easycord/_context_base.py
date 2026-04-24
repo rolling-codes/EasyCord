@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import discord
 
+from .i18n import LocalizationManager
+
 
 class BaseContext:
     """Core wrapper around ``discord.Interaction``.
@@ -43,6 +45,16 @@ class BaseContext:
         return cmd.name if cmd is not None else None
 
     @property
+    def locale(self):
+        """The locale selected by the invoking user, if Discord provides one."""
+        return getattr(self.interaction, "locale", None)
+
+    @property
+    def guild_locale(self):
+        """The preferred locale for the current guild, if Discord provides one."""
+        return getattr(self.interaction, "guild_locale", None)
+
+    @property
     def data(self) -> dict | None:
         """The raw interaction data from Discord."""
         return self.interaction.data  # type: ignore[return-value]
@@ -58,6 +70,29 @@ class BaseContext:
         if isinstance(member, discord.Member) and member.voice:
             return member.voice.channel  # type: ignore[return-value]
         return None
+
+    def t(
+        self,
+        key: str,
+        *,
+        default: str | None = None,
+        locale=None,
+        guild_locale=None,
+        **kwargs,
+    ) -> str:
+        """Translate a key using the bot's localization manager if available."""
+        client = getattr(self.interaction, "client", None)
+        localization = getattr(client, "localization", None) or getattr(client, "i18n", None)
+        if not isinstance(localization, LocalizationManager):
+            template = default if default is not None else key
+            return template.format(**kwargs)
+        return localization.format(
+            key,
+            locale=locale if locale is not None else self.locale,
+            guild_locale=guild_locale if guild_locale is not None else self.guild_locale,
+            default=default,
+            **kwargs,
+        )
 
     # ── Responding ────────────────────────────────────────────
 
