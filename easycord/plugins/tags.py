@@ -54,35 +54,37 @@ class TagsPlugin(Plugin):
     async def get(self, ctx, name: str) -> None:
         entry = self._store.get(ctx.guild_id, name)
         if entry is None:
-            await ctx.respond(f"Tag `{name}` not found.", ephemeral=True)
+            await ctx.respond(ctx.t("tags.not_found", default="Tag `{name}` not found.", name=name), ephemeral=True)
             return
         await ctx.respond(entry["text"])
 
     @slash(description="Create or update a tag.", guild_only=True)
     async def set(self, ctx, name: str, text: str) -> None:
         self._store.set(ctx.guild_id, name, text, author_id=ctx.user.id)
-        await ctx.respond(f"Tag `{name}` saved.", ephemeral=True)
+        await ctx.respond(ctx.t("tags.saved", default="Tag `{name}` saved.", name=name), ephemeral=True)
 
     @slash(description="Delete a tag (admin or creator only).", guild_only=True)
     async def delete(self, ctx, name: str) -> None:
         entry = self._store.get(ctx.guild_id, name)
         if entry is None:
-            await ctx.respond(f"Tag `{name}` not found.", ephemeral=True)
+            await ctx.respond(ctx.t("tags.not_found", default="Tag `{name}` not found.", name=name), ephemeral=True)
             return
         member = ctx.guild.get_member(ctx.user.id)
         is_admin = member is not None and member.guild_permissions.administrator
         if ctx.user.id != entry["author_id"] and not is_admin:
             await ctx.respond(
-                "You can only delete your own tags (or be an admin).", ephemeral=True
+                ctx.t("tags.cannot_delete", default="You can only delete your own tags (or be an admin)."),
+                ephemeral=True,
             )
             return
         self._store.delete(ctx.guild_id, name)
-        await ctx.respond(f"Tag `{name}` deleted.", ephemeral=True)
+        await ctx.respond(ctx.t("tags.deleted", default="Tag `{name}` deleted.", name=name), ephemeral=True)
 
     @slash(description="List all tags in this server.", guild_only=True)
     async def list(self, ctx) -> None:
         names = self._store.list_names(ctx.guild_id)
         if not names:
-            await ctx.respond("No tags yet.", ephemeral=True)
+            await ctx.respond(ctx.t("tags.empty", default="No tags yet."), ephemeral=True)
             return
-        await ctx.respond("**Tags:**\n" + "\n".join(names), ephemeral=True)
+        tag_list = ctx.t("tags.header", default="**Tags:**") + "\n" + "\n".join(names)
+        await ctx.respond(tag_list, ephemeral=True)
