@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.0] — 2026-04-24
+
+**Stable release.**
+
+### Added
+- Localization system with `ctx.t()` for multi-language support
+- `LocalizationManager` for registering and resolving translations
+- Locale fallback chains: user locale → guild locale → default locale → English
+
+### Merged
+- PR #6: Complete localization implementation
+
+### Stability
+- 452 tests passing
+- No breaking changes from pre-1.0 versions
+
+---
+
 ## [2.8] — 2026-04-18
 
 Fluent UI builders, plugin hot-reload, and command aliases.

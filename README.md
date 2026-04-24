@@ -26,6 +26,40 @@ bot.run("YOUR_TOKEN")
 
 If you want the shortest possible path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
+## Localization (multi-language support)
+
+Build bots that speak your server's language:
+
+```python
+# Define translations in a locale file (en.json)
+{
+  "commands": {
+    "ping": {
+      "response": "Pong!"
+    }
+  }
+}
+
+# Use in your command
+@bot.slash()
+async def ping(ctx):
+    await ctx.respond(ctx.t("commands.ping.response"))
+```
+
+Initialize the bot with localization:
+
+```python
+from easycord import Bot, LocalizationManager
+
+locales = LocalizationManager()
+locales.register("en", "locales/en.json")
+locales.register("es", "locales/es.json")
+
+bot = Bot(localization=locales, default_locale="en")
+```
+
+Translations fallback gracefully: user locale → guild locale → default locale → English. See [`docs/localization.md`](docs/localization.md) for the full guide.
+
 ## Why this exists
 
 This framework was built for the moment a bot stops being a weekend project and starts becoming the thing you actually rely on. The goal is simple: let beginners ship features without spending their first hour learning Discord plumbing.
