@@ -12,12 +12,15 @@ from ._ai_providers import (
     TogetherAIProvider,
 )
 from .ai_moderator import AIModeratorPlugin
+from .auto_responder import AutoResponderPlugin
+from .invite_tracker import InviteTrackerPlugin
 from .levels import LevelsPlugin
 from .member_logging import MemberLoggingPlugin
 from .moderation import ModerationPlugin
 from .openclaude import AIPlugin, OpenClaudePlugin
 from .polls import PollsPlugin
 from .reaction_roles import ReactionRolesPlugin
+from .starboard import StarboardPlugin
 from .tags import TagsPlugin
 from .welcome import WelcomePlugin
 
@@ -26,9 +29,11 @@ __all__ = [
     "AIPlugin",
     "AIProvider",
     "AnthropicProvider",
+    "AutoResponderPlugin",
     "GeminiProvider",
     "GroqProvider",
     "HuggingFaceProvider",
+    "InviteTrackerPlugin",
     "LevelsPlugin",
     "LiteLLMProvider",
     "MemberLoggingPlugin",
@@ -39,6 +44,7 @@ __all__ = [
     "OpenClaudePlugin",
     "PollsPlugin",
     "ReactionRolesPlugin",
+    "StarboardPlugin",
     "TagsPlugin",
     "TogetherAIProvider",
     "WelcomePlugin",
