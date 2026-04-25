@@ -22,6 +22,7 @@ from .embed_cards import EmbedCard, ErrorEmbed, InfoEmbed, SuccessEmbed, Warning
 from .builders import ButtonRowBuilder, EmbedBuilder, ModalBuilder, SelectMenuBuilder
 from .composer import Composer
 from .context import Context
+from .context_builder import ContextBuilder
 from .database import DatabaseConfig, EasyCordDatabase, GuildRecord, MemoryDatabase, SQLiteDatabase
 from .decorators import ai_tool, component, message_command, modal, on, slash, task, user_command
 from .i18n import LocalizationManager
@@ -38,6 +39,7 @@ __all__ = [
     "ButtonRowBuilder",
     "Composer",
     "Context",
+    "ContextBuilder",
     "EmbedBuilder",
     "EmbedCard",
     "DatabaseConfig",

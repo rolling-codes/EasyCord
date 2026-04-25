@@ -20,6 +20,7 @@ class RunContext:
     ctx: Context  # Discord context for permission checks
     max_steps: int = 5
     timeout_ms: int = 30000
+    system_prompt: str | None = None  # AI system context
 
 
 @dataclass
@@ -70,6 +71,16 @@ class Orchestrator:
         attempt = 0
         steps = 0
         messages = list(run_ctx.messages)
+
+        # Prepend system prompt if provided
+        if run_ctx.system_prompt:
+            messages.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": run_ctx.system_prompt,
+                },
+            )
 
         while steps < max_steps:
             try:
