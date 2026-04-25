@@ -354,15 +354,439 @@ bot.add_plugin(StarboardPlugin())
 - InviteTracker: Distributed cache (Redis), vanity URL support
 - New plugins: Suggestion box, ticket system, message counters
 
-### Documentation
+### Complete Code Examples
 
-**Code Examples:** Full setup examples in CLAUDE.md
-- Individual plugin usage
-- Combined plugin setups
-- Configuration walkthrough
-- Test commands
+#### AutoResponderPlugin Examples
 
-**API Reference:** Inline docstrings in each plugin file
+**Setup:**
+```python
+from easycord import Bot
+from easycord.plugins import AutoResponderPlugin
+
+bot = Bot()
+bot.add_plugin(AutoResponderPlugin())
+bot.run("TOKEN")
+```
+
+**Add Triggers:**
+```python
+# Literal keywords (case-insensitive)
+await ctx.execute_command(
+    "responder_add", 
+    keyword="hello", 
+    response="Hello there! 👋 How can I help?"
+)
+
+await ctx.execute_command(
+    "responder_add",
+    keyword="faq",
+    response="📚 **FAQ:** Check <#channel_id> for answers"
+)
+
+await ctx.execute_command(
+    "responder_add",
+    keyword="support",
+    response="Need help? Post in <#support> or DM staff"
+)
+
+# Regex patterns
+await ctx.execute_command(
+    "responder_add_regex",
+    pattern="^how.*you.*",
+    response="I'm doing great, thanks for asking! 😊"
+)
+
+await ctx.execute_command(
+    "responder_add_regex",
+    pattern="^roll\\s+(\\d+)d(\\d+)",
+    response="🎲 Rolling for you..."
+)
+```
+
+**List Triggers:**
+```python
+await ctx.execute_command("responder_list")
+# Output: Literal triggers: hello, faq, support
+#         Regex triggers: ^how.*you.*, ^roll\s+(\d+)d(\d+)
+```
+
+**Remove Trigger:**
+```python
+await ctx.execute_command("responder_remove", keyword="hello")
+```
+
+**Real-world Usage:**
+```python
+# FAQ automation
+await plugin._add_trigger(guild.id, "rules", "Read <#rules> first!")
+await plugin._add_trigger(guild.id, "invite", "Here's our invite: https://discord.gg/...")
+await plugin._add_trigger(guild.id, "report", "DM <@moderator> or use /report command")
+
+# Pattern matching
+await plugin._add_regex_trigger(guild.id, "^hi|hello|hey", "👋 Welcome!")
+await plugin._add_regex_trigger(guild.id, "good(bye|night)", "See you soon! 👋")
+await plugin._add_regex_trigger(guild.id, "thanks?", "You're welcome! 😊")
+```
+
+#### StarboardPlugin Examples
+
+**Setup:**
+```python
+from easycord import Bot
+from easycord.plugins import StarboardPlugin
+
+bot = Bot()
+bot.add_plugin(StarboardPlugin())
+bot.run("TOKEN")
+```
+
+**Configure:**
+```python
+# Set starboard channel
+await ctx.execute_command("starboard_channel", channel=channel_mention)
+
+# Set emoji (default ⭐)
+await ctx.execute_command("starboard_emoji", emoji="🔥")
+await ctx.execute_command("starboard_emoji", emoji="💎")
+
+# Set threshold (default 3)
+await ctx.execute_command("starboard_threshold", count=5)
+
+# View config
+await ctx.execute_command("starboard_config")
+# Output: Enabled: true
+#         Channel: #starboard
+#         Emoji: ⭐
+#         Threshold: 5
+```
+
+**In Action:**
+```
+1. User posts quality message in #general
+2. 5 members react with ⭐
+3. Bot auto-posts to #starboard:
+   ═══════════════════════════════
+   ⭐ Starred Message
+   User: member (member#1234)
+   "This is a really helpful explanation..."
+   Reactions: ⭐ 5
+   [Jump to message]
+   ═══════════════════════════════
+
+4. If reactions drop below 5:
+   Bot deletes from #starboard
+```
+
+**Multiple Starboards (workaround):**
+```python
+# Create multiple instances (one per emoji)
+starboard_main = StarboardPlugin()
+starboard_memes = StarboardPlugin()
+
+bot.add_plugin(starboard_main)
+bot.add_plugin(starboard_memes)
+
+# Configure separately:
+# /starboard_channel #starboard (for ⭐)
+# /starboard_emoji 🔥 (for 🔥 reactions)
+# /starboard_channel #memes
+```
+
+#### InviteTrackerPlugin Examples
+
+**Setup:**
+```python
+from easycord import Bot
+from easycord.plugins import InviteTrackerPlugin
+
+bot = Bot()
+bot.add_plugin(InviteTrackerPlugin())
+bot.run("TOKEN")
+```
+
+**Configure:**
+```python
+# Set log channel
+await ctx.execute_command("invite_log_channel", channel=channel_mention)
+
+# View config
+await ctx.execute_command("invite_tracker_config")
+# Output: Enabled: true
+#         Log Channel: #welcome-logs
+```
+
+**In Action:**
+```
+1. Admin creates invite: discord.gg/abc123 (for Discord Nitro campaign)
+2. Member joins via abc123
+3. Bot posts to #welcome-logs:
+   ═══════════════════════════════
+   Member Joined via Invite
+   member (member#1234)
+   Invite Code: abc123
+   [User avatar]
+   ID: 123456789
+   ═══════════════════════════════
+
+4. Admin analyzes growth:
+   abc123 (Discord Nitro): 15 members
+   def456 (Reddit): 8 members
+   ghi789 (Twitter): 3 members
+```
+
+**Analysis Workflow:**
+```python
+# Track invite performance over time
+import json
+from datetime import datetime
+
+async def analyze_invites(guild):
+    cfg = await plugin._get_config(guild.id)
+    log_channel_id = cfg.get("log_channel")
+    
+    if log_channel_id:
+        channel = guild.get_channel(log_channel_id)
+        
+        # Count invites from messages
+        invite_stats = {}
+        async for message in channel.history(limit=1000):
+            if "Invite Code:" in message.embeds[0].fields[0].value:
+                code = message.embeds[0].fields[0].value.strip("`")
+                invite_stats[code] = invite_stats.get(code, 0) + 1
+        
+        # Print report
+        for code, count in sorted(invite_stats.items(), key=lambda x: -x[1]):
+            print(f"{code}: {count} members")
+```
+
+### Combined Plugin Setup (Complete Server)
+
+**All 10 Plugins:**
+
+```python
+import os
+from easycord import Bot, Orchestrator, FallbackStrategy
+from easycord.plugins import (
+    # Moderation
+    ModerationPlugin,
+    AIModeratorPlugin,
+    # Community
+    ReactionRolesPlugin,
+    AutoResponderPlugin,
+    StarboardPlugin,
+    # Admin
+    MemberLoggingPlugin,
+    InviteTrackerPlugin,
+    # Built-in
+    LevelsPlugin,
+    PollsPlugin,
+    WelcomePlugin,
+)
+from easycord.plugins._ai_providers import AnthropicProvider
+
+# Create bot
+bot = Bot()
+
+# Setup AI (optional, but recommended)
+try:
+    orchestrator = Orchestrator(
+        FallbackStrategy([
+            AnthropicProvider(api_key=os.getenv("ANTHROPIC_API_KEY")),
+        ]),
+        bot.tool_registry,
+    )
+except ValueError:
+    print("Warning: ANTHROPIC_API_KEY not set, AI features disabled")
+    orchestrator = None
+
+# ═══════════════════════════════════
+# Moderation Layer
+# ═══════════════════════════════════
+
+# Manual moderation with logging
+bot.add_plugin(ModerationPlugin())
+bot.add_plugin(MemberLoggingPlugin())
+
+# Optional: AI-powered analysis
+if orchestrator:
+    bot.add_plugin(AIModeratorPlugin(orchestrator=orchestrator))
+
+# ═══════════════════════════════════
+# Community Layer
+# ═══════════════════════════════════
+
+# Self-assign roles
+bot.add_plugin(ReactionRolesPlugin())
+
+# Auto-responses for FAQs
+bot.add_plugin(AutoResponderPlugin())
+
+# Celebrate great posts
+bot.add_plugin(StarboardPlugin())
+
+# ═══════════════════════════════════
+# Admin & Analytics
+# ═══════════════════════════════════
+
+# Track invites (growth analysis)
+bot.add_plugin(InviteTrackerPlugin())
+
+# ═══════════════════════════════════
+# Built-in Features
+# ═══════════════════════════════════
+
+# Leveling system
+bot.add_plugin(LevelsPlugin())
+
+# Polls/voting
+bot.add_plugin(PollsPlugin())
+
+# Welcome new members
+bot.add_plugin(WelcomePlugin())
+
+# Run bot
+bot.run(os.getenv("DISCORD_TOKEN"))
+```
+
+**Discord Command Workflow:**
+
+```
+1. Setup moderation:
+   /mod_enable true
+   /mod_threshold 0.90
+   /mod_action_level warn
+   /mod_add_rule spam
+   /member_log_channel #audit-log
+
+2. Setup community:
+   /reaction_role_set <message_id> ✅ @Member
+   /responder_add "faq" "Check pinned messages"
+   /starboard_channel #starboard
+   /starboard_threshold 5
+
+3. Setup welcome:
+   /set_welcome_channel #welcome
+   /set_welcome_message "Welcome {user} to {server}!"
+   /set_auto_role @Member
+
+4. Setup leveling:
+   /rank (to check your level)
+   /leaderboard (to see top members)
+
+5. Setup analytics:
+   /invite_log_channel #growth-tracking
+
+6. Run commands:
+   /poll "Best pizza topping?" "Pepperoni" "Mushroom" "Pineapple"
+```
+
+### Plugin Interaction Patterns
+
+**Moderation → Logging:**
+```
+User violates rules
+  → ModerationPlugin: /warn user
+  → MemberLoggingPlugin: Logs warning in #audit-log
+  → AIModeratorPlugin: Analyzes context for repeat offenders
+```
+
+**InviteTracker → Welcome:**
+```
+Member joins via invite abc123
+  → InviteTrackerPlugin: Detects invite code
+  → WelcomePlugin: Posts welcome message
+  → ReactionRolesPlugin: User clicks emoji to get @Member role
+```
+
+**AutoResponder → Learning:**
+```
+User: "How do I level up?"
+  → AutoResponderPlugin: /responder_add "level" "..."
+  → LevelsPlugin: /rank (user checks their level)
+  → ConversationMemory: Stores interaction for AI context
+```
+
+### Testing Examples
+
+**Test AutoResponder:**
+```bash
+# Run tests
+pytest tests/ -k "auto_responder" -v
+
+# Manual test in Discord:
+# Post: "hello world"
+# Bot should reply: "Hello there! 👋"
+
+# Post: "how are you"
+# Bot should reply: "I'm doing well, thanks!"
+```
+
+**Test Starboard:**
+```bash
+pytest tests/ -k "starboard" -v
+
+# Manual test:
+# 1. React to message with ⭐ 5 times
+# 2. Check #starboard (message should appear)
+# 3. Remove 2 reactions (now 3 ⭐)
+# 4. Message should still be there (at threshold)
+# 5. Remove 1 more (now 2 ⭐)
+# 6. Message should disappear from #starboard
+```
+
+**Test InviteTracker:**
+```bash
+pytest tests/ -k "invite" -v
+
+# Manual test:
+# 1. Create invite discord.gg/test123
+# 2. Have someone join with that link
+# 3. Check #welcome-logs
+# 4. Should show: "Member joined via test123"
+```
+
+### Deployment Checklist
+
+```
+[ ] Create channels:
+    - #audit-log (MemberLoggingPlugin)
+    - #starboard (StarboardPlugin)
+    - #welcome-logs (InviteTrackerPlugin)
+    - #welcome (WelcomePlugin)
+
+[ ] Configure moderation:
+    /mod_enable true
+    /mod_threshold 0.85
+    /member_log_channel #audit-log
+
+[ ] Configure community:
+    /starboard_channel #starboard
+    /invite_log_channel #welcome-logs
+
+[ ] Setup bot roles:
+    Create @Member, @Moderator, etc
+    /set_auto_role @Member
+
+[ ] Create rule message:
+    Post rules, then:
+    /reaction_role_set <message_id> ✅ @Verified
+
+[ ] Add FAQ triggers:
+    /responder_add "rules" "Read #rules"
+    /responder_add "support" "DM mods"
+    /responder_add_regex "^faq" "Check pinned"
+
+[ ] Test each plugin:
+    /rank (LevelsPlugin)
+    /poll "test" "a" "b" (PollsPlugin)
+    React with ⭐ (StarboardPlugin)
+    /warn @user (ModerationPlugin)
+
+[ ] Monitor:
+    Check #audit-log daily
+    Check #starboard for engagement
+    Check #growth-tracking for growth rate
+```
 
 ---
 
