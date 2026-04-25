@@ -141,6 +141,11 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
     async def on_ready(self) -> None:
         if self.db.auto_sync_guilds:
             await self.db.sync_guilds([guild.id for guild in getattr(self, "guilds", [])])
+        for plugin in self._plugins:
+            try:
+                await plugin.on_ready()
+            except Exception:
+                logger.exception("Error calling on_ready for %s", plugin.__class__.__name__)
         logger.info("Logged in as %s (ID: %s)", self.user, self.user.id)  # type: ignore[union-attr]
 
     async def close(self) -> None:  # type: ignore[override]

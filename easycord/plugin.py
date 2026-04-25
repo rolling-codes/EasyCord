@@ -64,6 +64,13 @@ class Plugin:
         Override this to run setup code (e.g. connecting to a database).
         """
 
+    async def on_ready(self) -> None:
+        """Called every time the bot becomes ready (after reconnects).
+
+        Override this to run periodic setup code or check bot state.
+        Called after on_load() on the first ready, then on every reconnect.
+        """
+
     async def on_unload(self) -> None:
         """Called once when the plugin is removed with ``bot.remove_plugin()``.
 
