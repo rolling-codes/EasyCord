@@ -16,6 +16,7 @@ def slash(
     autocomplete: dict[str, Callable] | None = None,
     choices: dict[str, list] | None = None,
     aliases: list[str] | None = None,
+    rate_limit: tuple[int, int] | None = None,
 ) -> Callable:
     """Mark a Plugin method as a slash command.
 
@@ -62,6 +63,7 @@ def slash(
         func._slash_autocomplete = autocomplete or {}
         func._slash_choices = choices or {}
         func._slash_aliases = aliases or []
+        func._slash_rate_limit = rate_limit
         return func
 
     return decorator
@@ -98,11 +100,19 @@ def task(
     return decorator
 
 
-def on(event: str) -> Callable:
+def on(event: str, *, on_cleanup: Callable | None = None) -> Callable:
     """Mark a Plugin method as an event handler.
 
     Use the event name without the ``on_`` prefix. Any arguments that
     discord.py normally passes to ``on_<event>`` are forwarded to your method.
+
+    Parameters
+    ----------
+    event:
+        Event name without the ``on_`` prefix (e.g., "member_join", "message").
+    on_cleanup:
+        Optional async function called when the plugin is unloaded.
+        Useful for cleanup like closing connections or removing event listeners.
 
     Example::
 
@@ -112,15 +122,19 @@ def on(event: str) -> Callable:
             async def welcome(self, member):
                 await member.send(f"Welcome to {member.guild.name}!")
 
-            @on("message")
-            async def echo(self, message):
-                if "hello bot" in message.content.lower():
-                    await message.reply("Hello!")
+            async def cleanup_resources(self):
+                # Called on plugin unload
+                pass
+
+            @on("ready", on_cleanup=cleanup_resources)
+            async def on_ready(self):
+                print("Bot is ready!")
     """
 
     def decorator(func: Callable) -> Callable:
         func._is_event = True
         func._event_name = event
+        func._event_cleanup = on_cleanup
         return func
 
     return decorator
@@ -192,6 +206,7 @@ def ai_tool(
     description: str = "No description provided.",
     parameters: dict | None = None,
     rate_limit: tuple[int, int] | None = None,
+    permissions: list[str] | None = None,
 ) -> Callable:
     """Mark a Plugin method as an AI-callable function tool.
 
@@ -207,6 +222,9 @@ def ai_tool(
         JSON schema describing the tool's parameters (if any).
     rate_limit:
         Tuple of (max_calls, window_minutes) to rate limit this tool per user.
+    permissions:
+        List of Discord permission names required to execute this tool
+        (e.g., ["kick_members", "ban_members"]). The AI will check these before invoking.
 
     Example::
 
@@ -231,6 +249,7 @@ def ai_tool(
         func._ai_tool_description = description
         func._ai_tool_parameters = parameters or {}
         func._ai_tool_rate_limit = rate_limit
+        func._ai_tool_permissions = permissions or []
         return func
 
     return decorator
