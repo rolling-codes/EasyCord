@@ -51,7 +51,7 @@ def mock_context(mock_guild):
 async def test_plugin_initializes(plugin):
     """Plugin can be initialized."""
     assert plugin is not None
-    assert plugin.config_store is not None
+    assert plugin.config is not None
     assert plugin.conversation_memory is not None
 
 
@@ -63,8 +63,8 @@ async def test_default_config(plugin, mock_guild):
     mock_server_cfg.get_other = MagicMock(return_value=None)
     mock_server_cfg.set_other = MagicMock()
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
-        with patch.object(plugin.config_store, "save", new_callable=AsyncMock):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+        with patch.object(plugin.config.store, "save", new_callable=AsyncMock):
             cfg = await plugin._get_config(mock_guild.id)
             assert cfg["enabled"] is False
             assert cfg["action_level"] == "notify_only"
@@ -88,8 +88,8 @@ async def test_update_config(plugin, mock_guild):
     mock_server_cfg.get_other = MagicMock(side_effect=get_other_side_effect)
     mock_server_cfg.set_other = MagicMock(side_effect=set_other_side_effect)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
-        with patch.object(plugin.config_store, "save", new_callable=AsyncMock):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+        with patch.object(plugin.config.store, "save", new_callable=AsyncMock):
             await plugin._update_config(mock_guild.id, enabled=True, action_level="warn")
             cfg = await plugin._get_config(mock_guild.id)
             assert cfg["enabled"] is True
@@ -115,8 +115,8 @@ async def test_on_message_ignores_disabled(plugin, mock_guild, mock_message):
     mock_server_cfg.get_other = MagicMock(return_value=None)
     mock_server_cfg.set_other = MagicMock()
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
-        with patch.object(plugin.config_store, "save", new_callable=AsyncMock):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+        with patch.object(plugin.config.store, "save", new_callable=AsyncMock):
             with patch.object(plugin, "_analyze_message") as mock_analyze:
                 await plugin._on_message(mock_message)
                 mock_analyze.assert_not_called()
@@ -181,8 +181,8 @@ async def test_add_rule(plugin, mock_guild, mock_context):
     mock_server_cfg.get_other = MagicMock(side_effect=get_other_side_effect)
     mock_server_cfg.set_other = MagicMock(side_effect=set_other_side_effect)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
-        with patch.object(plugin.config_store, "save", new_callable=AsyncMock):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+        with patch.object(plugin.config.store, "save", new_callable=AsyncMock):
             await plugin.mod_add_rule(mock_context, "spam")
 
             cfg = await plugin._get_config(mock_guild.id)
@@ -207,8 +207,8 @@ async def test_remove_rule(plugin, mock_guild, mock_context):
     mock_server_cfg.get_other = MagicMock(side_effect=get_other_side_effect)
     mock_server_cfg.set_other = MagicMock(side_effect=set_other_side_effect)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
-        with patch.object(plugin.config_store, "save", new_callable=AsyncMock):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+        with patch.object(plugin.config.store, "save", new_callable=AsyncMock):
             # Add then remove
             await plugin._update_config(mock_guild.id, rules=["spam", "abuse"])
             await plugin.mod_remove_rule(mock_context, "spam")
@@ -236,8 +236,8 @@ async def test_set_threshold(plugin, mock_guild, mock_context):
     mock_server_cfg.get_other = MagicMock(side_effect=get_other_side_effect)
     mock_server_cfg.set_other = MagicMock(side_effect=set_other_side_effect)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
-        with patch.object(plugin.config_store, "save", new_callable=AsyncMock):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+        with patch.object(plugin.config.store, "save", new_callable=AsyncMock):
             await plugin.mod_threshold(mock_context, 0.95)
 
             cfg = await plugin._get_config(mock_guild.id)
@@ -262,8 +262,8 @@ async def test_set_action_level(plugin, mock_guild, mock_context):
     mock_server_cfg.get_other = MagicMock(side_effect=get_other_side_effect)
     mock_server_cfg.set_other = MagicMock(side_effect=set_other_side_effect)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
-        with patch.object(plugin.config_store, "save", new_callable=AsyncMock):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+        with patch.object(plugin.config.store, "save", new_callable=AsyncMock):
             await plugin.mod_action_level(mock_context, "auto_delete")
 
             cfg = await plugin._get_config(mock_guild.id)

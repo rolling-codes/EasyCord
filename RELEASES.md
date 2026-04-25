@@ -11,7 +11,7 @@ Streamline common framework operations with reusable helpers. Simplify embed cre
 - **Modular plugin configuration** — Extracted `PluginConfigManager` for reusable config logic (reduces plugin code by 15-20%)
 - **Cleaned deployment** — Added MANIFEST.in to exclude tests, debug, and CI materials from distribution
 - **Consistent patterns** — All plugins now follow identical config/lifecycle patterns for maintainability
-- **Reduced file complexity** — StarboardPlugin: 240→221 lines, AutoResponderPlugin consolidated, InviteTrackerPlugin streamlined
+- **Reduced file complexity** — StarboardPlugin: 240→221 lines, AutoResponderPlugin consolidated, InviteTrackerPlugin streamlined, ModerationPlugin: 366→324 lines, AIModeratorPlugin: 316→286 lines
 
 ### Helper Libraries
 
