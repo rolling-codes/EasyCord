@@ -58,7 +58,7 @@ def mock_user(mock_member):
 async def test_plugin_initializes(plugin):
     """Plugin can be initialized."""
     assert plugin is not None
-    assert plugin.config_store is not None
+    assert plugin.config is not None
 
 
 @pytest.mark.asyncio
@@ -68,8 +68,8 @@ async def test_get_config_creates_default(plugin, mock_guild):
     mock_server_cfg.get_other = MagicMock(return_value=None)
     mock_server_cfg.set_other = MagicMock()
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
-        with patch.object(plugin.config_store, "save", new_callable=AsyncMock):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+        with patch.object(plugin.config.store, "save", new_callable=AsyncMock):
             cfg = await plugin._get_config(mock_guild.id)
             assert cfg["enabled"] is True
             assert "log_channel" in cfg
@@ -84,7 +84,7 @@ async def test_on_member_join(plugin, mock_guild, mock_member):
     mock_channel = AsyncMock()
     mock_guild.get_channel = MagicMock(return_value=mock_channel)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
         await plugin._on_member_join(mock_member)
         mock_channel.send.assert_called_once()
 
@@ -103,7 +103,7 @@ async def test_on_member_remove(plugin, mock_guild, mock_member):
     mock_channel = AsyncMock()
     mock_guild.get_channel = MagicMock(return_value=mock_channel)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
         await plugin._on_member_remove(mock_member)
         mock_channel.send.assert_called_once()
 
@@ -133,7 +133,7 @@ async def test_on_member_update_nickname(plugin, mock_guild, mock_member):
     mock_channel = AsyncMock()
     mock_guild.get_channel = MagicMock(return_value=mock_channel)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
         await plugin._on_member_update(before, after)
         mock_channel.send.assert_called_once()
 
@@ -169,7 +169,7 @@ async def test_on_member_update_role_add(plugin, mock_guild, mock_member):
     mock_channel = AsyncMock()
     mock_guild.get_channel = MagicMock(return_value=mock_channel)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
         await plugin._on_member_update(before, after)
         mock_channel.send.assert_called_once()
 
@@ -199,7 +199,7 @@ async def test_on_member_update_timeout(plugin, mock_guild, mock_member):
     mock_channel = AsyncMock()
     mock_guild.get_channel = MagicMock(return_value=mock_channel)
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
         await plugin._on_member_update(before, after)
         mock_channel.send.assert_called_once()
 
@@ -228,7 +228,7 @@ async def test_log_to_channel_disabled(plugin, mock_guild):
 
     mock_channel = AsyncMock()
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
         embed = MagicMock(spec=discord.Embed)
         await plugin._log_to_channel(mock_guild, embed)
         mock_channel.send.assert_not_called()
@@ -240,7 +240,7 @@ async def test_log_to_channel_no_channel(plugin, mock_guild):
     mock_server_cfg = MagicMock(spec=ServerConfig)
     mock_server_cfg.get_other = MagicMock(return_value={"log_channel": None, "enabled": True})
 
-    with patch.object(plugin.config_store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
+    with patch.object(plugin.config.store, "load", new_callable=AsyncMock, return_value=mock_server_cfg):
         embed = MagicMock(spec=discord.Embed)
         await plugin._log_to_channel(mock_guild, embed)
         # Should return early without calling guild.get_channel
