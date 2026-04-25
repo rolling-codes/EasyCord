@@ -8,12 +8,17 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, on
-from easycord.server_config import ServerConfigStore
+from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
     from easycord import Context
 
 logger = logging.getLogger(__name__)
+
+_DEFAULTS = {
+    "log_channel": None,
+    "enabled": True,
+}
 
 
 class MemberLoggingPlugin(Plugin):
@@ -36,7 +41,7 @@ class MemberLoggingPlugin(Plugin):
 
     def __init__(self):
         super().__init__()
-        self.config_store = ServerConfigStore(".easycord/member-logging")
+        self.config = PluginConfigManager(".easycord/member-logging")
 
     async def on_load(self) -> None:
         """Initialize member logging plugin."""
@@ -44,15 +49,7 @@ class MemberLoggingPlugin(Plugin):
 
     async def _get_config(self, guild_id: int) -> dict:
         """Get member logging config for guild."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("member_logging")
-        if not cfg:
-            cfg = {"log_channel": None, "enabled": True}
-            cfg_obj.set_other("member_logging", cfg)
-            await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.get(guild_id, "member_logging", _DEFAULTS)
 
     async def _log_to_channel(self, guild: discord.Guild, embed: discord.Embed) -> None:
         """Post embed to configured log channel."""
