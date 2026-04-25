@@ -92,10 +92,10 @@ class _PluginsMixin:
 
     # ── Plugins ───────────────────────────────────────────────
 
-    def add_plugin(self, plugin: Plugin) -> Plugin:
+    def add_plugin(self, plugin: Plugin):
         """Add a plugin, registering all of its slash commands and event handlers.
 
-        Returns the plugin instance for method chaining.
+        Returns self for method chaining multiple plugins.
 
         Raises ``TypeError`` if ``plugin`` is not a :class:`Plugin` instance.
         Raises ``ValueError`` if the same plugin instance has already been added.
@@ -115,7 +115,7 @@ class _PluginsMixin:
         if self.is_ready():
             asyncio.create_task(plugin.on_load())
             self._start_plugin_tasks(plugin)
-        return plugin
+        return self
 
     def add_plugins(self, *plugins: Plugin) -> None:
         """Add several plugins in one call."""
