@@ -8,12 +8,18 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, on
-from easycord.server_config import ServerConfigStore
+from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
     from easycord import Context
 
 logger = logging.getLogger(__name__)
+
+_DEFAULTS = {
+    "enabled": True,
+    "triggers": {},
+    "regex_triggers": {},
+}
 
 
 class AutoResponderPlugin(Plugin):
@@ -38,7 +44,7 @@ class AutoResponderPlugin(Plugin):
 
     def __init__(self):
         super().__init__()
-        self.config_store = ServerConfigStore(".easycord/auto-responder")
+        self.config = PluginConfigManager(".easycord/auto-responder")
 
     async def on_load(self) -> None:
         """Initialize auto-responder plugin."""
@@ -46,36 +52,11 @@ class AutoResponderPlugin(Plugin):
 
     async def _get_config(self, guild_id: int) -> dict:
         """Get responder config for guild."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("auto_responder")
-        if not cfg:
-            cfg = {
-                "enabled": True,
-                "triggers": {},  # {trigger: response}
-                "regex_triggers": {},  # {pattern: response}
-            }
-            cfg_obj.set_other("auto_responder", cfg)
-            await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.get(guild_id, "auto_responder", _DEFAULTS)
 
     async def _update_config(self, guild_id: int, **kwargs) -> dict:
         """Update responder config atomically."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("auto_responder")
-        if not cfg:
-            cfg = {
-                "enabled": True,
-                "triggers": {},
-                "regex_triggers": {},
-            }
-        cfg.update(kwargs)
-        cfg_obj.set_other("auto_responder", cfg)
-        await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.update(guild_id, "auto_responder", **kwargs)
 
     @on("message")
     async def _on_message(self, message: discord.Message) -> None:

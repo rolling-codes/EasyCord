@@ -7,12 +7,20 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, on
-from easycord.server_config import ServerConfigStore
+from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
     from easycord import Context
 
 logger = logging.getLogger(__name__)
+
+# Default starboard config
+_DEFAULTS = {
+    "enabled": True,
+    "channel_id": None,
+    "emoji": "⭐",
+    "threshold": 3,
+}
 
 
 class StarboardPlugin(Plugin):
@@ -38,7 +46,7 @@ class StarboardPlugin(Plugin):
 
     def __init__(self):
         super().__init__()
-        self.config_store = ServerConfigStore(".easycord/starboard")
+        self.config = PluginConfigManager(".easycord/starboard")
         # Track archived message IDs: {guild_id: {message_id: starboard_post_id}}
         self._archived: dict[int, dict[int, int]] = {}
 
@@ -48,38 +56,11 @@ class StarboardPlugin(Plugin):
 
     async def _get_config(self, guild_id: int) -> dict:
         """Get starboard config for guild."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("starboard")
-        if not cfg:
-            cfg = {
-                "enabled": True,
-                "channel_id": None,
-                "emoji": "⭐",
-                "threshold": 3,
-            }
-            cfg_obj.set_other("starboard", cfg)
-            await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.get(guild_id, "starboard", _DEFAULTS)
 
     async def _update_config(self, guild_id: int, **kwargs) -> dict:
         """Update starboard config atomically."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("starboard")
-        if not cfg:
-            cfg = {
-                "enabled": True,
-                "channel_id": None,
-                "emoji": "⭐",
-                "threshold": 3,
-            }
-        cfg.update(kwargs)
-        cfg_obj.set_other("starboard", cfg)
-        await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.update(guild_id, "starboard", **kwargs)
 
     async def _archive_message(self, message: discord.Message, reaction_count: int) -> None:
         """Post message to starboard."""

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, on
-from easycord.server_config import ServerConfigStore
+from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -36,7 +36,7 @@ class InviteTrackerPlugin(Plugin):
 
     def __init__(self):
         super().__init__()
-        self.config_store = ServerConfigStore(".easycord/invite-tracker")
+        self.config = PluginConfigManager(".easycord/invite-tracker")
         # Cache invites to detect changes: {guild_id: {code: uses}}
         self._invite_cache: dict[int, dict[str, int]] = {}
 
@@ -49,18 +49,11 @@ class InviteTrackerPlugin(Plugin):
 
     async def _get_config(self, guild_id: int) -> dict:
         """Get invite tracker config for guild."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("invite_tracker")
-        if not cfg:
-            cfg = {
-                "enabled": True,
-                "log_channel": None,
-            }
-            cfg_obj.set_other("invite_tracker", cfg)
-            await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.get(
+            guild_id,
+            "invite_tracker",
+            {"enabled": True, "log_channel": None}
+        )
 
     async def _refresh_invite_cache(self, guild_id: int) -> None:
         """Refresh invite cache for guild."""
