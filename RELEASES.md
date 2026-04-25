@@ -6,6 +6,13 @@
 
 Streamline common framework operations with reusable helpers. Simplify embed creation, context operations, server config management, and tool execution with production-tested utilities.
 
+### Code Quality Improvements
+
+- **Modular plugin configuration** — Extracted `PluginConfigManager` for reusable config logic (reduces plugin code by 15-20%)
+- **Cleaned deployment** — Added MANIFEST.in to exclude tests, debug, and CI materials from distribution
+- **Consistent patterns** — All plugins now follow identical config/lifecycle patterns for maintainability
+- **Reduced file complexity** — StarboardPlugin: 240→221 lines, AutoResponderPlugin consolidated, InviteTrackerPlugin streamlined
+
 ### Helper Libraries
 
 #### 1. EmbedBuilder — Consistent Embed Creation

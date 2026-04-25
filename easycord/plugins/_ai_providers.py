@@ -153,7 +153,7 @@ class OllamaProvider(AIProvider):
         model: str = DEFAULT_MODEL,
     ) -> None:
         super().__init__(None, model)
-
+/
     def _init_client(self) -> None:
         if self._client is None:
             try:
