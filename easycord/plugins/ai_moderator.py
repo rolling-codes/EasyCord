@@ -15,7 +15,7 @@ from easycord import (
     on,
     slash,
 )
-from easycord.server_config import ServerConfigStore
+from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
     from easycord import Context, Orchestrator
@@ -23,6 +23,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 ModerationAction = Literal["delete", "warn", "timeout", "mute"]
+
+_DEFAULTS = {
+    "enabled": False,
+    "action_level": "notify_only",
+    "confidence_threshold": 0.85,
+    "rules": ["spam", "abuse"],
+    "warn_rate_limit": {"max_calls": 10, "window_minutes": 60},
+    "timeout_rate_limit": {"max_calls": 5, "window_minutes": 60},
+    "mod_review_channel": None,
+    "audit_channel": None,
+}
 
 
 class AIModeratorPlugin(Plugin):
@@ -52,7 +63,7 @@ class AIModeratorPlugin(Plugin):
     def __init__(self, orchestrator: Orchestrator | None = None):
         super().__init__()
         self.orchestrator = orchestrator
-        self.config_store = ServerConfigStore(".easycord/moderation")
+        self.config = PluginConfigManager(".easycord/moderation")
         self.conversation_memory = ConversationMemory()
         self.warn_limiter = ToolLimiter()
         self.timeout_limiter = ToolLimiter()
@@ -64,43 +75,13 @@ class AIModeratorPlugin(Plugin):
             return
         logger.info("AIModeratorPlugin loaded")
 
-    def _default_config(self) -> dict:
-        """Default moderation config for a guild."""
-        return {
-            "enabled": False,
-            "action_level": "notify_only",  # notify_only, warn, auto_delete
-            "confidence_threshold": 0.85,
-            "rules": ["spam", "abuse"],
-            "warn_rate_limit": {"max_calls": 10, "window_minutes": 60},
-            "timeout_rate_limit": {"max_calls": 5, "window_minutes": 60},
-            "mod_review_channel": None,
-            "audit_channel": None,
-        }
-
     async def _get_config(self, guild_id: int) -> dict:
         """Get moderation config for guild, creating defaults if needed."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("moderation")
-        if not cfg:
-            cfg = self._default_config()
-            cfg_obj.set_other("moderation", cfg)
-            await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.get(guild_id, "moderation", _DEFAULTS)
 
     async def _update_config(self, guild_id: int, **kwargs) -> dict:
         """Update moderation config atomically."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("moderation")
-        if not cfg:
-            cfg = self._default_config()
-        cfg.update(kwargs)
-        cfg_obj.set_other("moderation", cfg)
-        await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.update(guild_id, "moderation", **kwargs)
 
     async def _analyze_message(self, guild_id: int, message: discord.Message) -> tuple[ModerationAction | None, float, str]:
         """Analyze message using Orchestrator. Return (action, confidence, reason)."""

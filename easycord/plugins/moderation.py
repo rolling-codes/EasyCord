@@ -7,12 +7,20 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, RateLimit, ToolLimiter, on, slash
-from easycord.server_config import ServerConfigStore
+from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
     from easycord import Context
 
 logger = logging.getLogger(__name__)
+
+_DEFAULTS = {
+    "enabled": True,
+    "audit_channel": None,
+    "mute_role": None,
+    "auto_warn_threshold": 3,
+    "enable_warnings": True,
+}
 
 
 class ModerationPlugin(Plugin):
@@ -43,47 +51,22 @@ class ModerationPlugin(Plugin):
 
     def __init__(self):
         super().__init__()
-        self.config_store = ServerConfigStore(".easycord/moderation")
-        self.warn_limiter = ToolLimiter()  # Rate limit warns
-        self.ban_limiter = ToolLimiter()   # Rate limit bans
+        self.config = PluginConfigManager(".easycord/moderation")
+        self.warn_limiter = ToolLimiter()
+        self.ban_limiter = ToolLimiter()
 
     async def on_load(self) -> None:
         """Initialize moderation plugin."""
         logger.info("ModerationPlugin loaded")
 
-    def _default_config(self) -> dict:
-        """Default moderation settings."""
-        return {
-            "audit_channel": None,
-            "mute_role": None,
-            "auto_warn_threshold": 3,  # Auto-mute after 3 warns
-            "enable_warnings": True,
-        }
 
     async def _get_config(self, guild_id: int) -> dict:
         """Get moderation config for guild."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("moderation")
-        if not cfg:
-            cfg = self._default_config()
-            cfg_obj.set_other("moderation", cfg)
-            await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.get(guild_id, "moderation", _DEFAULTS)
 
     async def _update_config(self, guild_id: int, **kwargs) -> dict:
         """Update moderation config atomically."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(guild_id)
-        cfg = cfg_obj.get_other("moderation")
-        if not cfg:
-            cfg = self._default_config()
-        cfg.update(kwargs)
-        cfg_obj.set_other("moderation", cfg)
-        await self.config_store.save(cfg_obj)
-        return cfg
+        return await self.config.update(guild_id, "moderation", **kwargs)
 
     async def _log_moderation(self, ctx: Context, action: str, target: discord.User, reason: str, duration: str = None) -> None:
         """Log moderation action to audit channel."""
@@ -229,9 +212,7 @@ class ModerationPlugin(Plugin):
             return
 
         # Load warnings for user
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(ctx.guild.id)
+        cfg_obj = await self.config.store.load(ctx.guild.id)
         warnings = cfg_obj.get_other("warnings", {})
         user_id_str = str(user.id)
 
@@ -244,7 +225,7 @@ class ModerationPlugin(Plugin):
         })
 
         cfg_obj.set_other("warnings", warnings)
-        await self.config_store.save(cfg_obj)
+        await self.config.store.save(cfg_obj)
 
         warn_count = len(warnings[user_id_str])
         auto_mute_threshold = cfg.get("auto_warn_threshold", 3)
@@ -266,9 +247,7 @@ class ModerationPlugin(Plugin):
     @slash(description="View warnings for a user", guild_only=True)
     async def warnings(self, ctx: Context, user: discord.User) -> None:
         """Show warning history for a user."""
-        from easycord import ServerConfig
-
-        cfg_obj = await self.config_store.load(ctx.guild.id)
+        cfg_obj = await self.config.store.load(ctx.guild.id)
         all_warnings = cfg_obj.get_other("warnings", {})
         user_warnings = all_warnings.get(str(user.id), [])
 
