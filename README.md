@@ -1,10 +1,10 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-3.2.0-blue)
+![Version](https://img.shields.io/badge/v-3.7.1-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-517%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-578%20passing-brightgreen)
 
-> A production-grade Discord bot framework that removes boilerplate around commands, plugins, middleware, and AI orchestration. Build command-driven bots fast. Scale to AI-powered agents with intelligent tool routing, multi-provider LLM support, and permission-gated function calling.
+> A unified Discord bot framework. Commands, events, moderation, leveling, configuration, middleware, and AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add plugins for features (moderation, roles, logging, leveling). Scale to intelligent AI agents with multi-provider LLM support and permission-gated tool calling.
 
 ## Start here
 
@@ -191,28 +191,41 @@ The orchestrator:
 
 ## Features at a glance
 
-**Foundations:**
-- Slash commands, buttons, select menus, modals — all with decorators
-- Permission checks (built-in or custom via middleware)
-- Cooldowns, rate limiting, error handling
-- Plugins: reusable feature bundles with lifecycle hooks
+**Bot Framework (complete lifecycle management):**
+- Slash commands, context menus, buttons, select menus, modals — all with decorators
+- Event handlers (`@on`) for member joins, message updates, reactions, etc.
 - Per-guild configuration and persistent storage (SQLite or in-memory)
+- Plugins: reusable feature bundles with lifecycle hooks (`on_load`, `on_ready`, `on_unload`)
+- 10+ bundled plugins: moderation, reaction roles, leveling, member logging, auto-responder, starboard, invite tracking, welcome, polls, tags
+- Rate limiting per-user, per-tool, or per-guild
+- Permission checks (built-in or custom via middleware)
 - Localization: user/guild/default locale fallback
+- Conversation memory for multi-turn context
 
-**AI & Orchestration:**
-- **9 LLM providers:** Anthropic (Claude), OpenAI (GPT), Google (Gemini), Groq, Mistral, HuggingFace, Together.ai, Ollama (local), LiteLLM (proxy)
-- **Multi-provider routing:** fallback chain (try Anthropic → Groq → OpenAI if first fails)
-- **Tool registration:** expose Discord commands and custom functions to AI via `@ai_tool` decorator
-- **Permission-gated tools:** SAFE (read-only), CONTROLLED (validated), RESTRICTED (never expose) — each tool can require admin/roles/users
-- **Tool execution loop:** AI detects function calls, executes with timeout + exception handling, feeds results back
-- **Smart truncation:** responses auto-fit Discord's 2000-char limit
+**Moderation & Server Management (built-in):**
+- Manual moderation: kick, ban, unban, timeout, warn, mute/unmute
+- AI-powered moderation: message analysis with configurable confidence thresholds
+- Member audit logging: track joins, leaves, nickname changes, role changes
+- Reaction roles: auto-assign/revoke roles via emoji reactions
+- Starboard: archive popular messages
+- Invite tracking: see which invite brought each member
 
-**Developer experience:**
+**Developer Experience:**
 - Minimal boilerplate — decorators handle registration
 - Middleware for cross-cutting concerns (logging, auth, rate limits)
 - Fluent builder (`Composer`) for declarative bot setup
 - Context object with shortcuts for common operations
 - Embed helpers with buttons/selects built-in
+- Helper libraries for common tasks (EmbedBuilder, ConfigHelpers, ContextHelpers, ToolHelpers, RateLimitHelpers)
+
+**AI & Orchestration:**
+- **9 LLM providers:** Anthropic (Claude), OpenAI (GPT), Google (Gemini), Groq, Mistral, HuggingFace, Together.ai, Ollama (local), LiteLLM (proxy)
+- **Multi-provider routing:** fallback chain (try Anthropic → Groq → OpenAI if first fails)
+- **Tool registration:** expose bot commands and custom functions to AI via `@ai_tool` decorator
+- **Permission-gated tools:** SAFE (read-only), CONTROLLED (validated), RESTRICTED (never expose) — each tool can require admin/roles/users
+- **Tool execution loop:** AI detects function calls, executes with timeout + exception handling, feeds results back
+- **Conversation memory:** maintain context across multi-turn interactions
+- **Smart truncation:** responses auto-fit Discord's 2000-char limit
 
 ## Why this exists
 

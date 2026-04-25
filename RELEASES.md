@@ -1,5 +1,106 @@
 # Release Notes
 
+## v3.7.1 — Unified Bot Framework Positioning & Plugin Refactoring
+
+**Release Date:** 2026-04-24
+
+EasyCord evolves from an "interaction framework" to a **unified Discord bot framework**. This release refactors the plugin infrastructure for consistency and updates documentation to emphasize the complete system: commands, events, moderation, configuration, plugins, and AI orchestration all integrated.
+
+### Framework Evolution
+
+EasyCord is now positioned as a **complete bot framework**, not just a decorator layer:
+
+- **Full lifecycle management** — not just slash commands, but events, configuration, middleware, and state
+- **10+ production-ready plugins** — moderation, logging, role assignment, leveling, welcome messages, and more
+- **Unified plugin architecture** — plugins share consistent config/lifecycle patterns, preventing code duplication
+- **Seamless AI integration** — intelligently route between LLM providers and safely call bot functions via tool registry
+
+### What Changed
+
+**Plugin Infrastructure Refactoring:**
+- Extracted `PluginConfigManager` — reusable config helper for all plugins
+- All plugins refactored to use consistent patterns (no more duplicated config code)
+- Plugin lifecycle unified: `on_load()`, `on_ready()`, `on_unload()`
+- Plugin chaining support: `bot.add_plugin(...).add_plugin(...).add_plugin(...)`
+
+**Documentation:**
+- New `docs/framework.md` — philosophy and architecture of the unified bot framework
+- Updated `docs/index.md` — reframed as a complete system, not just decorators
+- Updated `README.md` — emphasized bundled plugins, moderation features, server management
+
+**Code Quality:**
+- ModerationPlugin: 366→324 lines
+- AIModeratorPlugin: 316→286 lines
+- MemberLoggingPlugin: 166→148 lines
+- All 578 tests passing
+- Clean deployment (MANIFEST.in excludes test/debug materials)
+
+### Plugin Refactoring Details
+
+**Before v3.7.1** — plugins repeated config logic:
+```python
+async def _get_config(self, guild_id):
+    cfg_obj = await self.config_store.load(guild_id)
+    cfg = cfg_obj.get_other("my_plugin")
+    if not cfg:
+        cfg = self._default_config()
+        cfg_obj.set_other("my_plugin", cfg)
+        await self.config_store.save(cfg_obj)
+    return cfg
+```
+
+**After v3.7.1** — single line:
+```python
+async def _get_config(self, guild_id):
+    return await self.config.get(guild_id, "my_plugin", _DEFAULTS)
+```
+
+All plugins now follow this pattern. Configuration is consistent, testable, and maintainable.
+
+### Migration Notes
+
+If you have custom plugins using `ServerConfigStore` directly:
+```python
+# Old (duplicated in every plugin)
+from easycord.server_config import ServerConfigStore
+self.config_store = ServerConfigStore(".easycord/my-plugin")
+
+# New (reusable)
+from easycord.plugins import PluginConfigManager
+self.config = PluginConfigManager(".easycord/my-plugin")
+
+# Then use:
+cfg = await self.config.get(guild_id, "key", defaults={...})
+await self.config.update(guild_id, "key", **updates)
+```
+
+Or for low-level access to the underlying store:
+```python
+cfg_obj = await self.config.store.load(guild_id)
+# ... direct manipulation ...
+await self.config.store.save(cfg_obj)
+```
+
+### Bundled Plugins (10+ ready-to-use)
+
+| Plugin | Purpose |
+|--------|---------|
+| `ModerationPlugin` | Kick, ban, timeout, warn, mute/unmute (manual) |
+| `AIModeratorPlugin` | LLM-powered message analysis |
+| `ReactionRolesPlugin` | Auto-assign roles via emoji |
+| `MemberLoggingPlugin` | Audit trail for member changes |
+| `AutoResponderPlugin` | Trigger responses on keywords/regex |
+| `StarboardPlugin` | Archive popular messages |
+| `InviteTrackerPlugin` | Track which invite brought each member |
+| `WelcomePlugin` | Welcome new members |
+| `PollsPlugin` | Emoji-based voting |
+| `TagsPlugin` | Canned responses |
+| `LevelsPlugin` | XP system with leveling |
+
+Load all: `bot.load_builtin_plugins()` or add selectively.
+
+---
+
 ## v3.7.0 — Helper Functions & Code Simplifications
 
 **Release Date:** 2026-04-24
