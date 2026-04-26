@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "3.9.0"
-description = "Production Discord bot framework with modular architecture, no lock-in, optional AI orchestration, and multi-provider LLMs"
+version = "4.0.0"
+description = "Complete Discord bot platform with modular plugins, zero lock-in, and 60-second quickstart. RolesPlugin included."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

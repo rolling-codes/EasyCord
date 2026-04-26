@@ -1,10 +1,12 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-3.9.0-brightgreen)
+![Version](https://img.shields.io/badge/v-4.0.0-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-578%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-598%20passing-brightgreen)
 
-> A modern Discord bot framework for production bots. **No AI required. No lock-in.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate and full access to discord.py. Start simple with slash commands. Add bundled plugins for features. Optionally add intelligent agents. Always keep control.
+> **The Discord bot platform that respects your control.**
+>
+> Production-ready plugins, zero lock-in, and a 60-second quickstart. Commands, events, plugins, and role management — all with full access to discord.py. Start with one slash command. Add plugins when you need them. Drop to discord.py anytime.
 
 ## 🔓 No Lock-In Guarantee
 
