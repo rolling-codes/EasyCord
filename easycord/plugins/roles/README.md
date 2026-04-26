@@ -1,10 +1,123 @@
-# RolesPlugin — v4.0 Flagship Reference Implementation
+# RolesPlugin — Why You Should Use EasyCord
 
-**Status:** Production-ready | **v4.0 foundation release** | **No lock-in architecture**
+**Status:** Production-ready | **Flagship reference** | **No lock-in guarantee**
 
 ---
 
-## Overview
+## The Problem
+
+You want safe, consistent role systems. But:
+
+❌ Manual setup is error-prone  
+❌ Discord's UI doesn't prevent escalation  
+❌ Changes are destructive (no preview)  
+❌ Other bots lock you in  
+
+---
+
+## The Solution
+
+RolesPlugin guarantees safe, consistent role systems **without taking control away from you**.
+
+Every change:
+- ✅ Can be previewed (dry-run)
+- ✅ Cannot escalate permissions (policy enforced)
+- ✅ Is automatically corrected (idempotent sync)
+- ✅ Can be rolled back (reset to defaults)
+
+---
+
+## How It Works
+
+### 1. Define (Once)
+
+```python
+blueprints = {
+    "admin": RoleBlueprint(
+        name="Admin",
+        permissions=["ban_members", "kick_members"],
+    ),
+    "moderator": RoleBlueprint(
+        name="Moderator",
+        inherits="admin",  # Inherit parent perms
+        permissions=["kick_members", "manage_messages"],
+    ),
+}
+```
+
+### 2. Preview
+
+```
+/roles simulate
+
+→ Shows exact changes (create, update, delete)
+→ No actual changes applied
+```
+
+### 3. Apply (Safely)
+
+```
+/roles sync
+
+→ Policy checks prevent escalation
+→ Changes applied idempotently
+→ Full audit trail (EventBus events)
+```
+
+### 4. Verify
+
+```
+/roles debug
+
+→ Shows which roles are managed
+→ Shows which Discord roles are unmanaged
+→ Shows permission mismatches
+```
+
+---
+
+## Why This Matters
+
+### Without RolesPlugin
+
+```
+Manual setup:
+1. Create roles manually
+2. Set permissions manually
+3. Rename a role? Manual sync again.
+4. Accidentally grant admin? 💥
+
+Result: Inconsistent, error-prone, dangerous.
+```
+
+### With RolesPlugin
+
+```
+1. Define blueprints (once)
+2. Preview changes
+3. Apply idempotently
+4. Any manual change is auto-corrected
+5. Policy enforcement prevents mistakes
+
+Result: Consistent, safe, reversible.
+```
+
+---
+
+## Quick Comparison
+
+| Feature | EasyCord Roles | Manual Setup | Other Bots |
+|---------|---|---|---|
+| Dry-run preview | ✅ | ❌ | ❌ |
+| Idempotent sync | ✅ | ❌ | ❌ |
+| Anti-escalation | ✅ | ❌ | ⚠️ |
+| Reversible | ✅ | ❌ | ❌ |
+| Plugin extensible | ✅ | ❌ | ❌ |
+| No lock-in | ✅ | ✅ | ❌ |
+
+---
+
+## Reference Implementation
 
 RolesPlugin is the **reference implementation** for EasyCord v4.0. It demonstrates:
 
@@ -453,6 +566,186 @@ This plugin exemplifies the v4.0 design:
 10. **Removable** — plugin can be unloaded cleanly
 
 Every v4.0 plugin should follow this pattern.
+
+---
+
+---
+
+## Developer Integration
+
+### Assign Roles from Other Plugins
+
+```python
+from easycord.plugins.roles import RolesPlugin
+
+class ModerationPlugin(Plugin):
+    async def warn_user(self, ctx, user):
+        # Assign "warned" role via roles plugin
+        roles_plugin = self.bot.get_plugin(RolesPlugin)
+        await roles_plugin.api.assign(user.id, ctx.guild_id, "moderator")
+
+        await ctx.respond(f"Assigned moderator role to {user.mention}")
+```
+
+### Check Role Membership
+
+```python
+# Other plugins can check if user has a role
+has_mod = await roles_plugin.api.has(user.id, guild_id, "moderator")
+if has_mod:
+    print("User is moderator")
+```
+
+### List Managed Roles
+
+```python
+# Get all roles managed by blueprint
+roles_dict = await roles_plugin.api.list_roles(guild_id)
+for key, discord_role in roles_dict.items():
+    print(f"{key}: {discord_role.mention}")
+```
+
+### Listen to Role Events
+
+```python
+# Other plugins react to role changes
+@bot.events.on("roles.sync")
+async def on_roles_sync(event):
+    print(f"Roles synced! Changes: {event.data['changes_applied']}")
+```
+
+### Extend with Custom Policies
+
+```python
+from easycord.plugins.roles.policy import PolicyConfig
+
+custom_policy = PolicyConfig(
+    prevent_self_escalation=True,
+    protect_admin_role=True,
+    prevent_dangerous_perms=True,
+)
+
+bot.add_plugin(RolesPlugin(policy=custom_policy))
+```
+
+---
+
+## Demo Script
+
+Quick proof-of-concept for presentations:
+
+### Step 1: Install
+
+```bash
+pip install -e ".[dev]"
+```
+
+### Step 2: Create Bot
+
+```python
+from easycord.api.v1 import Bot
+from easycord.plugins.roles import RolesPlugin
+
+bot = Bot()
+bot.add_plugin(RolesPlugin())
+bot.run(os.getenv("DISCORD_TOKEN"))
+```
+
+### Step 3: Initial Setup
+
+```
+/roles setup
+→ Creates: Bot, Admin, Moderator, Member
+
+/roles debug
+→ Shows 4 managed roles in creation state
+```
+
+### Step 4: Sync
+
+```
+/roles sync
+→ Creates all 4 roles in Discord
+→ Sets permissions, colors, hoist
+
+/roles debug
+→ Shows ✅ all 4 roles created
+```
+
+### Step 5: Manual Change (Prove Safety)
+
+In Discord, manually:
+- Rename "Moderator" role to "Mods"
+- Remove a permission from "Admin" role
+
+### Step 6: Detect & Correct
+
+```
+/roles simulate
+→ Shows:
+  ~ UPDATE_NAME Moderator: "Mods" → "Moderator"
+  ~ UPDATE_PERMS Admin: permissions mismatch
+
+/roles sync
+→ Auto-corrects both changes
+→ Proves idempotency
+
+/roles debug
+→ Shows everything corrected
+```
+
+**Talking points:**
+- "Roles are always in sync with blueprint"
+- "Manual changes are auto-corrected"
+- "Zero loss of control (dry-run before apply)"
+- "Works with other plugins via API"
+
+---
+
+## Presets
+
+RolesPlugin comes with opinionated presets:
+
+### Community Server
+
+- **Member** — basic chat
+- **Moderator** — kick, manage messages
+- **Admin** — ban, manage channels
+
+### Gaming Server
+
+- **Player** — basic chat
+- **VIP** — highlighted, priority
+- **Moderator** — moderation
+- **Admin** — server control
+
+### Developer Server
+
+- **Contributor** — basic access
+- **Maintainer** — channel management
+- **Admin** — full control
+
+### Minimal
+
+- **Bot** — technical permissions
+- **Admin** — server control
+
+Use `/roles setup` to choose preset on first run.
+
+---
+
+## Why EasyCord?
+
+RolesPlugin proves EasyCord is a **real platform**, not just a framework:
+
+1. **Comprehensive** — blueprint, diff, policy, reconcile, storage, API all in one
+2. **Safe** — policy enforced, non-destructive, reversible
+3. **Observable** — EventBus events, debug output, full audit trail
+4. **Extensible** — other plugins integrate cleanly via public API
+5. **No lock-in** — can escape to discord.py anytime
+6. **Testable** — 20+ tests proving correctness
+
+Every v4.0 plugin will follow this template. If you can build RolesPlugin-quality systems easily, why use anything else?
 
 ---
 

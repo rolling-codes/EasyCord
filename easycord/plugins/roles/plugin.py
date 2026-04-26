@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import discord
+
 from easycord.api.v1 import Context, Plugin, slash
 from easycord.kernel import Event
 from easycord.server_config import ServerConfigStore
@@ -98,10 +100,57 @@ class RolesPlugin(Plugin):
         logger.debug("RolesPlugin ready")
         await self.bot.events.emit(self._event("plugin_ready", {}))
 
+    async def _check_first_run(self, guild: discord.Guild) -> None:
+        """Check if guild needs role setup. Notify owner if not configured."""
+        from .cli import RolesCLI
+
+        blueprints = await self.storage.load_blueprints(guild.id)
+        if blueprints:
+            return  # Already configured
+
+        # First run — notify owner
+        try:
+            owner = guild.owner
+            if not owner:
+                logger.warning(f"Cannot notify owner of guild {guild.id}: owner not found")
+                return
+
+            msg = f"""🎭 **{guild.name}** has no role structure configured.
+
+Run `/roles setup` to initialize with:
+• Default roles (Bot, Admin, Moderator, Member)
+• Safe permissions (no escalation)
+• Dry-run preview before applying
+
+Or check `/roles debug` to see current state.
+
+---
+This message is from the RolesPlugin. You can disable it later."""
+
+            await owner.send(msg)
+            logger.info(f"Sent first-run message to owner of {guild.name}")
+
+        except discord.Forbidden:
+            logger.warning(f"Cannot DM owner of guild {guild.id}: DMs disabled")
+        except Exception as e:
+            logger.error(f"Error sending first-run message: {e}")
+
     async def on_unload(self) -> None:
         """Cleanup on removal."""
         logger.info("RolesPlugin unloaded")
         await self.bot.events.emit(self._event("plugin_unloaded", {}))
+
+    @staticmethod
+    def _handle_guild_join(func):
+        """Decorator to mark method as guild join handler."""
+        func._is_event = True
+        func._event_name = "guild_join"
+        return func
+
+    @_handle_guild_join
+    async def _on_guild_join(self, guild: discord.Guild) -> None:
+        """Check for first-run configuration when bot joins guild."""
+        await self._check_first_run(guild)
 
     @slash(
         description="Initialize default role blueprints",
