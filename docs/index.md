@@ -4,6 +4,13 @@ EasyCord is a decorator-first framework for building Discord bots on top of `dis
 
 It removes the boilerplate that discord.py requires for every common task while keeping the full power of the underlying library available whenever you need it.
 
+## Guide highlights
+
+- [Getting started](getting-started.md)
+- [Core concepts](concepts.md)
+- [API reference](api.md)
+- [Performance and usability guide](performance-and-usability.md)
+
 ## Why EasyCord?
 
 Every feature below collapses a block of raw discord.py code into a single line or decorator.
