@@ -45,6 +45,27 @@ def test_builtin_plugins_flag_forwards_to_bot():
     assert mock_bot.call_args.kwargs["load_builtin_plugins"] is True
 
 
+def test_localization_settings_forward_to_bot():
+    translations = {"en-US": {"hello": "Hello"}}
+    localization = MagicMock()
+    auto_translator = MagicMock()
+    with patch("easycord.composer.Bot", return_value=MagicMock()) as mock_bot:
+        (
+            Composer()
+            .localization(localization)
+            .default_locale("en-US")
+            .translations(translations)
+            .auto_translator(auto_translator)
+            .build()
+        )
+
+    kwargs = mock_bot.call_args.kwargs
+    assert kwargs["localization"] is localization
+    assert kwargs["default_locale"] == "en-US"
+    assert kwargs["translations"] is translations
+    assert kwargs["auto_translator"] is auto_translator
+
+
 # ── Middleware registration ───────────────────────────────────
 
 
@@ -165,6 +186,9 @@ def test_all_methods_return_composer():
     assert c.guild_only() is c
     assert c.rate_limit() is c
     assert c.catch_errors() is c
+    assert c.default_locale("en-US") is c
+    assert c.translations({"en-US": {"hello": "Hello"}}) is c
+    assert c.auto_translator(None) is c
     assert c.use(dummy_mw) is c
     assert c.add_plugin(Plugin()) is c
     assert c.add_plugins(Plugin(), Plugin()) is c

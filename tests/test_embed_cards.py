@@ -1,5 +1,6 @@
 import discord
 import pytest
+from datetime import timezone
 
 from easycord import EmbedCard, ErrorEmbed, InfoEmbed, SuccessEmbed, WarningEmbed
 
@@ -45,3 +46,16 @@ def test_embed_card_validates_button_and_select_inputs():
 
     with pytest.raises(ValueError, match="select menus require at least one option"):
         card.select("empty")
+
+
+def test_embed_card_supports_now_timestamp_helpers():
+    embed, _ = EmbedCard().timestamp(True).build()
+    assert embed.timestamp is not None
+    assert embed.timestamp.tzinfo == timezone.utc
+
+    embed_via_now, _ = EmbedCard().now().build()
+    assert embed_via_now.timestamp is not None
+    assert embed_via_now.timestamp.tzinfo == timezone.utc
+
+    cleared_embed, _ = EmbedCard().timestamp(False).build()
+    assert cleared_embed.timestamp is None

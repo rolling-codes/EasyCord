@@ -68,6 +68,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         localization: LocalizationManager | None = None,
         default_locale: str = "en-US",
         translations: dict | None = None,
+        auto_translator: Callable[[str, str, str], str | None] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
@@ -92,8 +93,12 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             db_auto_sync_guilds=db_auto_sync_guilds,
         )
         self.localization: LocalizationManager | None = localization or (
-            LocalizationManager(default_locale=default_locale, translations=translations)
-            if translations
+            LocalizationManager(
+                default_locale=default_locale,
+                translations=translations,
+                auto_translator=auto_translator,
+            )
+            if translations or auto_translator
             else None
         )
         if load_builtin_plugins:

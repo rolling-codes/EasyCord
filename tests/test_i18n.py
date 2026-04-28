@@ -26,3 +26,30 @@ def test_missing_key_falls_back_to_default_text():
     i18n = LocalizationManager()
 
     assert i18n.get("missing.key", default="fallback") == "fallback"
+
+
+def test_auto_translator_translates_and_caches_missing_locale():
+    calls: list[tuple[str, str, str]] = []
+
+    def fake_translator(text: str, source_locale: str, target_locale: str) -> str:
+        calls.append((text, source_locale, target_locale))
+        return f"{text} ({target_locale})"
+
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        auto_translator=fake_translator,
+        translations={"en-US": {"hello": "Hello"}},
+    )
+
+    assert i18n.get("hello", locale="fr-FR") == "Hello (fr-FR)"
+    assert i18n.get("hello", locale="fr-FR") == "Hello (fr-FR)"
+    assert calls == [("Hello", "en-US", "fr-FR")]
+
+
+def test_auto_translator_uses_default_text_when_key_missing_everywhere():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        auto_translator=lambda text, _source, target: f"{text}->{target}",
+    )
+
+    assert i18n.get("unknown.key", locale="es-ES", default="Welcome") == "Welcome->es-ES"

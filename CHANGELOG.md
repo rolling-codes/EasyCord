@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.1.0] — 2026-04-28
+
+Localization auto-translate, Composer localization wiring, and release-line alignment.
+
+### Added
+- Optional `auto_translator` callback in `LocalizationManager` for missing-locale translation + caching.
+- New Composer localization methods: `localization`, `default_locale`, `translations`, `auto_translator`.
+
+### Changed
+- `Bot(...)` can now auto-create localization when `auto_translator` is provided.
+- Project/version metadata aligned to 4.1.0.
+- README license section clarified for this release line (MIT only).
+
+---
+
 ## [1.0.0] — 2026-04-24
 
 **Stable release.**
