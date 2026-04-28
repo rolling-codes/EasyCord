@@ -10,9 +10,17 @@ The documentation is organized around one beginner-friendly path: install the pa
 2. [`concepts.md`](concepts.md) — learn slash commands, events, middleware, and plugins.
 3. [`examples.md`](examples.md) — copy smaller patterns into your own bot.
 4. [`fork-and-expand.md`](fork-and-expand.md) — turn a starter bot into a real project structure.
-5. [`api.md`](api.md) — reference signatures when you already know what you want to build.
-6. [`release-notes.md`](release-notes.md) — summary of the latest refactor and feature update.
-7. [`release-notes-3.1.2.md`](release-notes-3.1.2.md) — notes for the next simplification pass.
+5. [`performance-and-usability.md`](performance-and-usability.md) — keep bots responsive and maintainable.
+6. [`api.md`](api.md) — reference signatures when you already know what you want to build.
+7. [`release-notes.md`](release-notes.md) — summary of the latest refactor and feature update.
+8. [`release-notes-3.1.2.md`](release-notes-3.1.2.md) — notes for the next simplification pass.
+
+## Guide highlights
+
+- [Getting started](getting-started.md)
+- [Core concepts](concepts.md)
+- [API reference](api.md)
+- [Performance and usability guide](performance-and-usability.md)
 
 ## What this removes
 
