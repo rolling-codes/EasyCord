@@ -69,6 +69,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         default_locale: str = "en-US",
         translations: dict | None = None,
         auto_translator: Callable[[str, str, str], str | None] | None = None,
+        ai_provider=None,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
@@ -80,6 +81,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self._task_handles: dict[int, list[asyncio.Task]] = {}
         self._webhooks: dict[int, discord.Webhook] = {}
         self.registry = InteractionRegistry()
+        self.ai_provider = ai_provider
         self.ai_tools: dict[str, dict] = {}
         self.tool_registry = ToolRegistry()
         try:

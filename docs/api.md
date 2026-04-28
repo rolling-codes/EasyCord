@@ -16,6 +16,7 @@ If you are learning the framework for the first time, these are the main buildin
 | Save guild settings | `ServerConfigStore` |
 | Load bundled plugins | `bot.load_builtin_plugins()` |
 | Store guild data | `bot.db` |
+| Query an AI provider | `await ctx.ai(...)` |
 
 ```python
 from easycord import Bot
@@ -30,7 +31,7 @@ need, then register a few slash commands on top.
 
 ## `easycord.Bot`
 
-`Bot(*, intents=None, auto_sync=True, load_builtin_plugins=False, database=None, db_backend=None, db_path=None, db_auto_sync_guilds=None, **kwargs)`
+`Bot(*, intents=None, auto_sync=True, load_builtin_plugins=False, database=None, db_backend=None, db_path=None, db_auto_sync_guilds=None, ai_provider=None, **kwargs)`
 
 `bot.db` is auto-configured if you do not pass a database object. The default
 backend is SQLite and the default path is `.easycord/library.db`. You can
@@ -171,6 +172,8 @@ Middleware runs on component interactions exactly as it does for slash commands.
 `await ctx.respond(content=None, *, ephemeral=False, embed=None, **kwargs)` — first call: `send_message`; subsequent: `followup.send`
 
 `await ctx.defer(*, ephemeral=False)` — acknowledge without visible reply; use before slow operations
+
+`await ctx.ai(prompt, *, provider=None, model=None)` — query the configured AI provider and return response text. Configure `Bot(ai_provider=provider)` for a shared provider, or pass `provider=...` for a one-off request. `model=...` temporarily overrides providers that expose `_model`.
 
 `await ctx.send_embed(title, description=None, *, fields=None, footer=None, thumbnail=None, image=None, author=None, timestamp=None, color=blue, ephemeral=False)` — fields: `[(name, value)]` or `[(name, value, inline)]`; `thumbnail`/`image`: URL strings; `author`: name string or `{"name", "icon_url", "url"}` dict; `timestamp=True` uses current UTC time
 
@@ -651,6 +654,30 @@ Create and manage server invites:
 ---
 
 ## AI & Orchestration
+
+### `ctx.ai(...)`
+
+Use a shared provider for small custom AI commands without adding a full plugin:
+
+```python
+from easycord import Bot
+from easycord.plugins import OpenAIProvider
+
+provider = OpenAIProvider(api_key="sk-...")
+bot = Bot(ai_provider=provider)
+
+@bot.slash(description="Ask AI")
+async def ask(ctx, prompt: str):
+    response = await ctx.ai(prompt, model="gpt-4o")
+    await ctx.respond(response[:2000])
+```
+
+### `AIPlugin` / `OpenClaudePlugin`
+
+`AIPlugin(provider, *, rate_limit=3, rate_window=60.0)` registers `/ask` for any provider.
+`OpenClaudePlugin(api_key=None, model="claude-3-5-sonnet-20241022", rate_limit=3, rate_window=60.0)` keeps the Claude shortcut.
+
+`OpenClaudePlugin` sends `openclaude.thinking` through `ctx.t(...)` before calling the provider, then edits that message with the final response. `AIPlugin` and `OpenClaudePlugin` both enforce the per-user, per-guild request limit and use `ai.rate_limited` for localized cooldown text.
 
 ### `Orchestrator`
 

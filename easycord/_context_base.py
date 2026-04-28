@@ -1,6 +1,8 @@
 """Core Context object wrapping discord.Interaction with a simple response API."""
 from __future__ import annotations
 
+import asyncio
+
 import discord
 
 from .i18n import LocalizationManager
@@ -131,6 +133,32 @@ class BaseContext:
             return
         self._responded = True
         await self.interaction.response.defer(ephemeral=ephemeral)
+
+    async def ai(self, prompt: str, *, provider=None, model: str | None = None) -> str:
+        """Query the configured AI provider and return response text.
+
+        Pass ``provider=...`` for one-off calls, or configure ``Bot(ai_provider=...)``
+        so commands can call ``await ctx.ai("...")`` directly.
+        """
+        provider = provider or getattr(self.interaction.client, "ai_provider", None)
+        if provider is None:
+            raise RuntimeError("No AI provider configured. Pass provider=... or set Bot(ai_provider=...).")
+
+        old_model = getattr(provider, "_model", None)
+        should_restore = model is not None and hasattr(provider, "_model")
+        if not should_restore:
+            return await provider.query(prompt)
+
+        lock = getattr(provider, "_easycord_model_lock", None)
+        if lock is None:
+            lock = asyncio.Lock()
+            provider._easycord_model_lock = lock
+        async with lock:
+            provider._model = model
+            try:
+                return await provider.query(prompt)
+            finally:
+                provider._model = old_model
 
     async def send_embed(
         self,

@@ -64,7 +64,7 @@ bot.add_plugin(OpenClaudePlugin(api_key="sk-ant-..."))
 bot.run("YOUR_DISCORD_TOKEN")
 ```
 
-Members use `/ask "your question"` to query Claude.
+Members use `/ask "your question"` to query Claude. The command is rate limited per user by default, shows a localized `openclaude.thinking` message while waiting, and edits that message with the final response.
 
 ### With OpenAI (ChatGPT/GPT-4)
 
@@ -77,6 +77,21 @@ provider = OpenAIProvider(api_key="sk-...")  # or OPENAI_API_KEY env var
 bot.add_plugin(AIPlugin(provider=provider))
 
 bot.run("YOUR_DISCORD_TOKEN")
+```
+
+### With `ctx.ai(...)`
+
+```python
+from easycord import Bot
+from easycord.plugins import OpenAIProvider
+
+provider = OpenAIProvider(api_key="sk-...")
+bot = Bot(ai_provider=provider)
+
+@bot.slash(description="Ask AI")
+async def ask(ctx, prompt: str):
+    response = await ctx.ai(prompt, model="gpt-4o")
+    await ctx.respond(response[:2000])
 ```
 
 ### With Google Gemini

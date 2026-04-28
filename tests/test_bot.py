@@ -26,6 +26,15 @@ def test_use_returns_middleware(bot):
     assert result is mw
 
 
+def test_bot_stores_ai_provider():
+    from easycord import Bot
+
+    provider = object()
+    bot = Bot(ai_provider=provider)
+
+    assert bot.ai_provider is provider
+
+
 def test_multiple_middleware_preserved_in_order(bot):
     async def mw1(ctx, _proceed): pass
     async def mw2(ctx, _proceed): pass

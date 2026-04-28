@@ -135,6 +135,38 @@ async def test_defer_then_respond_uses_followup(ctx, interaction):
     interaction.followup.send.assert_called_once()
 
 
+async def test_ai_uses_configured_bot_provider(ctx, interaction):
+    provider = MagicMock()
+    provider.query = AsyncMock(return_value="AI response")
+    interaction.client.ai_provider = provider
+
+    assert await ctx.ai("hello") == "AI response"
+    provider.query.assert_called_once_with("hello")
+
+
+async def test_ai_accepts_one_off_provider(ctx):
+    provider = MagicMock()
+    provider.query = AsyncMock(return_value="One-off response")
+
+    assert await ctx.ai("hello", provider=provider) == "One-off response"
+
+
+async def test_ai_temporarily_overrides_model(ctx):
+    provider = MagicMock()
+    provider._model = "default"
+    provider.query = AsyncMock(return_value="Model response")
+
+    assert await ctx.ai("hello", provider=provider, model="custom") == "Model response"
+    assert provider._model == "default"
+
+
+async def test_ai_requires_provider(ctx, interaction):
+    interaction.client.ai_provider = None
+
+    with pytest.raises(RuntimeError, match="No AI provider configured"):
+        await ctx.ai("hello")
+
+
 # --- send_embed ---
 
 async def test_send_embed_sends_embed(ctx, interaction):

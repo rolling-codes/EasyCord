@@ -1,6 +1,7 @@
 """AI assistant plugins using various LLM provider APIs."""
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Optional
 
 from easycord import Plugin, slash
@@ -28,7 +29,14 @@ class AIPlugin(Plugin):
     ``/ask`` — Ask the AI a question and get a response.
     """
 
-    def __init__(self, provider: AIProvider) -> None:
+    def __init__(
+        self,
+        provider: AIProvider,
+        *,
+        rate_limit: int = 3,
+        rate_window: float = 60.0,
+        thinking_key: str | None = None,
+    ) -> None:
         """Initialize AI plugin.
 
         Parameters
@@ -38,6 +46,10 @@ class AIPlugin(Plugin):
         """
         super().__init__()
         self._provider = provider
+        self._rate_limit = rate_limit
+        self._rate_window = rate_window
+        self._thinking_key = thinking_key
+        self._requests: dict[tuple[int | None, int], list[float]] = {}
 
     @staticmethod
     def _format_response(text: str) -> str:
@@ -45,6 +57,26 @@ class AIPlugin(Plugin):
         if len(text) > 2000:
             return text[:1997] + "..."
         return text
+
+    def _rate_limit_retry_after(self, ctx) -> float | None:
+        if self._rate_limit <= 0:
+            return None
+
+        guild_id = getattr(ctx, "guild_id", None)
+        user_id = getattr(getattr(ctx, "user", None), "id", None)
+        if user_id is None:
+            return None
+
+        now = time.monotonic()
+        key = (guild_id, int(user_id))
+        window_start = now - self._rate_window
+        entries = [stamp for stamp in self._requests.get(key, []) if stamp > window_start]
+        if len(entries) >= self._rate_limit:
+            self._requests[key] = entries
+            return max(0.0, self._rate_window - (now - entries[0]))
+        entries.append(now)
+        self._requests[key] = entries
+        return None
 
     @slash(description="Ask an AI a question and get a response.", guild_only=True)
     async def ask(self, ctx, prompt: str) -> None:
@@ -57,11 +89,32 @@ class AIPlugin(Plugin):
         prompt : str
             Question or prompt for the AI.
         """
-        await ctx.defer()
+        retry_after = self._rate_limit_retry_after(ctx)
+        if retry_after is not None:
+            await ctx.respond(
+                ctx.t(
+                    "ai.rate_limited",
+                    default="You're asking too quickly. Try again in {seconds:.0f}s.",
+                    seconds=retry_after,
+                ),
+                ephemeral=True,
+            )
+            return
+
+        if self._thinking_key:
+            await ctx.respond(
+                ctx.t(self._thinking_key, default="Thinking..."),
+            )
+        else:
+            await ctx.defer()
 
         try:
             response_text = await self._provider.query(prompt)
-            await ctx.respond(self._format_response(response_text))
+            response = self._format_response(response_text)
+            if self._thinking_key:
+                await ctx.edit_response(response)
+            else:
+                await ctx.respond(response)
 
         except ImportError as exc:
             await ctx.respond(
@@ -104,6 +157,8 @@ class OpenClaudePlugin(AIPlugin):
         self,
         api_key: Optional[str] = None,
         model: str = "claude-3-5-sonnet-20241022",
+        rate_limit: int = 3,
+        rate_window: float = 60.0,
     ) -> None:
         """Initialize OpenClaude plugin.
 
@@ -117,4 +172,9 @@ class OpenClaudePlugin(AIPlugin):
         from ._ai_providers import AnthropicProvider
 
         provider = AnthropicProvider(api_key=api_key, model=model)
-        super().__init__(provider=provider)
+        super().__init__(
+            provider=provider,
+            rate_limit=rate_limit,
+            rate_window=rate_window,
+            thinking_key="openclaude.thinking",
+        )

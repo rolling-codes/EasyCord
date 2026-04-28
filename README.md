@@ -101,7 +101,20 @@ bot.add_plugin(OpenClaudePlugin(api_key="sk-ant-..."))  # or ANTHROPIC_API_KEY e
 bot.run("YOUR_TOKEN")
 ```
 
-Members use `/ask "your question"` to query Claude API. Responses are automatically truncated to Discord's 2000-char limit.
+Members use `/ask "your question"` to query Claude API. Responses are automatically truncated to Discord's 2000-char limit, requests are rate limited per user, and the waiting message can be localized with `openclaude.thinking`.
+
+For custom commands, configure a shared provider and call it through context:
+
+```python
+from easycord.plugins import OpenAIProvider
+
+bot = Bot(ai_provider=OpenAIProvider(api_key="sk-..."))
+
+@bot.slash(description="Ask AI")
+async def ask(ctx, prompt: str):
+    response = await ctx.ai(prompt, model="gpt-4o")
+    await ctx.respond(response[:2000])
+```
 
 **Setup:** Install `anthropic` SDK and set `ANTHROPIC_API_KEY` environment variable.
 

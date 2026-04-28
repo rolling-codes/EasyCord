@@ -377,6 +377,8 @@ async def test_aiplugin_ask_calls_provider_and_responds():
     ctx = MagicMock()
     ctx.defer = AsyncMock()
     ctx.respond = AsyncMock()
+    ctx.user.id = 123
+    ctx.guild_id = 456
 
     await plugin.ask(ctx, prompt="test")
 
@@ -393,6 +395,8 @@ async def test_aiplugin_truncates_long_response():
     ctx = MagicMock()
     ctx.defer = AsyncMock()
     ctx.respond = AsyncMock()
+    ctx.user.id = 123
+    ctx.guild_id = 456
 
     await plugin.ask(ctx, prompt="test")
 
@@ -411,6 +415,8 @@ async def test_aiplugin_handles_import_error():
     ctx.defer = AsyncMock()
     ctx.t = MagicMock(return_value="sdk missing")
     ctx.respond = AsyncMock()
+    ctx.user.id = 123
+    ctx.guild_id = 456
 
     await plugin.ask(ctx, prompt="test")
 
@@ -428,6 +434,8 @@ async def test_aiplugin_handles_api_error():
     ctx.defer = AsyncMock()
     ctx.t = MagicMock(return_value="Error calling AI: rate limit exceeded")
     ctx.respond = AsyncMock()
+    ctx.user.id = 123
+    ctx.guild_id = 456
 
     await plugin.ask(ctx, prompt="test")
 
@@ -467,14 +475,69 @@ def test_openclaude_model_customizable():
 
 @pytest.mark.asyncio
 async def test_openclaude_ask_defers_and_responds():
-    """OpenClaudePlugin.ask defers and responds."""
+    """OpenClaudePlugin.ask shows a localized thinking message and edits it."""
     plugin = OpenClaudePlugin(api_key="test-key")
     ctx = MagicMock()
     ctx.defer = AsyncMock()
+    ctx.t = MagicMock(return_value="Thinking locally...")
     ctx.respond = AsyncMock()
+    ctx.edit_response = AsyncMock()
+    ctx.user.id = 123
+    ctx.guild_id = 456
 
     with patch.object(plugin._provider, "query", new_callable=AsyncMock, return_value="Test response"):
         await plugin.ask(ctx, prompt="Test prompt")
 
-    ctx.defer.assert_called_once()
-    ctx.respond.assert_called_once_with("Test response")
+    ctx.defer.assert_not_called()
+    ctx.t.assert_called_once_with("openclaude.thinking", default="Thinking...")
+    ctx.respond.assert_called_once_with("Thinking locally...")
+    ctx.edit_response.assert_called_once_with("Test response")
+
+
+@pytest.mark.asyncio
+async def test_aiplugin_rate_limits_per_user():
+    """AIPlugin.ask rate limits repeated requests per guild/user."""
+    provider = MagicMock(spec=AIProvider)
+    provider.query = AsyncMock(return_value="AI response")
+    plugin = AIPlugin(provider=provider, rate_limit=1, rate_window=60)
+    ctx = MagicMock()
+    ctx.defer = AsyncMock()
+    ctx.respond = AsyncMock()
+    ctx.t = MagicMock(return_value="Slow down")
+    ctx.user.id = 123
+    ctx.guild_id = 456
+
+    await plugin.ask(ctx, prompt="first")
+    await plugin.ask(ctx, prompt="second")
+
+    assert provider.query.await_count == 1
+    ctx.t.assert_called_with(
+        "ai.rate_limited",
+        default="You're asking too quickly. Try again in {seconds:.0f}s.",
+        seconds=pytest.approx(60, abs=1),
+    )
+    assert ctx.respond.call_args_list[-1].kwargs["ephemeral"] is True
+
+
+@pytest.mark.asyncio
+async def test_aiplugin_rate_limit_is_per_user():
+    """AIPlugin.ask tracks separate users independently."""
+    provider = MagicMock(spec=AIProvider)
+    provider.query = AsyncMock(return_value="AI response")
+    plugin = AIPlugin(provider=provider, rate_limit=1, rate_window=60)
+    ctx = MagicMock()
+    ctx.defer = AsyncMock()
+    ctx.respond = AsyncMock()
+    ctx.user.id = 123
+    ctx.guild_id = 456
+
+    other_ctx = MagicMock()
+    other_ctx.defer = AsyncMock()
+    other_ctx.respond = AsyncMock()
+    other_ctx.user.id = 999
+    other_ctx.guild_id = 456
+
+    await plugin.ask(ctx, prompt="first")
+    await plugin.ask(other_ctx, prompt="second")
+
+    assert provider.query.await_count == 2
