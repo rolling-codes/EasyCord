@@ -34,6 +34,7 @@ from .orchestrator import FallbackStrategy, Orchestrator, ProviderStrategy, RunC
 from .tool_limits import RateLimit, ToolLimiter
 from .conversation_memory import Conversation, ConversationMemory, ConversationTurn
 from .helpers import ConfigHelpers, ContextHelpers, RateLimitHelpers, ToolHelpers
+from .utils import EasyEmbed, Paginator
 
 __all__ = [
     "AuditLog",
@@ -55,6 +56,7 @@ __all__ = [
     "FallbackStrategy",
     "component",
     "ErrorEmbed",
+    "EasyEmbed",
     "GuildRecord",
     "InfoEmbed",
     "ModalBuilder",
@@ -64,6 +66,7 @@ __all__ = [
     "LocalizationManager",
     "Orchestrator",
     "Plugin",
+    "Paginator",
     "ProviderStrategy",
     "RateLimit",
     "RateLimitHelpers",
