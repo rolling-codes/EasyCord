@@ -1,0 +1,48 @@
+name: Auto Release Label
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  ensure-release-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure exactly one release label exists
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.payload.pull_request.number;
+            const allowed = ["release:patch", "release:minor", "release:major"];
+            const labels = (context.payload.pull_request.labels || []).map(l => l.name);
+            const found = labels.filter(name => allowed.includes(name));
+
+            if (found.length === 0) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: pull_number,
+                labels: ["release:patch"],
+              });
+              core.info("Added default label: release:patch");
+              return;
+            }
+
+            if (found.length > 1) {
+              const keep = found[0];
+              const remove = found.slice(1);
+              for (const name of remove) {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: pull_number,
+                  name,
+                });
+              }
+              core.info(`Removed extra release labels; kept ${keep}`);
+            }
