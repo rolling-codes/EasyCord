@@ -29,6 +29,42 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
+## New Features (v1.1)
+
+### Easy Paginator
+
+Create paginated help/results in one line:
+
+```python
+from easycord import Paginator
+
+@bot.slash(description="Show commands")
+async def help(ctx):
+    lines = [f"/cmd{i}" for i in range(1, 37)]
+    await Paginator.from_lines(lines, per_page=10, title="Command List").send(ctx)
+```
+
+Or paginate existing embeds:
+
+```python
+from easycord import Paginator
+
+embeds = [embed_page_1, embed_page_2, embed_page_3]
+await Paginator.from_embeds(embeds).send(ctx)
+```
+
+### Smart Embeds
+
+Use status templates for common bot responses:
+
+```python
+from easycord import EasyEmbed
+
+await ctx.respond(embed=EasyEmbed.success("Operation complete!"))
+await ctx.respond(embed=EasyEmbed.error("Something went wrong."))
+await ctx.respond(embed=EasyEmbed.info("Update available."))
+```
+
 ## Installation
 
 ### From GitHub (via pip)
