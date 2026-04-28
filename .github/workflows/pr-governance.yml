@@ -1,0 +1,66 @@
+name: PR Governance
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  enforce-pr-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require release label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = context.payload.pull_request.labels.map((l) => l.name);
+            const releaseLabels = ["release:patch", "release:minor", "release:major"];
+            const palette = {
+              "release:patch": "1d76db",
+              "release:minor": "0e8a16",
+              "release:major": "b60205",
+            };
+
+            for (const name of releaseLabels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name,
+                });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name,
+                    color: palette[name],
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            const matched = releaseLabels.filter((name) => labels.includes(name));
+
+            if (matched.length !== 1) {
+              core.setFailed(
+                `Exactly one release label is required: ${releaseLabels.join(", ")}. Found: ${matched.length || "none"}.`
+              );
+            }
+
+      - name: Require conventional title prefix
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title || "";
+            const allowed = /^(feat|fix|docs|refactor|test|chore)(\(.+\))?:\s.+/i;
+            if (!allowed.test(title)) {
+              core.setFailed(
+                "PR title must follow Conventional Commits, e.g. `feat(utils): add paginator`."
+              );
+            }
