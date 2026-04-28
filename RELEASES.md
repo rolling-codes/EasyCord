@@ -1,5 +1,17 @@
 # Release Notes
 
+## v4.1.1 — Security and Release Automation Hardening
+
+**Release Date:** 2026-04-28
+
+### Highlights
+
+- Hardened auto-fix workflow command validation and restricted issue-comment triggers to trusted collaborators.
+- Added OpenClaude prompt-size guard and stale limiter-bucket pruning for safer runtime behavior.
+- Added tag-based GitHub Release workflow and a one-command PowerShell tag script.
+
+See full notes: [`RELEASE_v4.1.1.md`](RELEASE_v4.1.1.md).
+
 ## v4.1.0 — Localization Auto-Translate + Release Alignment
 
 **Release Date:** 2026-04-28
