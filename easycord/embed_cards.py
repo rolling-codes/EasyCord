@@ -97,9 +97,23 @@ class EmbedCard:
         self._embed.set_author(name=name, icon_url=icon_url, url=url)
         return self
 
-    def timestamp(self, value: datetime.datetime | None = None) -> EmbedCard:
-        self._embed.timestamp = value
+    def timestamp(self, value: datetime.datetime | bool | None = None) -> EmbedCard:
+        """Set or clear the embed timestamp.
+
+        ``timestamp(True)`` applies the current UTC time.
+        ``timestamp(False)`` or ``timestamp(None)`` clears the timestamp.
+        """
+        if value is True:
+            self._embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+        elif value is False or value is None:
+            self._embed.timestamp = None
+        else:
+            self._embed.timestamp = value
         return self
+
+    def now(self) -> EmbedCard:
+        """Convenience helper to timestamp the card with the current UTC time."""
+        return self.timestamp(True)
 
     def button(
         self,

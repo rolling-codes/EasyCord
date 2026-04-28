@@ -1,5 +1,17 @@
 # Release Notes
 
+## v4.1.0 — Localization Auto-Translate + Release Alignment
+
+**Release Date:** 2026-04-28
+
+### Highlights
+
+- Added optional `auto_translator` support in `LocalizationManager` for on-demand locale generation and caching.
+- Added fluent localization configuration in `Composer` and `Bot` constructor support for auto-translation.
+- Aligned release metadata/docs for 4.1 and kept this release line on MIT licensing (no dual-license rollout yet).
+
+See full notes: [`RELEASE_v4.1.md`](RELEASE_v4.1.md).
+
 ## v3.8.0 — Extended Plugin Library & Complete Unified Framework
 
 **Release Date:** 2026-04-24

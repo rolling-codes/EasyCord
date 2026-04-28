@@ -1,0 +1,89 @@
+name: Auto App Commands
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  route-app-command:
+    if: github.event.issue.pull_request != null
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check commenter permission
+        id: perm
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.payload.comment.user.login,
+            });
+            const allowed = ["admin", "maintain", "write"].includes(data.permission);
+            core.setOutput("allowed", allowed ? "true" : "false");
+
+      - name: Parse app command (fix/rewrite/refactor/test/docs/pr)
+        if: steps.perm.outputs.allowed == 'true'
+        id: parse
+        run: |
+          BODY=$(cat <<'EOF'
+          ${{ github.event.comment.body }}
+          EOF
+          )
+
+          # Supported app handles and actions (auto-config router)
+          # Examples:
+          # - @coderabbitai fix the issue with this command: `pytest tests/test_i18n.py`
+          # - @coderabbitai rewrite with this command: `ruff check .`
+          # - @copilot rewrite with this command: `python -m build`
+          # - @dependabot test with this command: `pytest`
+          # - @coderabbitai create a pull request with this command: `gh pr create --fill`
+          APP_REGEX='@(coderabbitai|copilot|dependabot)[[:space:]]+'
+          ACTION_REGEX='(fix|rewrite|refactor|test|docs|create[[:space:]]+a[[:space:]]+pull[[:space:]]+request)[[:space:]]+with[[:space:]]+this[[:space:]]+command:[[:space:]]+'
+          CMD_REGEX='`?([a-zA-Z0-9_./:@%+=, -]+)`?'
+          REGEX="^${APP_REGEX}${ACTION_REGEX}${CMD_REGEX}$"
+
+          if [[ "$BODY" =~ $REGEX ]]; then
+            APP="${BASH_REMATCH[1]}"
+            ACTION="${BASH_REMATCH[2]}"
+            ROUTED_CMD="${BASH_REMATCH[3]}"
+            echo "app=$APP" >> "$GITHUB_OUTPUT"
+            echo "action=$ACTION" >> "$GITHUB_OUTPUT"
+            echo "command=$ROUTED_CMD" >> "$GITHUB_OUTPUT"
+            echo "matched=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "matched=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Acknowledge parsed command
+        if: steps.perm.outputs.allowed == 'true' && steps.parse.outputs.matched == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const app = "${{ steps.parse.outputs.app }}";
+            const action = "${{ steps.parse.outputs.action }}";
+            const cmd = "${{ steps.parse.outputs.command }}";
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                "✅ Auto-config matched app command.",
+                "",
+                `- App: @${app}`,
+                `- Action: ${action}`,
+                `- Command: \`${cmd}\``,
+                "",
+                "_This workflow currently routes and acknowledges commands. Hook your executor job to `steps.parse.outputs.command`._",
+              ].join("\n"),
+            });
+
+      - name: Log ignored comments
+        if: steps.perm.outputs.allowed != 'true' || steps.parse.outputs.matched != 'true'
+        run: |
+          echo "Comment ignored (insufficient permission or malformed command)."

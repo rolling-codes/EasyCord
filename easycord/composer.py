@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import logging
+from typing import Callable
 
 import discord
 
 from . import middleware as _mw
 from .bot import Bot
 from .database import EasyCordDatabase
+from .i18n import LocalizationManager
 from .middleware import MiddlewareFn
 from .plugin import Plugin
 
@@ -46,6 +48,10 @@ class Composer:
         self._db_backend: str | None = None
         self._db_path: str | None = None
         self._db_auto_sync_guilds: bool | None = None
+        self._localization: LocalizationManager | None = None
+        self._default_locale: str = "en-US"
+        self._translations: dict | None = None
+        self._auto_translator: Callable[[str, str, str], str | None] | None = None
         self._middleware: list[MiddlewareFn] = []
         self._plugins: list[Plugin] = []
         self._groups: list = []
@@ -85,6 +91,29 @@ class Composer:
     def db_auto_sync_guilds(self, enabled: bool = True) -> Composer:
         """Enable or disable automatic guild-row creation."""
         self._db_auto_sync_guilds = enabled
+        return self
+
+    def localization(self, manager: LocalizationManager) -> Composer:
+        """Use an explicit localization manager instance."""
+        self._localization = manager
+        return self
+
+    def default_locale(self, locale: str) -> Composer:
+        """Set the default locale used by auto-created localization managers."""
+        self._default_locale = locale
+        return self
+
+    def translations(self, catalogs: dict) -> Composer:
+        """Set translation catalogs used by auto-created localization managers."""
+        self._translations = catalogs
+        return self
+
+    def auto_translator(
+        self,
+        translator: Callable[[str, str, str], str | None] | None,
+    ) -> Composer:
+        """Set the missing-locale auto-translation callback."""
+        self._auto_translator = translator
         return self
 
     # ── Built-in middleware ───────────────────────────────────
@@ -186,6 +215,10 @@ class Composer:
             db_backend=self._db_backend,
             db_path=self._db_path,
             db_auto_sync_guilds=self._db_auto_sync_guilds,
+            localization=self._localization,
+            default_locale=self._default_locale,
+            translations=self._translations,
+            auto_translator=self._auto_translator,
         )
         for mw in self._middleware:
             bot.use(mw)
