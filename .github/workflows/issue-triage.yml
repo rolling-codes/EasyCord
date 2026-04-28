@@ -1,0 +1,73 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-label issue by template hints
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = (issue.title || "").toLowerCase();
+            const body = (issue.body || "").toLowerCase();
+            const labels = new Set();
+
+            if (title.includes("bug") || body.includes("bug") || body.includes("expected behavior")) {
+              labels.add("type:bug");
+            }
+            if (title.includes("security") || body.includes("security") || body.includes("vulnerability")) {
+              labels.add("type:security");
+            }
+            if (title.includes("feature") || body.includes("feature request")) {
+              labels.add("type:feature");
+            }
+            if (body.includes("repro") || body.includes("steps to reproduce")) {
+              labels.add("needs:repro");
+            }
+
+            labels.add("status:triage");
+
+            const palette = {
+              "type:bug": "d73a4a",
+              "type:security": "b60205",
+              "type:feature": "0e8a16",
+              "needs:repro": "fbca04",
+              "status:triage": "5319e7",
+            };
+
+            for (const name of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name,
+                });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name,
+                    color: palette[name] || "ededed",
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: Array.from(labels),
+            });
