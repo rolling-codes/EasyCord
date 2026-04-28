@@ -165,7 +165,7 @@ class LevelsPlugin(Plugin):
 
     @on("message")
     async def _award_xp(self, message: discord.Message) -> None:
-        if getattr(message.author, "bot", False) is True or not message.guild:
+        if getattr(message.author, "bot", False) is True or message.guild is None:
             return
 
         guild_id = message.guild.id
