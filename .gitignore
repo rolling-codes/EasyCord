@@ -15,3 +15,10 @@ env/
 htmlcov/
 .easycord/
 *.tmp
+.tmp/
+.basetemp/
+.worktrees/
+.claude/settings.local.json
+tmp-pytest/
+pytest-cache-files-*/
+easycord/pytest-cache-files-*/
