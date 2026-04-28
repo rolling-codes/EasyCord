@@ -36,6 +36,7 @@ class AIPlugin(Plugin):
         rate_limit: int = 3,
         rate_window: float = 60.0,
         thinking_key: str | None = None,
+        max_prompt_chars: int = 4000,
     ) -> None:
         """Initialize AI plugin.
 
@@ -49,6 +50,7 @@ class AIPlugin(Plugin):
         self._rate_limit = rate_limit
         self._rate_window = rate_window
         self._thinking_key = thinking_key
+        self._max_prompt_chars = max_prompt_chars
         self._requests: dict[tuple[int | None, int], list[float]] = {}
 
     @staticmethod
@@ -78,6 +80,17 @@ class AIPlugin(Plugin):
         self._requests[key] = entries
         return None
 
+    def _prune_old_request_buckets(self, now: float) -> None:
+        # Keep the in-memory limiter bounded over long uptimes.
+        stale_before = now - self._rate_window
+        stale_keys = [
+            key
+            for key, values in self._requests.items()
+            if not any(stamp > stale_before for stamp in values)
+        ]
+        for key in stale_keys:
+            del self._requests[key]
+
     @slash(description="Ask an AI a question and get a response.", guild_only=True)
     async def ask(self, ctx, prompt: str) -> None:
         """Ask AI a question.
@@ -89,6 +102,18 @@ class AIPlugin(Plugin):
         prompt : str
             Question or prompt for the AI.
         """
+        if self._max_prompt_chars > 0 and len(prompt) > self._max_prompt_chars:
+            await ctx.respond(
+                ctx.t(
+                    "ai.prompt_too_long",
+                    default="Prompt is too long. Maximum length is {limit} characters.",
+                    limit=self._max_prompt_chars,
+                ),
+                ephemeral=True,
+            )
+            return
+
+        self._prune_old_request_buckets(time.monotonic())
         retry_after = self._rate_limit_retry_after(ctx)
         if retry_after is not None:
             await ctx.respond(
@@ -159,6 +184,7 @@ class OpenClaudePlugin(AIPlugin):
         model: str = "claude-3-5-sonnet-20241022",
         rate_limit: int = 3,
         rate_window: float = 60.0,
+        max_prompt_chars: int = 4000,
     ) -> None:
         """Initialize OpenClaude plugin.
 
@@ -177,4 +203,5 @@ class OpenClaudePlugin(AIPlugin):
             rate_limit=rate_limit,
             rate_window=rate_window,
             thinking_key="openclaude.thinking",
+            max_prompt_chars=max_prompt_chars,
         )

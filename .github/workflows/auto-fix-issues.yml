@@ -35,8 +35,17 @@ jobs:
         with:
           script: |
             if (context.eventName === "workflow_dispatch") {
-              core.setOutput("branch", core.getInput("target_branch"));
-              core.setOutput("fix_command", core.getInput("fix_command"));
+              const inputBranch = core.getInput("target_branch");
+              const inputCommand = core.getInput("fix_command");
+
+              // Keep command execution constrained to a known safe prefix.
+              if (!/^python\s+scripts\/[A-Za-z0-9._/-]+\.py(?:\s+.*)?$/.test(inputCommand)) {
+                core.setFailed("fix_command must start with `python scripts/<name>.py`.");
+                return;
+              }
+
+              core.setOutput("branch", inputBranch);
+              core.setOutput("fix_command", inputCommand);
               core.setOutput("commit_message", core.getInput("commit_message"));
               return;
             }
@@ -55,6 +64,18 @@ jobs:
 
             if (pull.head.repo.full_name !== `${context.repo.owner}/${context.repo.repo}`) {
               core.setFailed("Auto-fix can only push to branches in this repository.");
+              return;
+            }
+
+            const commenter = context.payload.comment.user.login;
+            const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: commenter,
+            });
+            const allowed = new Set(["admin", "maintain", "write"]);
+            if (!allowed.has(permission.permission)) {
+              core.setFailed("Only repository writers can trigger /fix-issues.");
               return;
             }
 
