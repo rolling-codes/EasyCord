@@ -45,6 +45,12 @@ async def test_sqlite_database_replace_guild(tmp_path):
     await db.close()
 
 
+def test_sqlite_decode_invalid_json_returns_empty_dict():
+    assert SQLiteDatabase._decode_data("{not json}") == {}
+    assert SQLiteDatabase._decode_data(b"{bad bytes}") == {}
+    assert SQLiteDatabase._decode_data('"string"') == {}
+
+
 def test_bot_uses_memory_database_when_requested():
     mock_tree = MagicMock()
     mock_tree.add_command = MagicMock()

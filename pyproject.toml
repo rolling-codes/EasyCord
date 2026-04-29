@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "4.1.0"
+version = "4.2.0"
 description = "Production-grade Discord bot framework with AI orchestration, multi-provider LLMs, and permission-gated tool execution"
 readme = "README.md"
 license = "MIT"

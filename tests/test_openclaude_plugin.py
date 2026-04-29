@@ -543,7 +543,6 @@ async def test_aiplugin_rate_limit_is_per_user():
     assert provider.query.await_count == 2
 
 
-@pytest.mark.asyncio
 async def test_aiplugin_rejects_overlong_prompt():
     """AIPlugin.ask rejects prompts that exceed configured max length."""
     provider = MagicMock(spec=AIProvider)
@@ -563,7 +562,6 @@ async def test_aiplugin_rejects_overlong_prompt():
     assert ctx.respond.call_args.kwargs["ephemeral"] is True
 
 
-@pytest.mark.asyncio
 async def test_aiplugin_prunes_stale_request_buckets():
     """AIPlugin limiter should prune stale user buckets over time."""
     provider = MagicMock(spec=AIProvider)
@@ -579,5 +577,23 @@ async def test_aiplugin_prunes_stale_request_buckets():
     plugin._requests[(456, 123)] = [95.0]
     with patch("easycord.plugins.openclaude.time.monotonic", return_value=100.0):
         await plugin.ask(ctx, prompt="ok")
+
+    assert (999, 999) not in plugin._requests
+
+
+async def test_aiplugin_prunes_stale_buckets_before_rejecting_long_prompt():
+    """Rejected overlong prompts should still clean stale rate-limit buckets."""
+    provider = MagicMock(spec=AIProvider)
+    provider.query = AsyncMock(return_value="AI response")
+    plugin = AIPlugin(provider=provider, rate_limit=1, rate_window=10, max_prompt_chars=5)
+    ctx = MagicMock()
+    ctx.respond = AsyncMock()
+    ctx.t = MagicMock(return_value="Too long")
+    ctx.user.id = 123
+    ctx.guild_id = 456
+
+    plugin._requests[(999, 999)] = [0.0]
+    with patch("easycord.plugins.openclaude.time.monotonic", return_value=100.0):
+        await plugin.ask(ctx, prompt="this prompt is too long")
 
     assert (999, 999) not in plugin._requests

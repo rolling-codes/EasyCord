@@ -50,3 +50,8 @@ def test_easy_embed_error_color():
 def test_easy_embed_info_color():
     embed = EasyEmbed.info("info")
     assert embed.color.value == 0x3498DB
+
+
+def test_easy_embed_warning_color():
+    embed = EasyEmbed.warning("careful")
+    assert embed.color.value == 0xF39C12

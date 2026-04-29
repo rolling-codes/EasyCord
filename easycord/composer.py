@@ -203,6 +203,49 @@ class Composer:
         self._groups.extend(groups)
         return self
 
+    def secure_defaults(
+        self,
+        *,
+        log_level: int = logging.INFO,
+        log_format: str = "/{command} invoked by {user} in {guild}",
+        rate_limit: int = 5,
+        rate_window: float = 10.0,
+    ) -> Composer:
+        """Apply a safe, low-boilerplate middleware baseline.
+
+        This convenience preset adds, in order:
+        1. logging middleware
+        2. error-catching middleware
+        3. per-user rate limiting middleware
+        """
+        return (
+            self.log(level=log_level, fmt=log_format)
+            .catch_errors()
+            .rate_limit(limit=rate_limit, window=rate_window)
+        )
+
+    def convenience_framework(
+        self,
+        *plugins: Plugin,
+        builtin_plugins: bool = False,
+        secure: bool = True,
+        guild_only: bool = False,
+    ) -> Composer:
+        """Apply convenience defaults for common bot projects.
+
+        Parameters are intentionally conservative so this can be used as a
+        one-call bootstrap in examples and small bots.
+        """
+        if secure:
+            self.secure_defaults()
+        if guild_only:
+            self.guild_only()
+        if builtin_plugins:
+            self.builtin_plugins(True)
+        if plugins:
+            self.add_plugins(*plugins)
+        return self
+
     # ── Build ─────────────────────────────────────────────────
 
     def build(self) -> Bot:

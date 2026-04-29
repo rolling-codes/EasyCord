@@ -1,6 +1,8 @@
 """Guild, channel, webhook, and emoji management helpers for Bot."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import discord
 
 
@@ -124,7 +126,18 @@ class _GuildMixin:
                 )
             self._webhooks[channel_id] = await channel.create_webhook(name="Webhook")  # type: ignore[attr-defined]
         webhook = self._webhooks[channel_id]  # type: ignore[attr-defined]
-        await webhook.send(content, username=username, avatar_url=avatar_url, embed=embed, **kwargs)
+        try:
+            await webhook.send(content, username=username, avatar_url=avatar_url, embed=embed, **kwargs)
+        except discord.NotFound:
+            # Recreate stale cached webhook once and retry.
+            channel = self.get_channel(channel_id)
+            if not isinstance(channel, discord.TextChannel):
+                raise RuntimeError(
+                    f"Channel {channel_id} is not a text channel or was not found in cache"
+                ) from None
+            self._webhooks[channel_id] = await channel.create_webhook(name="Webhook")  # type: ignore[attr-defined]
+            webhook = self._webhooks[channel_id]  # type: ignore[attr-defined]
+            await webhook.send(content, username=username, avatar_url=avatar_url, embed=embed, **kwargs)
 
     # ── Emoji management ──────────────────────────────────────
 
@@ -143,7 +156,15 @@ class _GuildMixin:
         guild = self.get_guild(guild_id)
         if guild is None:
             raise RuntimeError(f"Bot is not in guild {guild_id}")
-        with open(image_path, "rb") as f:
+        path = Path(image_path)
+        if not path.exists() or not path.is_file():
+            raise RuntimeError(f"Emoji image file not found: {image_path}")
+        # Discord's custom emoji upload limit is 256 KiB.
+        if path.stat().st_size > 256 * 1024:
+            raise RuntimeError(
+                f"Emoji image exceeds 256 KiB: {image_path}"
+            )
+        with path.open("rb") as f:
             image_bytes = f.read()
         return await guild.create_custom_emoji(name=name, image=image_bytes, reason=reason)
 

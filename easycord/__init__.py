@@ -34,6 +34,7 @@ from .orchestrator import FallbackStrategy, Orchestrator, ProviderStrategy, RunC
 from .tool_limits import RateLimit, ToolLimiter
 from .conversation_memory import Conversation, ConversationMemory, ConversationTurn
 from .helpers import ConfigHelpers, ContextHelpers, RateLimitHelpers, ToolHelpers
+from .managers import FrameworkManager, SecurityManager
 from .utils import EasyEmbed, Paginator
 
 __all__ = [
@@ -57,6 +58,7 @@ __all__ = [
     "component",
     "ErrorEmbed",
     "EasyEmbed",
+    "FrameworkManager",
     "GuildRecord",
     "InfoEmbed",
     "ModalBuilder",
@@ -74,6 +76,7 @@ __all__ = [
     "SelectMenuBuilder",
     "SlashGroup",
     "SuccessEmbed",
+    "SecurityManager",
     "ToolCall",
     "ToolDef",
     "ToolHelpers",

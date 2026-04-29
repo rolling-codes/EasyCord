@@ -761,18 +761,51 @@ async def test_send_webhook_reuses_cached_webhook(bot):
     webhook.send.assert_called_once()
 
 
-async def test_create_emoji(bot):
+async def test_send_webhook_recreates_stale_cached_webhook(bot):
+    stale = MagicMock(spec=discord.Webhook)
+    stale.send = AsyncMock(side_effect=discord.NotFound(MagicMock(), "gone"))
+    fresh = MagicMock(spec=discord.Webhook)
+    fresh.send = AsyncMock()
+    channel = MagicMock(spec=discord.TextChannel)
+    channel.create_webhook = AsyncMock(return_value=fresh)
+    bot._webhooks[111] = stale
+    bot.get_channel = MagicMock(return_value=channel)
+
+    await bot.send_webhook(111, "retry me")
+
+    stale.send.assert_called_once()
+    channel.create_webhook.assert_called_once_with(name="Webhook")
+    fresh.send.assert_called_once()
+
+
+async def test_create_emoji(bot, tmp_path):
     guild = MagicMock(spec=discord.Guild)
     emoji = MagicMock(spec=discord.Emoji)
     guild.create_custom_emoji = AsyncMock(return_value=emoji)
     bot.get_guild = MagicMock(return_value=guild)
-    with patch("builtins.open", MagicMock(return_value=MagicMock(
-        __enter__=MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"imgdata"))),
-        __exit__=MagicMock(return_value=False),
-    ))):
-        result = await bot.create_emoji(123, "cool", "cool.png")
+    image_path = tmp_path / "cool.png"
+    image_path.write_bytes(b"imgdata")
+    result = await bot.create_emoji(123, "cool", str(image_path))
     assert result is emoji
     guild.create_custom_emoji.assert_called_once_with(name="cool", image=b"imgdata", reason=None)
+
+
+async def test_create_emoji_raises_when_file_missing(bot):
+    guild = MagicMock(spec=discord.Guild)
+    bot.get_guild = MagicMock(return_value=guild)
+
+    with pytest.raises(RuntimeError, match="file not found"):
+        await bot.create_emoji(123, "cool", "does-not-exist.png")
+
+
+async def test_create_emoji_raises_when_file_too_large(bot, tmp_path):
+    guild = MagicMock(spec=discord.Guild)
+    bot.get_guild = MagicMock(return_value=guild)
+    image_path = tmp_path / "big.png"
+    image_path.write_bytes(b"a" * (256 * 1024 + 1))
+
+    with pytest.raises(RuntimeError, match="exceeds 256 KiB"):
+        await bot.create_emoji(123, "cool", str(image_path))
 
 
 async def test_delete_emoji(bot):
