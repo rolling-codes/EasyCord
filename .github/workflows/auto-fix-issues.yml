@@ -42,14 +42,14 @@ jobs:
               const inputBranch = core.getInput("target_branch");
               const inputCommand = core.getInput("fix_command");
 
-              // Keep command execution constrained to a known safe prefix.
-              if (!/^python\s+scripts\/[A-Za-z0-9._/-]+\.py(?:\s+.*)?$/.test(inputCommand)) {
-                core.setFailed("fix_command must start with `python scripts/<name>.py`.");
+              // Keep manual dispatch execution pinned to the single trusted fixer.
+              if (inputCommand.trim() !== "python scripts/fix_issues.py") {
+                core.setFailed("fix_command must be exactly `python scripts/fix_issues.py`.");
                 return;
               }
 
               core.setOutput("branch", inputBranch);
-              core.setOutput("fix_command", inputCommand);
+              core.setOutput("fix_command", "python scripts/fix_issues.py");
               core.setOutput("commit_message", core.getInput("commit_message"));
               return;
             }

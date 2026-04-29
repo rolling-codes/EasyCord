@@ -1,8 +1,8 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-4.1.0-blue)
+![Version](https://img.shields.io/badge/v-4.2.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-578%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-610%20passing-brightgreen)
 
 > A modern Discord bot framework for production bots. **No AI required.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add bundled plugins for features (moderation, roles, logging, leveling). Optionally add intelligent agents with multi-provider LLM support and permission-gated tool calling.
 
@@ -29,7 +29,7 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-## New Features (v1.1)
+## New in v4.2
 
 ### Easy Paginator
 
@@ -63,6 +63,22 @@ from easycord import EasyEmbed
 await ctx.respond(embed=EasyEmbed.success("Operation complete!"))
 await ctx.respond(embed=EasyEmbed.error("Something went wrong."))
 await ctx.respond(embed=EasyEmbed.info("Update available."))
+await ctx.respond(embed=EasyEmbed.warning("Double-check this setting."))
+```
+
+### Faster Bot Bootstrap
+
+Start with a safer default stack in one line:
+
+```python
+from easycord import FrameworkManager
+
+bot = (
+    FrameworkManager.build_bot(
+        builtin_plugins=True,
+        guild_only=True,
+    )
+)
 ```
 
 ## Installation

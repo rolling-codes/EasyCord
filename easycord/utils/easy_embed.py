@@ -37,3 +37,11 @@ class EasyEmbed:
             description=f"ℹ️ {message}",
             color=discord.Color(0x3498DB),
         )
+
+    @staticmethod
+    def warning(message: str) -> discord.Embed:
+        """Return an amber warning embed."""
+        return discord.Embed(
+            description=f"⚠️ {message}",
+            color=discord.Color(0xF39C12),
+        )

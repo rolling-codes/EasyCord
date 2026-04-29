@@ -199,9 +199,12 @@ def rate_limit(
         now = time.monotonic()
         cutoff = now - window
         _history[uid] = [t for t in _history[uid] if t > cutoff]
+        if not _history[uid]:
+            _history.pop(uid, None)
 
-        if len(_history[uid]) >= limit:
-            wait = window - (now - _history[uid][0])
+        user_hits = _history.get(uid, [])
+        if len(user_hits) >= limit:
+            wait = window - (now - user_hits[0])
             await ctx.respond(
                 ctx.t(
                     "errors.rate_limited",
@@ -212,7 +215,7 @@ def rate_limit(
             )
             return
 
-        _history[uid].append(now)
+        _history.setdefault(uid, []).append(now)
         await proceed()
 
     return handler

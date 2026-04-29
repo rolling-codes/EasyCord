@@ -102,6 +102,7 @@ class AIPlugin(Plugin):
         prompt : str
             Question or prompt for the AI.
         """
+        self._prune_old_request_buckets(time.monotonic())
         if self._max_prompt_chars > 0 and len(prompt) > self._max_prompt_chars:
             await ctx.respond(
                 ctx.t(
@@ -113,7 +114,6 @@ class AIPlugin(Plugin):
             )
             return
 
-        self._prune_old_request_buckets(time.monotonic())
         retry_after = self._rate_limit_retry_after(ctx)
         if retry_after is not None:
             await ctx.respond(

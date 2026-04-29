@@ -120,6 +120,22 @@ def test_chained_middleware_accumulates():
     assert len(bot._middleware) == 4
 
 
+def test_secure_defaults_adds_three_middlewares():
+    bot = Composer().secure_defaults().build()
+    assert len(bot._middleware) == 3
+
+
+def test_convenience_framework_applies_expected_defaults():
+    bot = Composer().convenience_framework(secure=True, guild_only=True).build()
+    assert len(bot._middleware) == 4
+
+
+def test_convenience_framework_can_enable_builtin_plugins():
+    with patch("easycord.composer.Bot", return_value=MagicMock()) as mock_bot:
+        Composer().convenience_framework(builtin_plugins=True).build()
+    assert mock_bot.call_args.kwargs["load_builtin_plugins"] is True
+
+
 # ── Plugin loading ────────────────────────────────────────────
 
 

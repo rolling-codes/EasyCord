@@ -125,7 +125,10 @@ class SQLiteDatabase(EasyCordDatabase):
     def _decode_data(payload: str | bytes | None) -> dict[str, Any]:
         if not payload:
             return {}
-        parsed = json.loads(payload)
+        try:
+            parsed = json.loads(payload)
+        except (TypeError, json.JSONDecodeError):
+            return {}
         return parsed if isinstance(parsed, dict) else {}
 
     async def close(self) -> None:
