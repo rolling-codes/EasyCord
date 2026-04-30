@@ -35,6 +35,22 @@ def test_bot_stores_ai_provider():
     assert bot.ai_provider is provider
 
 
+def test_bot_conversation_memory_disabled_by_default():
+    from easycord import Bot
+
+    bot = Bot()
+
+    assert bot.conversation_memory is None
+
+
+def test_bot_can_enable_conversation_memory():
+    from easycord import Bot
+
+    bot = Bot(enable_conversation_memory=True)
+
+    assert bot.conversation_memory is not None
+
+
 def test_multiple_middleware_preserved_in_order(bot):
     async def mw1(ctx, _proceed): pass
     async def mw2(ctx, _proceed): pass
