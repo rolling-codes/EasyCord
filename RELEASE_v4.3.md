@@ -33,4 +33,4 @@ v4.3.0 re-cuts the current EasyCord package line with the helper utilities and r
 ## Testing
 
 - `python -m compileall easycord`
-- `python -m build`
+- `python -m build` was attempted, but the local Windows sandbox blocked build-backend temp directory writes.
