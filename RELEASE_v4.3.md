@@ -26,6 +26,7 @@ v4.3.0 refreshes the EasyCord package line around the framework features now ava
 - Localization fallback order now tries the requested locale, configured default locale, language fallback, and then the generic default catalog.
 - Fixed the `Bot.__init__` conversation-memory setup path by adding an explicit keyword argument without breaking existing keyword-only constructor behavior.
 - Levels XP awarding now respects `cooldown_seconds` during message-based awards so rapid message spam cannot generate unlimited XP.
+- Invite tracking now detects increased Discord invite use counts when members join.
 - Type hints were refined for translation mappings and public helper APIs.
 - Middleware now includes `boost_only()` and `has_permission()` helpers, plus improved logging and rate-limit cleanup behavior.
 - Plugin reload and error handling are available through `Bot.reload_plugin()` and `Bot.on_error()`.
@@ -43,6 +44,7 @@ v4.3.0 refreshes the EasyCord package line around the framework features now ava
 - Added automatic release-label handling and PR governance cleanup for future release planning.
 - `v4.3.0` publishes clearer notes for the actual `easycord/` package features and fixes.
 - Added focused tests for `Bot(enable_conversation_memory=True)`, `ctx.ai()` memory logging, and `ctx.conversation_history()`.
+- Added a focused invite-tracker test for member joins that increase an invite use count.
 
 ## Testing
 
