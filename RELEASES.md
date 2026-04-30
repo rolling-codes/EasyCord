@@ -1,5 +1,17 @@
 # Release Notes
 
+## v4.3.0 - Release Label Automation and Governance Cleanup
+
+**Release Date:** 2026-04-29
+
+### Highlights
+
+- Added automatic release-label handling for pull requests.
+- Updated PR governance to create missing release labels and normalize duplicate release labels.
+- Carried forward the existing v4.2 runtime bug fixes and the levels bot-message guard fix already on `main`.
+
+See full notes: [`RELEASE_v4.3.md`](RELEASE_v4.3.md).
+
 ## v4.2.0 — Helper Utilities and Faster Bot Setup
 
 **Release Date:** 2026-04-29
