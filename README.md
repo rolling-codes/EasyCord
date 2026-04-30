@@ -8,7 +8,7 @@
 
 ## Start here
 
-1. Install from GitHub: `pip install git+https://github.com/rolling-codes/EasyCord.git`
+1. Install the latest release: `pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.3"`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -93,7 +93,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install git+https://github.com/rolling-codes/EasyCord.git
+pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.3"
 ```
 
 ### Clone and install locally
