@@ -6,8 +6,8 @@
 
 ### Highlights
 
-- Refreshed package notes around `ctx.ai()`, context admin helpers, invite/scheduled-event helpers, UI builders, tags, levels, and invite tracking.
-- Documented localization fallback, middleware, plugin reload, context-menu, webhook, emoji, SQLite, and limiter fixes.
+- Refreshed package notes around `ctx.ai()`, conversation memory, context admin helpers, invite/scheduled-event helpers, UI builders, tags, levels, and invite tracking.
+- Documented localization fallback, Levels XP cooldown, middleware, plugin reload, context-menu, webhook, emoji, SQLite, and limiter fixes.
 - Updated package install/download references to the `v4.3` release tag and added release-label governance cleanup.
 
 See full notes: [`RELEASE_v4.3.md`](RELEASE_v4.3.md).
