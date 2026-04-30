@@ -1,14 +1,14 @@
 # Release Notes
 
-## v4.3.0 - EasyCord Helper Utilities and Release Cleanup
+## v4.3.0 - AI, Admin Helpers, Plugins, and Package References
 
 **Release Date:** 2026-04-29
 
 ### Highlights
 
-- Re-cut the current EasyCord package line with `Paginator`, `EasyEmbed.warning()`, `SecurityManager`, and `FrameworkManager`.
-- Documented the real runtime fixes in `easycord/`: stale webhook retry, emoji upload validation, SQLite decode tolerance, middleware cleanup, and OpenClaude limiter cleanup.
-- Added automatic release-label handling and PR governance cleanup for future releases.
+- Refreshed package notes around `ctx.ai()`, context admin helpers, invite/scheduled-event helpers, UI builders, tags, levels, and invite tracking.
+- Documented localization fallback, middleware, plugin reload, context-menu, webhook, emoji, SQLite, and limiter fixes.
+- Updated package install/download references to the `v4.3` release tag and added release-label governance cleanup.
 
 See full notes: [`RELEASE_v4.3.md`](RELEASE_v4.3.md).
 
