@@ -1,5 +1,5 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-4.2.0-blue)
+![Version](https://img.shields.io/badge/v-4.3.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-610%20passing-brightgreen)
@@ -28,6 +28,12 @@ bot.run("YOUR_TOKEN")
 **Want to see a production bot without AI?** Open [`examples/core-bot.py`](examples/core-bot.py).
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
+
+## New in v4.3
+
+- Automatic release-label handling for pull requests
+- PR governance now creates missing release labels and normalizes duplicates
+- Release line carries forward the latest helper utilities and runtime bug fixes
 
 ## New in v4.2
 
