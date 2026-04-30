@@ -5,6 +5,7 @@ on:
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
 permissions:
+  contents: read
   issues: write
   pull-requests: read
 
@@ -12,11 +13,13 @@ jobs:
   enforce-pr-metadata:
     runs-on: ubuntu-latest
     steps:
-      - name: Require release label
+      - name: Ensure release labels exist and normalize to one
         uses: actions/github-script@v7
         with:
           script: |
-            const labels = context.payload.pull_request.labels.map((l) => l.name);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.pull_request.number;
             const releaseLabels = ["release:patch", "release:minor", "release:major"];
             const palette = {
               "release:patch": "1d76db",
@@ -26,16 +29,12 @@ jobs:
 
             for (const name of releaseLabels) {
               try {
-                await github.rest.issues.getLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name,
-                });
+                await github.rest.issues.getLabel({ owner, repo, name });
               } catch (error) {
                 if (error.status === 404) {
                   await github.rest.issues.createLabel({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
+                    owner,
+                    repo,
                     name,
                     color: palette[name],
                   });
@@ -45,12 +44,32 @@ jobs:
               }
             }
 
+            const { data: issue } = await github.rest.issues.get({
+              owner,
+              repo,
+              issue_number,
+            });
+
+            const labels = (issue.labels || []).map((l) => typeof l === "string" ? l : l.name);
             const matched = releaseLabels.filter((name) => labels.includes(name));
 
-            if (matched.length !== 1) {
-              core.setFailed(
-                `Exactly one release label is required: ${releaseLabels.join(", ")}. Found: ${matched.length || "none"}.`
-              );
+            if (matched.length === 0) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: ["release:patch"],
+              });
+              core.info("Added default release:patch label.");
+              return;
+            }
+
+            if (matched.length > 1) {
+              const keep = matched[0];
+              for (const name of matched.slice(1)) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              }
+              core.info(`Removed extra release labels; kept ${keep}.`);
             }
 
       - name: Require conventional title prefix
