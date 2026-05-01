@@ -1,5 +1,5 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-4.3.0-blue)
+![Version](https://img.shields.io/badge/v-4.3.1%20%28stable%29-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-610%20passing-brightgreen)
@@ -8,7 +8,7 @@
 
 ## Start here
 
-1. Install the latest release: `pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.3"`
+1. Install the latest release: `pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.3.1"`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -29,8 +29,15 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-## New in v4.3
+## New in v4.3.1 (Current Stable Release)
 
+**Production stability fixes:**
+- Fixed localization auto-translator source priority to ensure canonical translations are used consistently across language chains
+- Fixed type checking infrastructure for slash command groups (Ruff F821 undefined-name error)
+- All 117 regression tests passing
+- Full migration guidance included in release notes
+
+**Earlier in v4.3:**
 - Current package line re-cut with the EasyCord helper utilities from `easycord/`
 - Runtime fixes for webhook retries, emoji upload validation, SQLite decoding, and limiter cleanup
 - Automatic release-label handling for pull requests
@@ -93,7 +100,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.3"
+pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.3.1"
 ```
 
 ### Clone and install locally

@@ -42,7 +42,7 @@ Homepage       = "https://github.com/rolling-codes/EasyCord"
 Repository     = "https://github.com/rolling-codes/EasyCord"
 Issues         = "https://github.com/rolling-codes/EasyCord/issues"
 Documentation  = "https://github.com/rolling-codes/EasyCord"
-Download       = "https://github.com/rolling-codes/EasyCord/releases/tag/v4.3"
+Download       = "https://github.com/rolling-codes/EasyCord/releases/tag/v4.3.1"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
