@@ -1,5 +1,17 @@
 # Release Notes
 
+## v4.3.1 - Localization Auto-Translator & Type Checking Bug Fixes
+
+**Release Date:** 2026-05-01
+
+### Highlights
+
+- Fixed localization auto-translator source priority to use canonical catalog entries instead of caller-provided defaults, ensuring consistent translations across language chains
+- Fixed type checking for slash command groups with TYPE_CHECKING guard, resolving F821 undefined-name errors in CI
+- All 117 regression tests passing
+
+See full notes: [`RELEASE_v4.3.1.md`](RELEASE_v4.3.1.md).
+
 ## v4.3.0 - AI, Admin Helpers, Plugins, and Package References
 
 **Release Date:** 2026-04-29
