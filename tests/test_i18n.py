@@ -5,6 +5,7 @@ from easycord.i18n import (
     LocalizationManager,
     DiagnosticMode,
     LocalizationDiagnostics,
+    TranslationValidationReport,
     _normalize_locale,
     detect_os_locale,
 )
@@ -282,3 +283,124 @@ def test_diagnostic_mode_enum_values():
     assert DiagnosticMode.SILENT.value == "silent"
     assert DiagnosticMode.WARN.value == "warn"
     assert DiagnosticMode.STRICT.value == "strict"
+
+
+# Translation completeness validation tests
+
+def test_validate_completeness_all_translated():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        translations={
+            "en-US": {"hello": "Hello", "world": "World"},
+            "es-ES": {"hello": "Hola", "world": "Mundo"},
+        },
+    )
+    report = i18n.validate_completeness()
+
+    assert report.is_valid()
+    assert report.results["es-ES"]["coverage"] == 1.0
+    assert report.results["es-ES"]["total_missing"] == 0
+
+
+def test_validate_completeness_missing_keys():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        translations={
+            "en-US": {"hello": "Hello", "world": "World"},
+            "es-ES": {"hello": "Hola"},
+        },
+    )
+    report = i18n.validate_completeness()
+
+    assert not report.is_valid()
+    assert "world" in report.results["es-ES"]["missing_keys"]
+    assert report.results["es-ES"]["coverage"] == 0.5
+
+
+def test_validate_completeness_orphaned_keys():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        translations={
+            "en-US": {"hello": "Hello"},
+            "es-ES": {"hello": "Hola", "extra": "Extra"},
+        },
+    )
+    report = i18n.validate_completeness()
+
+    assert "extra" in report.results["es-ES"]["orphaned_keys"]
+    assert report.results["es-ES"]["total_orphaned"] == 1
+
+
+def test_validate_completeness_custom_base_locale():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        translations={
+            "en-US": {"hello": "Hello"},
+            "es-ES": {"hello": "Hola", "extra": "Extra"},
+        },
+    )
+    report = i18n.validate_completeness(base_locale="es-ES")
+
+    assert report.base_locale == "es-ES"
+    assert "extra" in report.results["en-US"]["missing_keys"]
+    assert report.results["en-US"]["coverage"] == 0.5
+
+
+def test_validate_completeness_invalid_base_locale():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        translations={"en-US": {}},
+    )
+    with pytest.raises(ValueError):
+        i18n.validate_completeness(base_locale="invalid")
+
+
+def test_validation_report_summary():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        translations={
+            "en-US": {"hello": "Hello"},
+            "es-ES": {"hello": "Hola"},
+            "fr-FR": {"hi": "Salut"},
+        },
+    )
+    report = i18n.validate_completeness()
+    summary = report.summary()
+
+    assert summary["base_locale"] == "en-US"
+    assert summary["total_locales"] == 3
+    assert summary["fully_translated"] == 2  # en-US and es-ES (both have "hello")
+    assert summary["coverage_by_locale"]["es-ES"] == 1.0
+    assert summary["coverage_by_locale"]["fr-FR"] == 0.0
+
+
+def test_validation_report_text():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        translations={
+            "en-US": {"hello": "Hello"},
+            "es-ES": {"hello": "Hola"},
+        },
+    )
+    report = i18n.validate_completeness()
+    text = report.report_text()
+
+    assert "Translation Validation Report" in text
+    assert "en-US" in text
+    assert "es-ES" in text
+    assert "100.0%" in text
+
+
+def test_validation_report_with_missing_and_orphaned():
+    i18n = LocalizationManager(
+        default_locale="en-US",
+        translations={
+            "en-US": {"a": "A", "b": "B"},
+            "es-ES": {"a": "A", "c": "C"},  # Missing 'b', has orphaned 'c'
+        },
+    )
+    report = i18n.validate_completeness()
+    text = report.report_text()
+
+    assert "Missing" in text or "missing" in text
+    assert "Orphaned" in text or "orphaned" in text
