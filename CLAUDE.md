@@ -1,345 +1,315 @@
-# AI context
+# CLAUDE.md
 
-> Read this file before reading anything else. It tells you where to look so you don't waste tokens.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Commands
+## Quick Start
 
+Install dev dependencies once:
 ```bash
-pip install -e ".[dev]"        # install with dev deps (one-time)
-pytest                          # run all tests
-pytest tests/test_foo.py        # single file
+pip install -e ".[dev]"
 ```
 
-`asyncio_mode = "auto"` is set in `pyproject.toml` — no `@pytest.mark.asyncio` needed.
+Common commands:
+```bash
+pytest                           # Run all tests
+pytest tests/test_foo.py         # Run single test file
+pytest tests/test_foo.py::test_x # Run specific test
+python -m pytest -k "pattern"    # Run tests matching pattern
+```
 
-## Where to look first
+**Pytest config:** `asyncio_mode = "auto"` is set in `pyproject.toml` — async tests need no `@pytest.mark.asyncio` decorator.
+
+---
+
+## Architecture Overview
+
+EasyCord is a modular Discord bot framework built on four core patterns:
+
+### 1. Bot as Mixin Composition
+`Bot` (`easycord/bot.py`) inherits from multiple mixins, each adding a capability:
+- `_CommandsMixin` — slash command registration (`@bot.slash`)
+- `_EventsMixin` — event handlers (`@bot.on`)
+- `_PluginsMixin` — plugin lifecycle (load, ready, unload)
+- `_GuildMixin` — guild-scoped operations
+- `discord.Client` — Discord connection
+
+This keeps concerns isolated while avoiding a god object.
+
+### 2. Plugin Architecture
+Plugins (`easycord/plugin.py`, `easycord/plugins/`) encapsulate features:
+```python
+class MyPlugin(Plugin):
+    async def on_load(self):
+        # Called once when plugin is added to bot
+    
+    async def on_ready(self):
+        # Called on bot startup (+ reconnects)
+    
+    @slash(description="My command")
+    async def mycmd(self, ctx):
+        await ctx.respond("Hello")
+    
+    @on("message")
+    async def onmsg(self, msg):
+        # Handle events
+```
+
+Plugins register themselves via decorators; `bot.add_plugin()` handles wiring.
+
+### 3. Middleware Chain (Slash Commands Only)
+Middleware wraps slash command execution for cross-cutting concerns (logging, rate limits, permission checks). Built-in middleware in `easycord/middleware.py` includes:
+- `log_middleware()` — Log each command
+- `catch_errors()` — Global error handler
+- `rate_limit()` — Per-user rate limiting
+- `guild_only()` / `dm_only()` — Channel scope
+- `allowed_roles()` — Role-based access
+
+**Key:** Middleware only wraps *slash commands*, not events. `bot.use(fn)` has no effect on `@bot.on(...)`.
+
+### 4. Context Mixin Pattern (Response Helpers)
+`Context` (`easycord/context.py`) delegates to four mixin modules:
+- `_context_base.py` — respond, defer, embeds, DMs, confirmations
+- `_context_channels.py` — slowmode, lock/unlock, threads, message operations
+- `_context_moderation.py` — kick, ban, timeout, roles, voice
+- `_context_ui.py` — select menus, pagination
+
+This avoids a 1000-line Context class; edit the specific `_context_*.py` you need.
+
+---
+
+## Key Files & Patterns
 
 | Task | File(s) |
 |------|---------|
-| Add a bot command/plugin | `server_commands/` |
-| Add a bundled framework plugin | `easycord/plugins/` |
-| Moderation (manual or AI) | `easycord/plugins/moderation.py` or `ai_moderator.py` |
-| Reaction roles setup | `easycord/plugins/reaction_roles.py` |
-| Member audit logging | `easycord/plugins/member_logging.py` |
-| Bot core (slash/event/middleware/plugin wiring) | `easycord/bot.py` |
-| Response helpers | `easycord/context.py` (imports from `_context_*.py`) |
-| Built-in middleware | `easycord/middleware.py` |
-| Per-guild config persistence | `easycord/server_config.py` |
-| Full API reference | `docs/api.md` |
-| Architecture overview | `model.md` |
+| **Slash commands & events** | `easycord/decorators.py` — `@slash`, `@on`, `@task` |
+| **Plugin system** | `easycord/plugin.py`, `easycord/plugins/` |
+| **Bot core** | `easycord/bot.py` |
+| **Response methods** | `easycord/context.py` → `_context_*.py` mixins |
+| **Middleware** | `easycord/middleware.py` |
+| **Slash groups** | `easycord/group.py` |
+| **Per-guild config** | `easycord/server_config.py` |
+| **Rate limiting** | `easycord/tool_limits.py` |
+| **Embeds & builders** | `easycord/embed_cards.py`, `easycord/builders/` |
+| **i18n/localization** | `easycord/i18n.py` |
+| **Example plugins** | `easycord/plugins/` (bundled) |
+| **Example bots** | `server_commands/`, `examples/` |
 
-## Architecture
+---
+
+## Non-Obvious Patterns
+
+### Timing: on_load() vs on_ready()
+- **Plugins added before `bot.run()`:** `on_load()` awaited in `Bot.setup_hook()` (during startup).
+- **Plugins added after bot starts:** `on_load()` scheduled via `asyncio.create_task()`.
+- **`on_ready()`:** Called every time bot becomes ready (startup + reconnects).
+
+### Slash Command Registration
+- **`auto_sync=True` by default** syncs ALL commands globally on startup.
+- **Global commands take ~1 hour to appear in Discord.**
+- **During development, use `guild_id=YOUR_SERVER_ID`** for instant registration:
+  ```python
+  @bot.slash(description="...", guild_id=1234567890)
+  async def cmd(ctx):
+      ...
+  ```
+
+### ServerConfigStore (Per-Guild Config)
+- All writes are **atomic** (write-to-temp + rename, protected by async locks).
+- Don't edit `server_config.json` directly; use the API.
+- Example:
+  ```python
+  store = bot.server_config
+  store.update(guild.id, lambda cfg: {...})  # Atomic update
+  ```
+
+### Moderation Plugins Compose
+Use independently or together:
+- `ModerationPlugin` — Manual commands (kick, ban, timeout, warn, mute)
+- `AIModeratorPlugin` — LLM-powered message analysis
+- `ReactionRolesPlugin` — Auto-assign roles via emoji
+- `MemberLoggingPlugin` — Audit trail for joins, leaves, role changes
+
+All use `ServerConfigStore` for per-guild config.
+
+### Context Split
+`Context` is not a single file. It's assembled from:
+- `context.py` → imports from `_context_base.py`, `_context_channels.py`, etc.
+
+When adding a new context method, edit the appropriate `_context_*.py` file, not `context.py`.
+
+---
+
+## Bundled Plugins (`easycord/plugins/`)
+
+| Plugin | Purpose |
+|--------|---------|
+| `moderation.py` | Manual moderation: kick, ban, timeout, warn, mute |
+| `ai_moderator.py` | LLM-powered message analysis (spam, abuse, NSFW) |
+| `reaction_roles.py` | Self-assign roles via emoji reactions |
+| `member_logging.py` | Audit trail: joins, leaves, nicknames, roles, timeouts |
+| `auto_responder.py` | Keyword/regex-triggered responses |
+| `starboard.py` | Archive popular messages to a channel |
+| `invite_tracker.py` | Track which invite code brought members |
+| `levels.py` | XP, leveling, ranks |
+| `polls.py` | Simple poll creation |
+| `welcome.py` | Welcome messages for new members |
+
+---
+
+## Directory Structure
 
 ```
-easycord/               framework package
-  bot.py                Bot — slash/event/middleware/plugin registration
-  context.py            Context — aggregates _context_base/_channels/_moderation/_ui
-  _context_base.py      respond, defer, embed, DM, form, confirm, paginate
-  _context_channels.py  slowmode, lock/unlock, threads, reactions, messages
-  _context_moderation.py kick, ban, timeout, unban, roles, nickname, voice
-  _context_ui.py        choose, paginate (select-menu UI)
-  decorators.py         @slash @on @task (for Plugin methods)
-  plugin.py             Plugin base class
-  middleware.py         log_middleware, catch_errors, rate_limit, guild_only
-  composer.py           fluent Composer builder
-  server_config.py      ServerConfigStore — per-guild atomic JSON
-  audit.py              AuditLog — embed logging to a Discord channel
-  group.py              SlashGroup — slash command groups
-  plugins/              bundled drop-in plugins
-    levels.py           LevelsPlugin — XP, leveling, ranks
-    polls.py            PollsPlugin
-    welcome.py          WelcomePlugin
-    moderation.py       ModerationPlugin — manual moderation (kick, ban, timeout, warn, mute)
-    ai_moderator.py     AIModeratorPlugin — LLM-powered message analysis
-    reaction_roles.py   ReactionRolesPlugin — auto-assign roles via emoji
-    member_logging.py   MemberLoggingPlugin — audit trail for member changes
-    auto_responder.py   AutoResponderPlugin — keyword/regex-triggered responses
-    starboard.py        StarboardPlugin — archive popular messages to channel
-    invite_tracker.py   InviteTrackerPlugin — track which invite code brought members
-server_commands/        example bot plugins (add new bot features here)
-tests/                  pytest suite — mirrors easycord/ structure
-docs/                   user-facing documentation
-model.md                AI context map (architecture + extension guide)
+easycord/                     # Framework package
+  bot.py                      # Bot class + setup_hook + lifecycle
+  composer.py                 # Fluent builder for Bot
+  plugin.py                   # Plugin base class
+  decorators.py               # @slash, @on, @task
+  context.py                  # Aggregates _context_*.py
+  _context_base.py            # Respond, embeds, DMs, confirmations
+  _context_channels.py        # Channel operations, threads, reactions
+  _context_moderation.py      # Kick, ban, timeout, roles
+  _context_ui.py              # Select menus, pagination
+  middleware.py               # log_middleware, catch_errors, etc.
+  group.py                    # SlashGroup for command groups
+  server_config.py            # Per-guild atomic JSON config
+  audit.py                    # Embed logging to Discord
+  i18n.py                     # LocalizationManager for translations
+  tool_limits.py              # Rate limiting + per-user tool limits
+  tools.py                    # ToolRegistry, ToolDef, ToolCall
+  orchestrator.py             # LLM orchestration (multi-provider)
+  conversation_memory.py      # Conversation history for AI
+  database.py                 # DatabaseConfig, memory/SQLite backends
+  builders/                   # UI builders (embeds, buttons, modals, selects)
+  plugins/                    # Bundled reusable plugins
+    moderation.py
+    ai_moderator.py
+    reaction_roles.py
+    ...
+  helpers/                    # Helper utilities
+  utils/                      # EasyEmbed, Paginator
+  managers.py                 # FrameworkManager, SecurityManager
+  builtin_plugins.py          # Load all bundled plugins at once
+  builtin_tools.py            # Register built-in AI tools
+
+server_commands/              # Example bot-specific plugins (not packaged)
+examples/                     # Example bots
+
+tests/                        # pytest suite (mirrors easycord/ structure)
+
+docs/                         # User-facing documentation
+  api.md                      # API reference
+  concepts.md                 # Conceptual overview
+  getting-started.md          # Quick start
+  examples.md                 # Example patterns
+
+model.md                      # AI context: architecture + extension guide
+README.md                     # User-facing overview
+CHANGELOG.md                  # Version history
+RELEASE_v4.3.md               # Latest release notes
 ```
 
-## Non-obvious patterns
+---
 
-- **Context is split.** `context.py` assembles `Context` from four `_context_*.py` mixin files. Edit the right mixin, not `context.py` directly.
-- **Middleware only wraps slash commands** — not events. `bot.use(fn)` has no effect on `@bot.on(...)` handlers.
-- **`on_load()` timing differs.** Plugins added before `bot.run()` have `on_load()` awaited in `setup_hook`. Plugins added after (bot already ready) get `on_load()` scheduled via `asyncio.create_task`.
-- **`auto_sync=True` by default** syncs ALL commands globally on startup. Global commands take ~1 h to appear in Discord. Use `guild_id=YOUR_SERVER_ID` on `@bot.slash` during development for instant registration.
-- **ServerConfigStore writes are atomic.** Write-to-temp + rename, protected by per-guild async locks. Don't write config JSON directly.
-- **`server_commands/` vs `easycord/plugins/`.** `server_commands/` = example bot-specific plugins (not part of the installable package). `easycord/plugins/` = bundled, reusable plugins shipped with the framework.
-- **Moderation plugins compose.** Use ModerationPlugin (manual) + AIModeratorPlugin (AI analysis) + ReactionRolesPlugin (role assignment) + MemberLoggingPlugin (audit) independently or together. All use ServerConfigStore for per-guild config.
-- **Rate limiting in plugins.** ToolLimiter and RateLimit classes track per-user/tool execution. Use in plugins to prevent abuse (e.g., max 5 bans/hour, max 10 warns/hour).
+## Testing Strategy
 
-## Quick Examples
+- **Unit tests:** Isolated logic (utilities, helpers)
+- **Integration tests:** Service interactions (plugins + middleware)
+- **Async tests:** Use standard `async def test_*()` (no decorator needed; `asyncio_mode = auto`)
 
-### Manual Moderation (No AI)
-
+Example:
 ```python
-from easycord import Bot
-from easycord.plugins import ModerationPlugin
-
-bot = Bot()
-bot.add_plugin(ModerationPlugin())
-
-# Slash commands now available:
-# /kick <user> <reason>
-# /ban <user> <reason> <delete_days>
-# /unban <user> <reason>
-# /timeout <user> <minutes> <reason>
-# /warn <user> <reason>
-# /mute <user> <reason>
-# /unmute <user> <reason>
-# /warnings <user>
-# /mod_config
+@pytest.mark.asyncio
+async def test_middleware_chain():
+    ctx = create_mock_context()
+    called = []
+    
+    async def mw1(ctx, proceed):
+        called.append("mw1_before")
+        await proceed()
+        called.append("mw1_after")
+    
+    async def invoke():
+        called.append("handler")
+    
+    chain = build_chain(ctx, invoke, [mw1])
+    await chain()
+    
+    assert called == ["mw1_before", "handler", "mw1_after"]
 ```
 
-### AI-Powered Moderation
-
-```python
-from easycord import Bot, Orchestrator, FallbackStrategy
-from easycord.plugins import AIModeratorPlugin, ModerationPlugin
-from easycord.plugins._ai_providers import AnthropicProvider, OllamaProvider
-
-bot = Bot()
-
-# Setup LLM provider chain
-strategy = FallbackStrategy([
-    AnthropicProvider(api_key=os.getenv("ANTHROPIC_API_KEY")),
-    OllamaProvider(base_url="http://localhost:11434"),
-])
-orchestrator = Orchestrator(strategy, bot.tool_registry)
-
-# Add moderation plugins
-bot.add_plugin(ModerationPlugin())
-bot.add_plugin(AIModeratorPlugin(orchestrator=orchestrator))
-
-# AI automatically analyzes messages:
-# - Detects spam, abuse, NSFW
-# - Configurable confidence thresholds (default 0.85)
-# - Configurable action levels (notify_only, warn, auto_delete)
-# - Uses conversation memory for user context
-```
-
-**Configure in Discord:**
-```
-/mod_enable true
-/mod_threshold 0.90
-/mod_action_level warn
-/mod_add_rule spam
-/mod_add_rule abuse
-```
-
-### Reaction Roles (Self-Assign)
-
-```python
-from easycord import Bot
-from easycord.plugins import ReactionRolesPlugin
-
-bot = Bot()
-bot.add_plugin(ReactionRolesPlugin())
-
-# In Discord, setup reaction mappings programmatically:
-# Find message ID where rules are posted
-# /reaction_role_set <message_id> ✅ <@Member role>
-# /reaction_role_set <message_id> 🎮 <@Gamer role>
-# /reaction_role_set <message_id> 🎨 <@Artist role>
-
-# Users react with emoji → automatically get role
-# Users remove reaction → automatically lose role
-```
-
-**Use case - Rules message:**
-```
-Post to #welcome:
-"React to agree to rules ✅"
-Then: /reaction_role_set <message_id> ✅ <@Verified>
-```
-
-### Member Audit Logging
-
-```python
-from easycord import Bot
-from easycord.plugins import MemberLoggingPlugin
-
-bot = Bot()
-bot.add_plugin(MemberLoggingPlugin())
-
-# Logs all member changes to designated channel:
-# - Member joins (with account age)
-# - Member leaves (with member duration)
-# - Nickname changes
-# - Role additions/removals
-# - Timeout/unmute events
-# - Username changes
-
-# Configure:
-# /member_log_channel <#audit-channel>
-# /member_log_config (to verify)
-```
-
-### Auto-Responder (Keywords)
-
-```python
-from easycord import Bot
-from easycord.plugins import AutoResponderPlugin
-
-bot = Bot()
-bot.add_plugin(AutoResponderPlugin())
-
-# In Discord:
-# /responder_add hello "Hello there! 👋"
-# /responder_add_regex "^how.*" "I'm doing well, thanks!"
-# /responder_list
-# /responder_remove hello
-
-# Bot replies to any message containing "hello" or matching regex patterns
-```
-
-### Starboard (Popular Messages)
-
-```python
-from easycord import Bot
-from easycord.plugins import StarboardPlugin
-
-bot = Bot()
-bot.add_plugin(StarboardPlugin())
-
-# In Discord:
-# /starboard_channel #starboard
-# /starboard_emoji ⭐
-# /starboard_threshold 5
-
-# When a message gets 5+ ⭐ reactions, bot archives it to #starboard
-# Removes from starboard if reactions drop below threshold
-```
-
-### Invite Tracker
-
-```python
-from easycord import Bot
-from easycord.plugins import InviteTrackerPlugin
-
-bot = Bot()
-bot.add_plugin(InviteTrackerPlugin())
-
-# In Discord:
-# /invite_log_channel #welcome-logs
-
-# Bot logs which invite code was used when members join
-# Useful for tracking referral sources and growth
-```
-
-### Complete Setup (Moderation + Fun + Growth)
-
-```python
-from easycord import Bot, Orchestrator, FallbackStrategy
-from easycord.plugins import (
-    ModerationPlugin,
-    AIModeratorPlugin,
-    ReactionRolesPlugin,
-    MemberLoggingPlugin,
-    AutoResponderPlugin,
-    StarboardPlugin,
-    InviteTrackerPlugin,
-)
-from easycord.plugins._ai_providers import AnthropicProvider
-
-bot = Bot()
-
-# AI orchestrator (optional)
-orchestrator = Orchestrator(
-    FallbackStrategy([AnthropicProvider(api_key=os.getenv("ANTHROPIC_API_KEY"))]),
-    bot.tool_registry,
-)
-
-# Moderation + Audit
-bot.add_plugin(ModerationPlugin())
-bot.add_plugin(AIModeratorPlugin(orchestrator=orchestrator))
-bot.add_plugin(MemberLoggingPlugin())
-
-# Community
-bot.add_plugin(ReactionRolesPlugin())
-bot.add_plugin(AutoResponderPlugin())
-bot.add_plugin(StarboardPlugin())
-
-# Analytics
-bot.add_plugin(InviteTrackerPlugin())
-
-bot.run("TOKEN")
-```
-
-### Testing Moderation Plugins
-
+Run tests with:
 ```bash
-# Run moderation tests
-pytest tests/test_moderation.py -v
-pytest tests/test_ai_moderator.py -v
-pytest tests/test_reaction_roles_plugin.py -v
-pytest tests/test_member_logging_plugin.py -v
-
-# Run all tests
-pytest
+pytest                              # All tests
+pytest tests/test_moderation.py -v  # Moderation tests
+pytest -k "test_middleware"         # Tests matching pattern
 ```
 
-## v3.7.0 Features (New)
+---
 
-### Helper Libraries
+## Validation & Quality
 
-Five production-ready helper classes simplify common operations:
+Before finishing work:
+1. **Run targeted tests:** `pytest tests/test_<feature>.py -v`
+2. **Run full suite:** `pytest`
+3. **Check imports:** Ensure no circular dependencies (types in `TYPE_CHECKING` blocks)
+4. **Review diff:** Confirm only intended changes are included
 
+---
+
+## Localization (i18n)
+
+`LocalizationManager` in `easycord/i18n.py` provides:
+- Register translations per locale
+- Fallback chain (user locale → guild locale → default locale)
+- Language-only fallback (pt-BR → pt)
+- Auto-translator callback for missing translations (with caching)
+
+Example:
 ```python
-from easycord.helpers import (
-    EmbedBuilder,           # Quick embeds with .success(), .error(), .info(), .warning() presets
-    ContextHelpers,         # Respond helpers, member listing, bulk operations, pagination
-    ConfigHelpers,          # ServerConfigStore shortcuts (load_or_default, update_atomic, load_all_guilds)
-    ToolHelpers,            # Tool registry utilities (register_batch, check_permission, list_all_tools)
-    RateLimitHelpers,       # Rate limit management (create_limit, check, reset_user/tool, get_stats)
+from easycord import LocalizationManager
+
+l10n = LocalizationManager(
+    default_locale="en-US",
+    translations={
+        "en-US": {"greeting": "Hello {name}!"},
+        "es-ES": {"greeting": "¡Hola {name}!"},
+    }
+)
+
+# Lookup with fallback
+msg = l10n.get("greeting", locale="es-ES", default="Welcome")
+formatted = l10n.format("greeting", locale="es-ES", name="Alice")
+
+# Auto-translate missing keys
+def translate_fn(source_text, source_locale, target_locale):
+    # Your LLM call here
+    return translated_text
+
+l10n_with_auto = LocalizationManager(
+    translations={...},
+    auto_translator=translate_fn
 )
 ```
 
-### Decorator Enhancements
+**Bug fix in v4.3.1:** `_find_source_for_key()` now prioritizes canonical catalog entries over caller-provided defaults, ensuring registered translations are used for auto-translation.
 
-**@slash** now supports `rate_limit` parameter:
-```python
-@slash(description="Ban user", rate_limit=(3, 60))  # Max 3 calls per hour
-async def ban(self, ctx, user: discord.User):
-    ...
-```
+---
 
-**@on** now supports `on_cleanup` callback for plugin cleanup:
-```python
-@on("ready", on_cleanup=self.cleanup_resources)
-async def on_ready(self):
-    ...
-```
+## Common Pitfalls
 
-**@ai_tool** now supports `permissions` parameter:
-```python
-@ai_tool(description="Ban user", permissions=["ban_members"])
-async def ban_user(self, ctx, user_id: int):
-    ...
-```
+1. **Middleware doesn't wrap events:** Only slash commands go through middleware. Events bypass it.
+2. **Context split is confusing:** Add methods to the right `_context_*.py` file.
+3. **on_load() timing:** Plugins added before `bot.run()` vs after have different timing.
+4. **global auto_sync is slow:** Use `guild_id` for dev.
+5. **ServerConfigStore is not a dict:** Don't mutate directly; use `update(guild_id, fn)`.
+6. **Circular imports:** Use `TYPE_CHECKING` guards if importing `Bot` in type hints.
 
-### Plugin Lifecycle
+---
 
-All plugins now support:
-- `on_load()` — Called once when plugin is added (if bot already ready) or when bot starts
-- `on_ready()` — Called every time bot becomes ready (including after reconnects)
-- `on_unload()` — Called when plugin is removed
+## Further Reading
 
-### Chainable Plugin Registration
-
-`bot.add_plugin()` now returns the bot for fluent chaining:
-```python
-bot.add_plugin(ModPlugin()).add_plugin(RolePlugin()).add_plugin(LogPlugin())
-```
-
-## Token discipline
-
-- Check `model.md` for architecture before reading source files.
-- Check `docs/api.md` for signatures before reading implementation.
-- Read only the `_context_*.py` mixin you need, not all four.
-- Run `pytest` before claiming tests pass.
+- `model.md` — Deep architecture + extension guide
+- `docs/api.md` — Complete API reference
+- `docs/getting-started.md` — Beginner tutorial
+- `CHANGELOG.md` — Version history and breaking changes
+- `examples/` — Working example bots
