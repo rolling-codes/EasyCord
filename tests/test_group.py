@@ -123,3 +123,35 @@ def test_add_groups_registers_multiple_groups(bot):
 
     bot.add_groups(A(), B())
     assert bot.tree.add_command.call_count == 2
+
+
+def test_add_group_type_validation_rejects_invalid_type(bot):
+    with pytest.raises(TypeError) as exc_info:
+        bot.add_group("not a group")
+    assert "expected a SlashGroup instance" in str(exc_info.value)
+    assert "str" in str(exc_info.value)
+
+
+def test_add_group_type_validation_rejects_dict(bot):
+    with pytest.raises(TypeError) as exc_info:
+        bot.add_group({"name": "fake"})
+    assert "expected a SlashGroup instance" in str(exc_info.value)
+    assert "dict" in str(exc_info.value)
+
+
+def test_add_group_type_validation_rejects_none(bot):
+    with pytest.raises(TypeError) as exc_info:
+        bot.add_group(None)
+    assert "expected a SlashGroup instance" in str(exc_info.value)
+
+
+def test_add_group_type_validation_accepts_valid_group(bot):
+    class ValidGroup(SlashGroup, name="valid", description="Valid group"):
+        @slash(description="cmd")
+        async def cmd(self, ctx):
+            pass
+
+    group = ValidGroup()
+    bot.add_group(group)
+    assert group._bot is bot
+    bot.tree.add_command.assert_called_once()

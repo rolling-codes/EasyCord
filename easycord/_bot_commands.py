@@ -272,6 +272,11 @@ class _CommandsMixin:
 
             bot.add_group(ModGroup())
         """
+        from .group import SlashGroup
+        if not isinstance(group, SlashGroup):
+            raise TypeError(
+                f"expected a SlashGroup instance, got {type(group).__name__!r}"
+            )
         if group in self._plugins:
             raise ValueError(
                 f"{type(group).__name__} is already added to this bot."
