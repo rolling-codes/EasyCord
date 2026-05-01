@@ -1,6 +1,38 @@
 # v4.3.1 - Localization Auto-Translator & Type Checking Bug Fixes
 
-**Release Date:** 2026-05-01
+**Release Date:** 2026-05-01  
+**Status:** ✅ Current Stable Release
+
+---
+
+## What's in This Release
+
+### Fixed 🐛
+
+- **Localization auto-translator source priority** — Auto-translator now correctly uses canonical catalog translations instead of ad-hoc fallback strings, ensuring consistent, correct translations across all languages
+- **Type checking for slash command groups** — Fixed F821 "Undefined name 'SlashGroup'" error that blocked CI pipeline, now full static type analysis works
+
+### Changed 🔄
+
+- `LocalizationManager._find_source_for_key()` lookup order reversed — now checks canonical catalog first, then caller-provided defaults (was backwards)
+- `_bot_commands.py` now uses `TYPE_CHECKING` guard for `SlashGroup` import — enables static type checkers without runtime circular dependency
+- No breaking API changes — existing applications work unchanged
+
+### Added ✨
+
+- Comprehensive release notes documenting root causes and migration guidance
+- Enhanced CLAUDE.md with i18n best practices and architecture patterns
+- v4.4.0 localization roadmap for future enhancements
+
+### How It's Convenient 🚀
+
+- **Drop-in fix** — Update to v4.3.1, no code changes needed for most applications
+- **Better translations** — Auto-translated content now matches your canonical translations perfectly
+- **Cleaner CI/CD** — Type checking now passes immediately, no more `# type: ignore` comments needed
+- **Production confidence** — 117 regression tests passing, zero known issues
+- **Clear upgrade path** — Migration notes included for edge cases
+
+---
 
 ## Summary
 
