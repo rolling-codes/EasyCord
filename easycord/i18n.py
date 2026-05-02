@@ -212,6 +212,7 @@ class LocalizationManager:
         auto_detect_system_locale: bool = False,
         warn_invalid_locale: bool = True,
         diagnostic_mode: DiagnosticMode = DiagnosticMode.SILENT,
+        track_metrics: bool = False,
     ) -> None:
         self.default_locale = _normalize_locale(default_locale) or "en-US"
         self._catalogs: dict[str, dict[str, str]] = {}
@@ -220,6 +221,14 @@ class LocalizationManager:
         self._warn_invalid_locale = warn_invalid_locale
         self._system_locale: str | None = None
         self.diagnostics = LocalizationDiagnostics(mode=diagnostic_mode)
+        self.track_metrics = track_metrics
+        self._metrics: dict[str, int] = {
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "fallback_uses": 0,
+            "missing_keys": 0,
+            "locale_frequency": {},
+        } if track_metrics else {}
         if auto_detect_system_locale:
             self._system_locale = detect_os_locale()
             if self._system_locale:
@@ -239,6 +248,29 @@ class LocalizationManager:
     def locales(self) -> list[str]:
         """Return the known locale tags."""
         return sorted(self._catalogs)
+
+    def get_metrics(self) -> dict[str, int | dict]:
+        """Get resolution metrics (only if track_metrics=True).
+
+        Returns dict with:
+        - cache_hits: successful lookups in preferred locale
+        - cache_misses: lookups that fell back
+        - fallback_uses: times default locale was used
+        - missing_keys: keys not found in any locale
+        - locale_frequency: usage count per locale
+        """
+        if not self.track_metrics:
+            return {}
+        return dict(self._metrics)
+
+    def reset_metrics(self) -> None:
+        """Reset all metrics to zero (for per-session tracking)."""
+        if self.track_metrics:
+            self._metrics["cache_hits"] = 0
+            self._metrics["cache_misses"] = 0
+            self._metrics["fallback_uses"] = 0
+            self._metrics["missing_keys"] = 0
+            self._metrics["locale_frequency"] = {}
 
     def resolve_chain(
         self,
@@ -398,6 +430,11 @@ class LocalizationManager:
         for candidate in preferred_chain:
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
+                if self.track_metrics:
+                    self._metrics["cache_hits"] += 1
+                    self._metrics["locale_frequency"][candidate] = (
+                        self._metrics["locale_frequency"].get(candidate, 0) + 1
+                    )
                 self._trace_resolution(
                     key, locale, requested_locale, guild_locale, candidate,
                     preferred_chain, candidate, True
@@ -411,6 +448,8 @@ class LocalizationManager:
             default=default,
         )
         if auto_translated is not None:
+            if self.track_metrics and requested_locale:
+                self._metrics["cache_hits"] += 1
             self._trace_resolution(
                 key, locale, requested_locale, guild_locale, None,
                 preferred_chain, "auto_translator", True
@@ -418,10 +457,17 @@ class LocalizationManager:
             return auto_translated
 
         # Fall back to default locale chain
+        if self.track_metrics:
+            self._metrics["cache_misses"] += 1
         default_chain = self.resolve_chain(self.default_locale)
         for candidate in default_chain:
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
+                if self.track_metrics:
+                    self._metrics["fallback_uses"] += 1
+                    self._metrics["locale_frequency"][candidate] = (
+                        self._metrics["locale_frequency"].get(candidate, 0) + 1
+                    )
                 if requested_locale:
                     self.diagnostics.report_missing_key(
                         key, requested_locale, fallback_locale=candidate
@@ -433,6 +479,8 @@ class LocalizationManager:
                 return catalog[key]
 
         # Not found anywhere
+        if self.track_metrics:
+            self._metrics["missing_keys"] += 1
         if requested_locale:
             self.diagnostics.report_missing_key(key, requested_locale)
         self._trace_resolution(

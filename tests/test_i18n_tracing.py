@@ -98,3 +98,87 @@ class TestLocaleResolutionTracing:
         assert len(trace_records) > 0
         message = trace_records[0].message
         assert "chain=" in message  # Fallback chain included
+
+
+class TestLocaleResolutionMetrics:
+    """Test locale resolution metrics tracking."""
+
+    @pytest.fixture
+    def i18n_with_metrics(self):
+        """Manager with metrics enabled."""
+        return LocalizationManager(
+            default_locale="en-US",
+            track_metrics=True,
+            translations={
+                "en-US": {"hello": "Hello", "greeting": "Welcome"},
+                "pt-BR": {"hello": "Olá"},
+                "es-ES": {"greeting": "Bienvenido"},
+            },
+        )
+
+    def test_metrics_disabled_by_default(self):
+        """Metrics tracking is disabled by default."""
+        i18n = LocalizationManager(
+            default_locale="en-US",
+            translations={"en-US": {"hello": "Hello"}},
+        )
+        assert i18n.get_metrics() == {}
+
+    def test_metrics_cache_hit(self, i18n_with_metrics):
+        """Metrics tracks cache hits."""
+        i18n_with_metrics.get("hello", locale="pt-BR")
+        metrics = i18n_with_metrics.get_metrics()
+
+        assert metrics["cache_hits"] == 1
+        assert metrics["cache_misses"] == 0
+        assert "pt-BR" in metrics["locale_frequency"]
+        assert metrics["locale_frequency"]["pt-BR"] == 1
+
+    def test_metrics_cache_miss_and_fallback(self, i18n_with_metrics):
+        """Metrics tracks cache misses and fallback usage."""
+        i18n_with_metrics.get("greeting", locale="pt-BR")  # Not in pt-BR
+        metrics = i18n_with_metrics.get_metrics()
+
+        assert metrics["cache_misses"] == 1
+        assert metrics["fallback_uses"] == 1
+        assert metrics["locale_frequency"]["en-US"] == 1
+
+    def test_metrics_missing_key(self, i18n_with_metrics):
+        """Metrics tracks missing keys."""
+        i18n_with_metrics.get("unknown", locale="es-ES")
+        metrics = i18n_with_metrics.get_metrics()
+
+        assert metrics["missing_keys"] == 1
+
+    def test_metrics_accumulate(self, i18n_with_metrics):
+        """Metrics accumulate across multiple lookups."""
+        i18n_with_metrics.get("hello", locale="pt-BR")  # Cache hit
+        i18n_with_metrics.get("hello", locale="pt-BR")  # Cache hit again
+        i18n_with_metrics.get("greeting", locale="pt-BR")  # Cache miss + fallback
+        i18n_with_metrics.get("unknown", locale="es-ES")  # Cache miss + missing key
+
+        metrics = i18n_with_metrics.get_metrics()
+        assert metrics["cache_hits"] == 2
+        assert metrics["cache_misses"] == 2  # Two misses (greeting, unknown)
+        assert metrics["fallback_uses"] == 1  # Only greeting had fallback (unknown not found)
+        assert metrics["missing_keys"] == 1  # Only unknown missing
+
+    def test_metrics_locale_frequency(self, i18n_with_metrics):
+        """Metrics tracks locale usage frequency."""
+        i18n_with_metrics.get("hello", locale="pt-BR")
+        i18n_with_metrics.get("hello", locale="pt-BR")
+        i18n_with_metrics.get("hello", locale="en-US")
+
+        metrics = i18n_with_metrics.get_metrics()
+        assert metrics["locale_frequency"]["pt-BR"] == 2
+        assert metrics["locale_frequency"]["en-US"] == 1
+
+    def test_metrics_reset(self, i18n_with_metrics):
+        """Metrics can be reset."""
+        i18n_with_metrics.get("hello", locale="pt-BR")
+        assert i18n_with_metrics.get_metrics()["cache_hits"] == 1
+
+        i18n_with_metrics.reset_metrics()
+        metrics = i18n_with_metrics.get_metrics()
+        assert metrics["cache_hits"] == 0
+        assert metrics["locale_frequency"] == {}
