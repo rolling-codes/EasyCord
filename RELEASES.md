@@ -1,5 +1,52 @@
 # Release Notes
 
+## v4.5.0-beta.3 - Release Candidate
+
+**Release Date:** 2026-05-02
+
+### Highlights
+
+- All v4.5.0-beta.2 hardening validated (703 tests passing, zero regressions)
+- Complete performance benchmark validation (5/5 benchmarks passing)
+- Release engineering finalized (version consistency, clean packaging, release notes)
+- Correctness guarantees verified (STRICT diagnostics, metrics isolation, locale validation)
+- Operational bounds confirmed (scalability, complexity, performance thresholds)
+- Production-ready for immediate deployment
+
+See full notes: [`RELEASE_v4.5.0-beta.3.md`](RELEASE_v4.5.0-beta.3.md).
+
+## v4.5.0-beta.2 - Hardening Phase
+
+**Release Date:** 2026-05-02
+
+### Highlights
+
+- STRICT diagnostics bug fix (no exception suppression on repeated calls)
+- get_metrics() snapshot isolation fix (deep copy, no mutation safety)
+- Locale validation BCP-47 script subtags (zh-Hant-HK, sr-Latn-RS)
+- Metrics semantics hardening (cache_misses counts TRUE misses only)
+- GitHub Actions regression detection (cache-based baselines, real comparison)
+- CLAUDE.md enhanced (Architecture Invariants, Forbidden Shortcuts, Performance Constraints)
+
+See full notes: [`RELEASE_v4.5.0-beta.2.md`](RELEASE_v4.5.0-beta.2.md).
+
+## v4.5.0-beta.1 - Localization Platform Foundation
+
+**Release Date:** 2026-05-02
+
+### Highlights
+
+- Locale auto-detection with intelligent fallback chains
+- Regional fallback support (pt-BR → pt → en-US)
+- Diagnostic modes (SILENT/WARN/STRICT) with deduplication
+- Translation completeness validation
+- Debug-only locale resolution tracing
+- Optional metrics tracking for observability
+- Deterministic locale normalization
+- All 193 localization tests passing
+
+See full notes: [`RELEASE_v4.5.0-beta.1.md`](RELEASE_v4.5.0-beta.1.md).
+
 ## v4.4.0 - Localization Infrastructure & Platform Foundation
 
 **Release Date:** 2026-05-02

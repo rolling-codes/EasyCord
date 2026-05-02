@@ -1,6 +1,9 @@
 include README.md
 include LICENSE
 include RELEASES.md
+include RELEASE_v4.5.0-beta.3.md
+include RELEASE_v4.5.0-beta.2.md
+include RELEASE_v4.5.0-beta.1.md
 include RELEASE_v4.4.0.md
 include RELEASE_v4.3.1.md
 include ROADMAP_v4.4.0.md

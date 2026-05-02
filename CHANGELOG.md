@@ -1,5 +1,60 @@
 # Changelog
 
+## [4.5.0-beta.3] — 2026-05-02
+
+Release Candidate: All v4.5.0 hardening validated, 703 tests passing, production-ready.
+
+### Validated
+- All 3 correctness bug fixes (STRICT diagnostics, metrics isolation, locale validation)
+- Complete test coverage (703/703 passing, zero regressions)
+- Performance thresholds (5/5 benchmarks under limits)
+- Release engineering (version consistency, clean packaging, comprehensive documentation)
+- Operational guarantees (deterministic, bounded, safe, scalable)
+
+---
+
+## [4.5.0-beta.2] — 2026-05-02
+
+Hardening phase: Correctness fixes, metrics semantics, performance enforcement.
+
+### Fixed
+- **STRICT diagnostics deduplication** — Now raises on EVERY call, not just first
+- **get_metrics() snapshot mutation** — Returns fully isolated deep copy
+- **Locale validation BCP-47** — Now accepts script subtags (zh-Hant-HK, sr-Latn-RS)
+
+### Changed
+- **Metrics semantics** — cache_misses only counts TRUE misses, not fallback/auto-translate
+- **Release consistency** — check_release_consistency.py parameterized for pre-release versions
+- **GitHub Actions** — perf-regression.yml with cache-based baselines and real comparison
+- **CLAUDE.md** — Added Architecture Invariants, Forbidden Shortcuts, Performance Constraints
+
+### Added
+- **Benchmark JSON** — benchmark_i18n.py writes detailed JSON results
+- **Regression tests** — 8 new tests validating all bug fixes and semantics
+
+---
+
+## [4.5.0-beta.1] — 2026-05-02
+
+Localization platform foundation: Fallback chains, diagnostics, metrics, completeness validation.
+
+### Added
+- Locale auto-detection with intelligent fallback chains (user → guild → system → default)
+- Regional fallback support (pt-BR → pt → en-US)
+- Three diagnostic modes: SILENT (zero overhead), WARN (deduplicated), STRICT (raise)
+- Translation completeness validation with metrics
+- Debug-only locale resolution tracing
+- Optional metrics tracking (cache hits, fallback frequency, locale distribution)
+- Deterministic locale normalization (idempotent, cacheable)
+- Bounded fallback chains (non-recursive, ~12 max candidates)
+
+### Test Results
+- 193 localization tests passing
+- All diagnostic modes validated
+- Performance verified under stress
+
+---
+
 ## [4.1.0] — 2026-04-28
 
 Localization auto-translate, Composer localization wiring, and release-line alignment.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "4.5.0-beta.2"
+version = "4.5.0-beta.3"
 description = "Production-grade Discord bot framework with AI orchestration, multi-provider LLMs, and permission-gated tool execution"
 readme = "README.md"
 license = "MIT"
@@ -42,7 +42,7 @@ Homepage       = "https://github.com/rolling-codes/EasyCord"
 Repository     = "https://github.com/rolling-codes/EasyCord"
 Issues         = "https://github.com/rolling-codes/EasyCord/issues"
 Documentation  = "https://github.com/rolling-codes/EasyCord"
-Download       = "https://github.com/rolling-codes/EasyCord/releases/tag/v4.5.0-beta.2"
+Download       = "https://github.com/rolling-codes/EasyCord/releases/tag/v4.5.0-beta.3"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
