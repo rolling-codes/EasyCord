@@ -14,7 +14,7 @@ This guide is the shortest path from "I installed the framework" to "I have a bo
 ## 2) Install the package
 
 ```bash
-git clone --branch v4.5.0-beta.2 https://github.com/rolling-codes/EasyCord.git
+git clone --branch v4.5.0 https://github.com/rolling-codes/EasyCord.git
 cd EasyCord
 pip install -e .
 ```

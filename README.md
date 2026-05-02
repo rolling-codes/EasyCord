@@ -1,14 +1,14 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-4.5.0--beta.2%20%28beta%29-orange)
+![Version](https://img.shields.io/badge/v-4.5.0%20%28stable%29-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-615%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-691%20passing-brightgreen)
 
 > A modern Discord bot framework for production bots. **No AI required.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add bundled plugins for features (moderation, roles, logging, leveling). Optionally add intelligent agents with multi-provider LLM support and permission-gated tool calling.
 
 ## Start here
 
-1. Install the latest release: `pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.5.0-beta.2"`
+1. Install the latest release: `pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.5.0"`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -29,7 +29,7 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-## New in v4.5.0-beta.2 (Current Release — Beta)
+## New in v4.5.0 (Current Stable Release)
 
 **Platform-grade localization infrastructure:**
 - Locale auto-detection with intelligent fallback chains (user → guild → system → default)
@@ -109,7 +109,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.4.0"
+pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.5.0"
 ```
 
 ### Clone and install locally

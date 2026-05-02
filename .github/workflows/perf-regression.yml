@@ -39,10 +39,11 @@ jobs:
         uses: actions/cache/restore@v4
         id: cache-baseline
         with:
-          path: baseline-benchmark-results.json
-          key: benchmark-baseline-${{ github.base_ref || 'main' }}
+          path: baseline/benchmark-results.json
+          key: benchmark-baseline-${{ github.base_ref || 'main' }}-${{ github.sha }}
           restore-keys: |
-            benchmark-baseline-main
+            benchmark-baseline-${{ github.base_ref || 'main' }}-
+            benchmark-baseline-main-
 
       - name: Run performance benchmarks
         run: python scripts/benchmark_i18n.py
@@ -145,12 +146,18 @@ jobs:
               sys.exit(0)
           EOF
 
+      - name: Prepare baseline cache
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && success()
+        run: |
+          mkdir -p baseline
+          cp benchmark-results.json baseline/benchmark-results.json
+
       - name: Save baseline (main/develop only)
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && success()
         uses: actions/cache/save@v4
         with:
-          path: benchmark-results.json
-          key: benchmark-baseline-${{ github.ref_name }}
+          path: baseline/benchmark-results.json
+          key: benchmark-baseline-${{ github.ref_name }}-${{ github.sha }}
 
       - name: Comment PR with benchmark results
         if: github.event_name == 'pull_request'

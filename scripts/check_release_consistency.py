@@ -17,6 +17,7 @@ import argparse
 import re
 import sys
 import tarfile
+import zipfile
 from pathlib import Path
 
 
@@ -67,26 +68,58 @@ def check_distribution_hygiene(archive_path: Path) -> list[str]:
     """Verify release archive doesn't contain development files."""
     errors = []
 
-    excluded_files = {
+    excluded_names = {
         "CLAUDE.md",
         "AGENTS.md",
         "MODEL_CONTEXT.md",
         ".coderabbit.yaml",
         ".claude",
         ".worktrees",
+        ".github",
+        ".git",
+        "tests",
     }
 
     try:
         with tarfile.open(archive_path, "r:gz") as tar:
             for member in tar.getmembers():
-                # Check if any excluded file is in the archive
-                basename = Path(member.name).name
-                if basename in excluded_files:
+                parts = Path(member.name).parts
+                basename = parts[-1] if parts else member.name
+                if basename in excluded_names or any(part in excluded_names for part in parts):
                     errors.append(
                         f"Distribution archive contains development file: {member.name}"
                     )
     except Exception as e:
         errors.append(f"Could not read archive {archive_path}: {e}")
+
+    return errors
+
+
+def check_wheel_hygiene(wheel_path: Path) -> list[str]:
+    """Verify release wheel contains package/runtime files only."""
+    errors = []
+    excluded_prefixes = (
+        ".github/",
+        ".worktrees/",
+        ".claude/",
+        "tests/",
+    )
+    excluded_names = {
+        "CLAUDE.md",
+        "AGENTS.md",
+        "MODEL_CONTEXT.md",
+        ".coderabbit.yaml",
+    }
+
+    try:
+        with zipfile.ZipFile(wheel_path) as wheel:
+            for name in wheel.namelist():
+                normalized = name.replace("\\", "/")
+                basename = Path(normalized).name
+                if basename in excluded_names or normalized.startswith(excluded_prefixes):
+                    errors.append(f"Wheel contains development file: {name}")
+    except Exception as e:
+        errors.append(f"Could not read wheel {wheel_path}: {e}")
 
     return errors
 
@@ -103,6 +136,7 @@ def check_manifest_in(repo_root: Path) -> list[str]:
         "exclude .coderabbit.yaml",
         "exclude CLAUDE.md",
         "exclude AGENTS.md",
+        "prune tests",
     ]
 
     for exclude in required_excludes:
@@ -116,12 +150,40 @@ def check_manifest_in(repo_root: Path) -> list[str]:
     return errors
 
 
+def check_release_notes(repo_root: Path, expected_version: str) -> list[str]:
+    """Verify release notes for the expected version exist and are packaged."""
+    errors = []
+    release_note = f"RELEASE_v{expected_version}.md"
+    manifest = repo_root / "MANIFEST.in"
+    releases = repo_root / "RELEASES.md"
+    changelog = repo_root / "CHANGELOG.md"
+
+    if not (repo_root / release_note).exists():
+        errors.append(f"{release_note}: missing release notes file")
+
+    manifest_content = manifest.read_text(encoding="utf-8", errors="replace")
+    if f"include {release_note}" not in manifest_content:
+        errors.append(f"MANIFEST.in: missing 'include {release_note}'")
+
+    if releases.exists():
+        content = releases.read_text(encoding="utf-8", errors="replace")
+        if f"v{expected_version}" not in content or release_note not in content:
+            errors.append(f"RELEASES.md: missing v{expected_version} entry/link")
+
+    if changelog.exists():
+        content = changelog.read_text(encoding="utf-8", errors="replace")
+        if f"[{expected_version}]" not in content:
+            errors.append(f"CHANGELOG.md: missing [{expected_version}] entry")
+
+    return errors
+
+
 def check_install_commands(repo_root: Path, expected_version: str) -> list[str]:
     """Verify install commands reference correct version."""
     errors = []
 
     expected_git = f"@v{expected_version}"
-    expected_pip = f"easycord=={expected_version}"
+    stale_git_pin = re.compile(r"git\+https://github\.com/rolling-codes/EasyCord\.git@v([0-9][^\s\"'`)]+)")
 
     files_to_check = [
         repo_root / "README.md",
@@ -135,19 +197,13 @@ def check_install_commands(repo_root: Path, expected_version: str) -> list[str]:
 
         content = file.read_text(encoding="utf-8", errors="replace")
 
-        # Check for git install commands
-        if "git+" in content:
-            if expected_git not in content:
+        for match in stale_git_pin.finditer(content):
+            version = match.group(1)
+            if f"@v{version}" != expected_git:
                 errors.append(
                     f"{file.relative_to(repo_root)}: git install command "
-                    f"doesn't reference {expected_git}"
+                    f"references @v{version}, expected {expected_git}"
                 )
-
-        # Check for stale versions
-        if f"@v4.3" in content or f"@v4.2" in content:
-            errors.append(
-                f"{file.relative_to(repo_root)}: contains stale version tags"
-            )
 
     return errors
 
@@ -198,6 +254,17 @@ def main():
     else:
         print("  [OK] MANIFEST.in properly configured")
 
+    # Check release notes
+    print("\n[*] Release notes...")
+    errors = check_release_notes(repo_root, expected_version)
+    if errors:
+        print(f"  [!] {len(errors)} release note issues found:")
+        for error in errors:
+            print(f"     - {error}")
+        all_errors.extend(errors)
+    else:
+        print("  [OK] Release notes complete")
+
     # Check install commands
     print("\n[*] Install command consistency...")
     errors = check_install_commands(repo_root, expected_version)
@@ -213,21 +280,32 @@ def main():
     dist_dir = repo_root / "dist"
     if dist_dir.exists():
         print("\n[*] Distribution archive hygiene...")
-        # Normalize version for glob: 4.5.0-beta.1 -> 4.5.0b1
-        normalized_version = expected_version.replace("-", "").replace(".", "")
-        # More flexible glob: match any easycord-*.tar.gz in dist
-        archives = sorted(dist_dir.glob("easycord-*.tar.gz"), reverse=True)
+        normalized_version = expected_version.replace("-beta.", "b")
+        archives = sorted(dist_dir.glob(f"easycord-{normalized_version}.tar.gz"))
+        wheels = sorted(dist_dir.glob(f"easycord-{normalized_version}-*.whl"))
         if archives:
-            errors = check_distribution_hygiene(archives[0])
+            errors = check_distribution_hygiene(archives[-1])
             if errors:
                 print(f"  [!] {len(errors)} distribution issues found:")
                 for error in errors:
                     print(f"     - {error}")
                 all_errors.extend(errors)
             else:
-                print("  [OK] Distribution archive is clean")
+                print("  [OK] Source distribution is clean")
         else:
-            print("  [SKIP] No distribution archive found (skipped)")
+            print(f"  [SKIP] No source distribution found for {expected_version}")
+
+        if wheels:
+            errors = check_wheel_hygiene(wheels[-1])
+            if errors:
+                print(f"  [!] {len(errors)} wheel issues found:")
+                for error in errors:
+                    print(f"     - {error}")
+                all_errors.extend(errors)
+            else:
+                print("  [OK] Wheel is clean")
+        else:
+            print(f"  [SKIP] No wheel found for {expected_version}")
 
     # Summary
     print("\n" + "=" * 60)

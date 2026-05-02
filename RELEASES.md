@@ -1,5 +1,19 @@
 # Release Notes
 
+## v4.5.0 - Stable Release
+
+**Release Date:** 2026-05-02
+
+### Highlights
+
+- Stable promotion of the v4.5.0-beta.3 release candidate with no feature changes
+- Production-grade localization hardening validated end to end
+- STRICT diagnostics, metrics isolation, and BCP 47 script-subtag locale support verified
+- Release consistency and package hygiene checks enforced for built artifacts
+- Full test suite passing and package artifacts ready for production deployment
+
+See full notes: [`RELEASE_v4.5.0.md`](RELEASE_v4.5.0.md).
+
 ## v4.5.0-beta.3 - Release Candidate
 
 **Release Date:** 2026-05-02

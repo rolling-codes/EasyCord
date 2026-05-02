@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.5.0] — 2026-05-02
+
+Stable release: v4.5.0-beta.3 promoted without feature changes after validation.
+
+### Validated
+- Full test suite passing for the stable release line
+- Release consistency checks covering version pins, release notes, and package artifact hygiene
+- Clean wheel and source distribution packaging
+
+### Changed
+- Package metadata and install documentation now target `v4.5.0`
+- Release workflow validates and uploads built package artifacts
+
+---
+
 ## [4.5.0-beta.3] — 2026-05-02
 
 Release Candidate: All v4.5.0 hardening validated, 703 tests passing, production-ready.

@@ -27,7 +27,7 @@ source venv/bin/activate  # macOS/Linux
 venv\Scripts\activate  # Windows
 
 # Install dependencies
-pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.5.0-beta.2"
+pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.5.0"
 pip install python-dotenv anthropic
 
 # Create .env
