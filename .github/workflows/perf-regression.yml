@@ -81,7 +81,7 @@ jobs:
           import sys
           from pathlib import Path
 
-          # These thresholds define acceptable performance bounds
+          # Performance thresholds (hard limits)
           THRESHOLDS = {
               "Cold Cache (100 lookups)": {
                   "total_time_ms": 100,
@@ -102,16 +102,72 @@ jobs:
               },
           }
 
-          # Parse current results from stdout capture would require refactoring benchmark script
-          # For now, rely on exit code from benchmark script (passes if all benchmarks PASS)
-          print("[*] Performance thresholds configured:")
-          for name, thresholds in THRESHOLDS.items():
-              print(f"  {name}:")
-              for metric, limit in thresholds.items():
-                  unit = "ms" if "ms" in metric else "%"
-                  print(f"    - {metric}: <= {limit}{unit}")
+          # Load current results
+          current_file = Path("benchmark-results.json")
+          if not current_file.exists():
+              print("[!] ERROR: benchmark-results.json not found")
+              sys.exit(1)
 
-          sys.exit(0)
+          with open(current_file) as f:
+              current_results = json.load(f)
+
+          # Load baseline results if available
+          baseline_file = Path("baseline/benchmark-results.json")
+          baseline_results = {}
+          if baseline_file.exists():
+              with open(baseline_file) as f:
+                  baseline_results = json.load(f)
+
+          violations = []
+          print("[*] Checking performance thresholds:\n")
+
+          for benchmark_name, thresholds in THRESHOLDS.items():
+              if benchmark_name not in current_results:
+                  print(f"[!] {benchmark_name}: NOT FOUND in results")
+                  violations.append(f"{benchmark_name}: missing from results")
+                  continue
+
+              current = current_results[benchmark_name]
+              baseline = baseline_results.get(benchmark_name, {})
+
+              print(f"[*] {benchmark_name}")
+              for metric, limit in thresholds.items():
+                  if metric not in current:
+                      print(f"    [!] {metric}: NOT FOUND")
+                      violations.append(f"{benchmark_name}.{metric}: missing")
+                      continue
+
+                  current_val = current[metric]
+                  baseline_val = baseline.get(metric)
+
+                  # Check hard threshold
+                  if current_val > limit:
+                      status = "FAIL"
+                      violations.append(f"{benchmark_name}.{metric}: {current_val} > {limit}")
+                  else:
+                      status = "OK"
+
+                  # Check regression vs baseline (if available)
+                  regression = ""
+                  if baseline_val is not None and isinstance(current_val, (int, float)):
+                      pct_change = ((current_val - baseline_val) / baseline_val) * 100
+                      if pct_change > 10:
+                          regression = f" (+{pct_change:.1f}% vs baseline)"
+                          if status == "OK":
+                              status = "WARN"
+
+                  unit = "ms" if "ms" in metric else "%"
+                  print(f"    [{status}] {metric}: {current_val:.2f}{unit} (limit: {limit}{unit}){regression}")
+
+          print("\n" + "=" * 60)
+          if violations:
+              print(f"[FAIL] {len(violations)} threshold violations:")
+              for v in violations:
+                  print(f"  - {v}")
+              sys.exit(1)
+          else:
+              print("[PASS] All performance thresholds maintained")
+              sys.exit(0)
           EOF
 
       - name: Comment PR with benchmark results

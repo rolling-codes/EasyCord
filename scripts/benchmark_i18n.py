@@ -183,6 +183,8 @@ def benchmark_validator_scaling() -> dict:
 
 def main():
     """Run all benchmarks and report results."""
+    import json
+
     print("[*] EasyCord Localization Performance Benchmarks\n")
 
     benchmarks = {
@@ -208,6 +210,12 @@ def main():
         except Exception as e:
             print(f"  ERROR: {e}\n")
             all_passed = False
+
+    # Save results to JSON for CI comparison
+    results_file = Path(__file__).parent.parent / "benchmark-results.json"
+    with open(results_file, "w") as f:
+        json.dump(results, f, indent=2)
+    print(f"[*] Results saved to {results_file}")
 
     print("=" * 60)
     if all_passed:

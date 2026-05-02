@@ -1,5 +1,5 @@
 # EasyCord 
-![Version](https://img.shields.io/badge/v-4.4.0%20%28stable%29-blue)
+![Version](https://img.shields.io/badge/v-4.5.0--beta.1%20%28beta%29-orange)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-615%20passing-brightgreen)
@@ -8,7 +8,7 @@
 
 ## Start here
 
-1. Install the latest release: `pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.4.0"`
+1. Install the latest release: `pip install "easycord @ git+https://github.com/rolling-codes/EasyCord.git@v4.5.0-beta.1"`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -29,7 +29,7 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-## New in v4.4.0 (Current Stable Release)
+## New in v4.5.0-beta.1 (Current Release — Beta)
 
 **Platform-grade localization infrastructure:**
 - Locale auto-detection with intelligent fallback chains (user → guild → system → default)

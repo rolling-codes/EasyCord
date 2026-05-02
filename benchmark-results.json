@@ -1,0 +1,34 @@
+{
+  "Cold Cache (100 lookups)": {
+    "iterations": 100,
+    "total_time_ms": 0.13010000111535192,
+    "avg_lookup_ms": 0.0013010000111535192,
+    "lookups_per_second": 768639.5014811411,
+    "status": "PASS"
+  },
+  "Warm Cache (10k lookups)": {
+    "iterations": 10000,
+    "total_time_ms": 7.729799996013753,
+    "avg_lookup_ms": 0.0007729799996013753,
+    "lookups_per_second": 1293694.5335140605,
+    "status": "PASS"
+  },
+  "Diagnostics Overhead": {
+    "silent_time_ms": 1.2856999965151772,
+    "warn_time_ms": 1.5893999952822924,
+    "overhead_percent": 23.621373538949847,
+    "status": "PASS"
+  },
+  "Metrics Overhead": {
+    "no_metrics_time_ms": 0.861099993926473,
+    "with_metrics_time_ms": 1.0228999890387058,
+    "overhead_percent": 18.789919434844236,
+    "status": "PASS"
+  },
+  "Validator Scaling (20 locales)": {
+    "locales": 21,
+    "keys_per_locale": 1000,
+    "validation_time_ms": 1.2026000040350482,
+    "status": "PASS"
+  }
+}

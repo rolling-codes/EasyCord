@@ -104,23 +104,27 @@ class LocalizationDiagnostics:
         locale: str,
         fallback_locale: str | None = None,
     ) -> None:
-        """Report a missing translation key."""
+        """Report a missing translation key.
+
+        STRICT mode raises on every missing key.
+        WARN mode deduplicates warnings to logger.
+        SILENT mode ignores.
+        """
         if self.mode == DiagnosticMode.SILENT:
             return
-
-        cache_key = (key, locale)
-        if cache_key in self._seen_missing:
-            return
-
-        self._seen_missing.add(cache_key)
-        self._missing_count += 1
 
         fallback_msg = f" (fallback: {fallback_locale})" if fallback_locale else ""
         message = f"Missing key '{key}' in locale '{locale}'{fallback_msg}"
 
         if self.mode == DiagnosticMode.STRICT:
+            self._missing_count += 1
             raise KeyError(message)
         elif self.mode == DiagnosticMode.WARN:
+            cache_key = (key, locale)
+            if cache_key in self._seen_missing:
+                return
+            self._seen_missing.add(cache_key)
+            self._missing_count += 1
             logger.warning(message)
 
     def report_invalid_placeholder(
@@ -129,22 +133,26 @@ class LocalizationDiagnostics:
         template: str,
         placeholder: str,
     ) -> None:
-        """Report a template with missing/invalid placeholders."""
+        """Report a template with missing/invalid placeholders.
+
+        STRICT mode raises on every invalid placeholder.
+        WARN mode deduplicates warnings to logger.
+        SILENT mode ignores.
+        """
         if self.mode == DiagnosticMode.SILENT:
             return
-
-        cache_key = (key, placeholder)
-        if cache_key in self._seen_placeholder:
-            return
-
-        self._seen_placeholder.add(cache_key)
-        self._placeholder_count += 1
 
         message = f"Invalid placeholder in '{key}': template has '{placeholder}' but value not provided"
 
         if self.mode == DiagnosticMode.STRICT:
+            self._placeholder_count += 1
             raise KeyError(message)
         elif self.mode == DiagnosticMode.WARN:
+            cache_key = (key, placeholder)
+            if cache_key in self._seen_placeholder:
+                return
+            self._seen_placeholder.add(cache_key)
+            self._placeholder_count += 1
             logger.warning(message)
 
     def missing_keys_summary(self) -> dict[str, int]:
@@ -377,15 +385,51 @@ class LocalizationManager:
         return self.default_locale if self.default_locale in self._catalogs else None
 
     def _is_valid_locale(self, locale: str) -> bool:
-        """Check if locale format is valid (basic validation)."""
+        """Check if locale format is valid (BCP 47 support).
+
+        Valid formats:
+        - en (language)
+        - en-US (language-region)
+        - zh-Hant (language-script)
+        - zh-Hant-HK (language-script-region)
+        - pt-BR (language-region)
+
+        Requirements:
+        - language part: 2-3 characters
+        - script part (optional): 4 characters (Hant, Latn, etc.)
+        - region part (optional): 2 characters (US, BR, HK, etc.)
+        """
         if not locale or not isinstance(locale, str):
             return False
+
         parts = locale.split("-")
-        if not parts[0] or len(parts[0]) < 2:
+        if not parts[0] or len(parts[0]) < 2 or len(parts[0]) > 3:
             return False
-        if len(parts) > 1 and len(parts[1]) != 2:
+
+        # No more parts: valid (e.g., "en", "zh")
+        if len(parts) == 1:
+            return True
+
+        # Second part validation (script or region)
+        second = parts[1]
+        if not second:
             return False
-        return True
+
+        # Script subtag (4 chars, e.g., "Hant", "Latn")
+        if len(second) == 4:
+            if len(parts) == 2:
+                return True  # language-script
+            # language-script-region
+            if len(parts) == 3:
+                third = parts[2]
+                return len(third) == 2  # region must be 2 chars
+            return False  # too many parts
+
+        # Region subtag (2 chars)
+        if len(second) == 2:
+            return len(parts) == 2  # language-region only
+
+        return False
 
     def _trace_resolution(
         self,
