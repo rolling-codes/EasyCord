@@ -1,7 +1,7 @@
 # EasyCord v4.4.0 Localization Roadmap
 
-**Planning Phase:** 2026-05-01 onwards  
-**Target Release:** TBD (post v4.3.1 stabilization)
+**Phase 1 (v4.4.0):** Completed 2026-05-02  
+**Phase 2+ (v4.5.0+):** Planning in progress
 
 ---
 
