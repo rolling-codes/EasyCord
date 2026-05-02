@@ -15,8 +15,11 @@ on:
       - 'tests/test_i18n*.py'
 
 jobs:
-  performance-baseline:
+  benchmark:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -31,45 +34,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .[dev]
+
+      - name: Restore baseline benchmark
+        uses: actions/cache/restore@v4
+        id: cache-baseline
+        with:
+          path: baseline-benchmark-results.json
+          key: benchmark-baseline-${{ github.base_ref || 'main' }}
+          restore-keys: |
+            benchmark-baseline-main
 
       - name: Run performance benchmarks
-        run: python scripts/benchmark_i18n.py
-        env:
-          PYTHONUNBUFFERED: '1'
-
-      - name: Store baseline results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: benchmark-results.json
-          retention-days: 30
-
-  regression-detection:
-    needs: performance-baseline
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e .[dev]
-
-      - name: Download previous benchmark results
-        uses: actions/download-artifact@v4
-        with:
-          name: benchmark-results
-          path: baseline/
-        continue-on-error: true
-
-      - name: Run benchmarks
         run: python scripts/benchmark_i18n.py
         env:
           PYTHONUNBUFFERED: '1'
@@ -169,6 +144,13 @@ jobs:
               print("[PASS] All performance thresholds maintained")
               sys.exit(0)
           EOF
+
+      - name: Save baseline (main/develop only)
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && success()
+        uses: actions/cache/save@v4
+        with:
+          path: benchmark-results.json
+          key: benchmark-baseline-${{ github.ref_name }}
 
       - name: Comment PR with benchmark results
         if: github.event_name == 'pull_request'

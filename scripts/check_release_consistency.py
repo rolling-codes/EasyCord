@@ -121,7 +121,7 @@ def check_install_commands(repo_root: Path, expected_version: str) -> list[str]:
     errors = []
 
     expected_git = f"@v{expected_version}"
-    expected_pip = f"easycord==v{expected_version}"
+    expected_pip = f"easycord=={expected_version}"
 
     files_to_check = [
         repo_root / "README.md",
