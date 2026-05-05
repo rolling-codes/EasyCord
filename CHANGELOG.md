@@ -18,6 +18,10 @@
 - Fixed Discord context state snapshots to use `ctx.user` and `ctx.member` instead of the nonexistent `ctx.author` attribute.
 - Replaced deprecated event-loop usage in AI providers with `asyncio.get_running_loop()`.
 
+### Release Assets
+- `EasyCord-v5.0.0.zip`: clean installable package archive with `easycord/`, README, changelog, license, package metadata, and context notes.
+- `EasyCord-v5.0.0-dev.zip`: development and expansion archive with source, tests, package metadata, context notes, and sanitized development notes.
+
 ### Verification
 - `py -3 -m pytest tests` -> 352 passed.
-- `py -3 -m build` -> built `easycord-5.0.0.tar.gz` and `easycord-5.0.0-py3-none-any.whl`.
+- Curated zip verification -> no nested package folder, no embedded archives, no cache files, no system-specific paths, and no personal information.

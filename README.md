@@ -8,7 +8,7 @@
 
 ## Start here
 
-1. Install the latest release: `pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/easycord-5.0.0-py3-none-any.whl"`
+1. Install the latest release: `pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/EasyCord-v5.0.0.zip"`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -29,7 +29,7 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-Release links: [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0) · [Changelog](CHANGELOG.md)
+Release links: [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0) · [Changelog](CHANGELOG.md) · Development build: [EasyCord-v5.0.0-dev.zip](https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/EasyCord-v5.0.0-dev.zip)
 
 ## New in v5.0.0 (Current Release)
 
@@ -109,7 +109,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/easycord-5.0.0-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/EasyCord-v5.0.0.zip"
 ```
 
 ### Clone and install locally
