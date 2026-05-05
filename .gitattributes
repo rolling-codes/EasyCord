@@ -1,0 +1,9 @@
+# Normalize line endings to LF in the repo; check out as-is on all platforms
+* text=auto eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.in text eol=lf
+*.typed binary
+*.pyc binary

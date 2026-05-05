@@ -1,0 +1,371 @@
+"""Core Context object wrapping discord.Interaction with a simple response API."""
+from __future__ import annotations
+
+import asyncio
+
+import discord
+
+from .conversation_memory import ConversationTurn
+from .i18n import LocalizationManager
+
+
+class BaseContext:
+    """Core wrapper around ``discord.Interaction``.
+
+    Provides read-only properties and the fundamental response helpers
+    (``respond``, ``defer``, ``send_embed``, ``dm``, ``send_to``,
+    ``send_file``, ``edit_response``).
+
+    All higher-level mixins (UI, moderation, channels) inherit from this class.
+    """
+
+    def __init__(self, interaction: discord.Interaction) -> None:
+        self.interaction = interaction
+        self._responded = False
+        self._force_ephemeral = False
+
+    # ── Read-only properties ──────────────────────────────────
+
+    @property
+    def user(self) -> discord.User | discord.Member:
+        """The user who ran the command."""
+        return self.interaction.user
+
+    @property
+    def guild(self) -> discord.Guild | None:
+        """The server the command was run in, or ``None`` if it was in a DM."""
+        return self.interaction.guild
+
+    @property
+    def channel(self) -> discord.abc.Messageable | None:
+        """The channel the command was run in."""
+        return self.interaction.channel  # type: ignore[return-value]
+
+    @property
+    def command_name(self) -> str | None:
+        """The name of the slash command that was invoked."""
+        cmd = self.interaction.command
+        return cmd.name if cmd is not None else None
+
+    @property
+    def locale(self):
+        """The locale selected by the invoking user, if Discord provides one."""
+        return getattr(self.interaction, "locale", None)
+
+    @property
+    def guild_locale(self):
+        """The preferred locale for the current guild, if Discord provides one."""
+        return getattr(self.interaction, "guild_locale", None)
+
+    @property
+    def data(self) -> dict | None:
+        """The raw interaction data from Discord."""
+        return self.interaction.data  # type: ignore[return-value]
+
+    @property
+    def voice_channel(self) -> discord.VoiceChannel | discord.StageChannel | None:
+        """The voice channel the command invoker is currently in, or ``None``.
+
+        Only works inside a guild; returns ``None`` in DMs or if the member's
+        voice state is not cached.
+        """
+        member = self.interaction.user
+        if isinstance(member, discord.Member) and member.voice:
+            return member.voice.channel  # type: ignore[return-value]
+        return None
+
+    def t(
+        self,
+        key: str,
+        *,
+        default: str | None = None,
+        locale=None,
+        guild_locale=None,
+        **kwargs,
+    ) -> str:
+        """Translate a key using the bot's localization manager if available."""
+        client = getattr(self.interaction, "client", None)
+        localization = getattr(client, "localization", None) or getattr(client, "i18n", None)
+        if not isinstance(localization, LocalizationManager):
+            template = default if default is not None else key
+            return template.format(**kwargs)
+        return localization.format(
+            key,
+            locale=locale if locale is not None else self.locale,
+            guild_locale=guild_locale if guild_locale is not None else self.guild_locale,
+            default=default,
+            **kwargs,
+        )
+
+    # ── Responding ────────────────────────────────────────────
+
+    async def respond(
+        self,
+        content: str | None = None,
+        *,
+        ephemeral: bool = False,
+        embed: discord.Embed | None = None,
+        **kwargs,
+    ) -> None:
+        """Send a reply to the command.
+
+        The first call sends an initial response; any further calls send
+        follow-up messages automatically. If the command was registered with
+        ``ephemeral=True``, all responses are forced ephemeral automatically.
+        """
+        ephemeral = ephemeral or self._force_ephemeral
+        if not self._responded:
+            self._responded = True
+            await self.interaction.response.send_message(
+                content, ephemeral=ephemeral, embed=embed, **kwargs
+            )
+        else:
+            await self.interaction.followup.send(
+                content, ephemeral=ephemeral, embed=embed, **kwargs
+            )
+
+    async def defer(self, *, ephemeral: bool = False) -> None:
+        """Acknowledge the interaction without sending a visible reply yet.
+
+        Use this at the start of commands that take more than 3 seconds, then
+        call ``respond()`` when you're ready. Has no effect if already responded.
+        """
+        if self._responded:
+            return
+        self._responded = True
+        await self.interaction.response.defer(ephemeral=ephemeral)
+
+    async def ai(self, prompt: str, *, provider=None, model: str | None = None) -> str:
+        """Query the configured AI provider and return response text.
+
+        Pass ``provider=...`` for one-off calls, or configure ``Bot(ai_provider=...)``
+        so commands can call ``await ctx.ai("...")`` directly.
+        """
+        provider = provider or getattr(self.interaction.client, "ai_provider", None)
+        if provider is None:
+            raise RuntimeError("No AI provider configured. Pass provider=... or set Bot(ai_provider=...).")
+
+        memory = getattr(self.interaction.client, "conversation_memory", None)
+        guild_id = self.guild.id if self.guild else None
+        user_id = getattr(self.user, "id", None)
+        if memory is not None and user_id is not None:
+            memory.add_user_message(user_id, prompt, guild_id)
+
+        old_model = getattr(provider, "_model", None)
+        should_restore = model is not None and hasattr(provider, "_model")
+        if not should_restore:
+            response = await provider.query(prompt)
+            if memory is not None and user_id is not None:
+                memory.add_assistant_message(user_id, response, guild_id)
+            return response
+
+        lock = getattr(provider, "_easycord_model_lock", None)
+        if lock is None:
+            lock = asyncio.Lock()
+            provider._easycord_model_lock = lock
+        async with lock:
+            provider._model = model
+            try:
+                response = await provider.query(prompt)
+                if memory is not None and user_id is not None:
+                    memory.add_assistant_message(user_id, response, guild_id)
+                return response
+            finally:
+                provider._model = old_model
+
+    async def conversation_history(self, limit: int | None = None) -> list[ConversationTurn]:
+        """Return recent conversation turns for the current user.
+
+        If conversation memory is disabled or no user is available, an empty
+        list is returned.
+        """
+        memory = getattr(self.interaction.client, "conversation_memory", None)
+        user_id = getattr(self.user, "id", None)
+        if memory is None or user_id is None:
+            return []
+        guild_id = self.guild.id if self.guild else None
+        conversation = memory.get_or_create(user_id, guild_id)
+        turns = list(conversation.turns)
+        if limit is not None:
+            if limit <= 0:
+                return []
+            turns = turns[-limit:]
+        return turns
+
+    async def send_embed(
+        self,
+        title: str,
+        description: str | None = None,
+        *,
+        fields: list[tuple] | None = None,
+        footer: str | None = None,
+        thumbnail: str | None = None,
+        image: str | None = None,
+        author: str | dict | None = None,
+        timestamp=None,
+        color: discord.Color = discord.Color.blue(),
+        ephemeral: bool = False,
+        **kwargs,
+    ) -> None:
+        """Build and send a Discord embed in one call.
+
+        ``fields`` is a list of ``(name, value)`` or ``(name, value, inline)``
+        tuples. ``inline`` defaults to ``True`` when omitted.
+
+        ``thumbnail`` and ``image`` accept a URL string.
+
+        ``author`` accepts a name string or a dict with ``name``, ``icon_url``,
+        and ``url`` keys.
+
+        ``timestamp=True`` uses the current UTC time; pass a ``datetime`` for a
+        specific timestamp.
+        """
+        ts = None
+        if timestamp is True:
+            ts = discord.utils.utcnow()
+        elif timestamp:
+            ts = timestamp
+
+        embed = discord.Embed(
+            title=title, description=description, color=color,
+            **({"timestamp": ts} if ts is not None else {}),
+        )
+        for field in (fields or []):
+            name, value, *rest = field
+            embed.add_field(name=name, value=value, inline=rest[0] if rest else True)
+        if footer:
+            embed.set_footer(text=footer)
+        if thumbnail:
+            embed.set_thumbnail(url=thumbnail)
+        if image:
+            embed.set_image(url=image)
+        if author is not None:
+            if isinstance(author, str):
+                embed.set_author(name=author)
+            else:
+                embed.set_author(**author)
+        await self.respond(embed=embed, ephemeral=ephemeral, **kwargs)
+
+    async def dm(
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        **kwargs,
+    ) -> None:
+        """Send a direct message to the user who invoked the command."""
+        try:
+            await self.user.send(content, embed=embed, **kwargs)
+        except discord.Forbidden:
+            raise RuntimeError(
+                f"Cannot send a DM to {self.user} — they have DMs disabled or have blocked the bot."
+            ) from None
+
+    async def send_to(
+        self,
+        channel_id: int,
+        content: str | None = None,
+        **kwargs,
+    ) -> None:
+        """Send a message to any channel by ID.
+
+        Looks up the channel from the client cache first; falls back to an API fetch.
+        """
+        try:
+            channel = (
+                self.interaction.client.get_channel(channel_id)
+                or await self.interaction.client.fetch_channel(channel_id)
+            )
+        except discord.NotFound:
+            raise RuntimeError(f"Channel {channel_id} does not exist.") from None
+        except discord.Forbidden:
+            raise RuntimeError(
+                f"Bot does not have permission to access channel {channel_id}."
+            ) from None
+        await channel.send(content, **kwargs)  # type: ignore[union-attr]
+
+    async def send_file(
+        self,
+        path: str,
+        *,
+        filename: str | None = None,
+        content: str | None = None,
+        ephemeral: bool = False,
+    ) -> None:
+        """Send a file attachment as the command response."""
+        file = discord.File(path, filename=filename)
+        await self.respond(content, file=file, ephemeral=ephemeral)
+
+    async def edit_response(
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        **kwargs,
+    ) -> None:
+        """Edit the bot's original response to this interaction.
+
+        Useful for "Loading…" patterns — defer, do work, then edit in the result.
+        """
+        await self.interaction.edit_original_response(content=content, embed=embed, **kwargs)
+
+    # ── Member lookup ─────────────────────────────────────────
+
+    @property
+    def guild_id(self) -> int | None:
+        """The ID of the guild the command was run in, or ``None`` in DMs.
+
+        Shortcut for ``ctx.guild.id`` that is safe to call without a guild check.
+        """
+        return self.guild.id if self.guild else None
+
+    @property
+    def is_admin(self) -> bool:
+        """``True`` if the invoking member has the administrator permission.
+
+        Always ``False`` in DMs or when the member is not cached.
+        """
+        m = self.member
+        return m is not None and m.guild_permissions.administrator
+
+    @property
+    def member(self) -> discord.Member | None:
+        """The invoking user as a ``discord.Member``, or ``None`` in DMs.
+
+        Unlike ``ctx.user`` (typed ``User | Member``), this property always
+        returns a ``Member`` when the command is used inside a server, giving
+        access to guild-specific info such as ``.roles``, ``.nick``, and
+        ``.guild_permissions`` without an extra cast or lookup.
+        """
+        u = self.interaction.user
+        return u if isinstance(u, discord.Member) else None
+
+    def get_member(self, user_id: int) -> discord.Member | None:
+        """Look up a guild member from the local cache without an API call.
+
+        Returns ``None`` if the member is not cached or the command was run in a DM.
+        """
+        return self.guild.get_member(user_id) if self.guild else None
+
+    async def fetch_member(self, user_id: int) -> discord.Member:
+        """Fetch a guild member by user ID.
+
+        Tries the guild cache first; falls back to an API call.
+        Raises ``RuntimeError`` if called outside a guild.
+        Raises ``discord.NotFound`` if the user is not in the guild.
+        """
+        if self.guild is None:
+            raise RuntimeError("fetch_member requires a guild context")
+        return await self.guild.fetch_member(user_id)
+
+    @property
+    def bot_permissions(self) -> discord.Permissions:
+        """The bot's own permissions in the current channel.
+
+        Returns ``channel.permissions_for(guild.me)`` — useful for checking
+        whether the bot can attach files, embed links, manage messages, etc.
+        Raises ``RuntimeError`` outside a guild.
+        """
+        if self.guild is None:
+            raise RuntimeError("bot_permissions requires a guild context")
+        return self.channel.permissions_for(self.guild.me)  # type: ignore[union-attr]

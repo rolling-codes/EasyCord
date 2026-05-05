@@ -1,0 +1,326 @@
+"""Built-in middleware factories and chain-builder utilities for bots."""
+from __future__ import annotations
+
+import contextlib
+import logging
+import time
+from collections import defaultdict
+from typing import Awaitable, Callable
+
+from .context import Context
+
+MiddlewareFn = Callable[[Context, Callable[[], Awaitable[None]]], Awaitable[None]]
+
+
+# ── Middleware chain helpers ───────────────────────────────────────────────────
+
+def _wrap(
+    mw: MiddlewareFn,
+    ctx: Context,
+    proceed: Callable[[], Awaitable[None]],
+) -> Callable[[], Awaitable[None]]:
+    """Return a zero-arg coroutine that calls mw(ctx, proceed)."""
+    async def step() -> None:
+        await mw(ctx, proceed)
+    return step
+
+
+def build_chain(
+    ctx: Context,
+    invoke: Callable[[], Awaitable[None]],
+    middleware: list[MiddlewareFn],
+) -> Callable[[], Awaitable[None]]:
+    """Wrap *invoke* in the full middleware stack so the first middleware runs first."""
+    chain = invoke
+    for mw in reversed(middleware):
+        chain = _wrap(mw, ctx, chain)
+    return chain
+
+
+def dm_only() -> MiddlewareFn:
+    """Block commands invoked inside a guild (i.e. only allow DMs)."""
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is not None:
+            await ctx.respond(
+                ctx.t(
+                    "errors.dm_only",
+                    default="This command can only be used in a direct message.",
+                ),
+                ephemeral=True,
+            )
+            return
+        await proceed()
+
+    return handler
+
+
+def allowed_roles(*role_ids: int, message: str | None = None) -> MiddlewareFn:
+    """Block commands unless the invoking member holds at least one of *role_ids*.
+
+    Silently passes when used outside a guild (DMs), so combine with
+    ``guild_only()`` if the command must be server-only.
+
+    Example::
+
+        bot.use(allowed_roles(STAFF_ROLE_ID, ADMIN_ROLE_ID))
+    """
+    role_set = frozenset(role_ids)
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        member = ctx.guild.get_member(ctx.user.id)
+        if member is None or role_set.isdisjoint(r.id for r in member.roles):
+            text = message or ctx.t(
+                "errors.missing_role",
+                default="You don't have the required role to use this command.",
+            )
+            await ctx.respond(text, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
+
+
+def channel_only(
+    *channel_ids: int,
+    message: str | None = None,
+) -> MiddlewareFn:
+    """Block commands invoked outside of the specified channel(s).
+
+    Passes silently when used outside a guild (DMs).
+
+    Example::
+
+        bot.use(channel_only(COMMANDS_CHANNEL_ID, BOT_CHANNEL_ID))
+    """
+    channel_set = frozenset(channel_ids)
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        if ctx.channel is None or ctx.channel.id not in channel_set:  # type: ignore[union-attr]
+            text = message or ctx.t(
+                "errors.wrong_channel",
+                default="This command cannot be used in this channel.",
+            )
+            await ctx.respond(text, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
+
+
+def admin_only(
+    message: str | None = None,
+) -> MiddlewareFn:
+    """Block commands unless the invoking member has the administrator permission.
+
+    Silently passes when used outside a guild (DMs), so combine with
+    ``guild_only()`` if the command must be server-only.
+
+    Example::
+
+        bot.use(admin_only())
+    """
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        member = ctx.guild.get_member(ctx.user.id)
+        if member is None or not member.guild_permissions.administrator:
+            text = message or ctx.t(
+                "errors.admin_only",
+                default="This command requires administrator permissions.",
+            )
+            await ctx.respond(text, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
+
+
+def log_middleware(
+    level: int = logging.INFO,
+    fmt: str = "/{command} invoked by {user} in {guild}",
+) -> MiddlewareFn:
+    """Log every slash command invocation."""
+    logger = logging.getLogger("easycord")
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        logger.log(
+            level,
+            fmt.format(
+                command=ctx.command_name,
+                user=ctx.user,
+                guild=ctx.guild or "DM",
+            ),
+        )
+        await proceed()
+
+    return handler
+
+
+def guild_only() -> MiddlewareFn:
+    """Block commands invoked outside of a guild (i.e. in DMs)."""
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await ctx.respond(
+                ctx.t(
+                    "errors.guild_only",
+                    default="This command can only be used inside a server.",
+                ),
+                ephemeral=True,
+            )
+            return
+        await proceed()
+
+    return handler
+
+
+def rate_limit(
+    limit: int = 5,
+    window: float = 10.0,
+) -> MiddlewareFn:
+    """Per-user sliding-window rate limiter."""
+    if limit < 1:
+        raise ValueError("rate_limit: limit must be at least 1")
+    if window <= 0:
+        raise ValueError("rate_limit: window must be greater than 0")
+    _history: dict[int, list[float]] = defaultdict(list)
+    _last_prune = 0.0
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        nonlocal _last_prune
+        uid = ctx.user.id
+        now = time.monotonic()
+        cutoff = now - window
+        if now - _last_prune >= window:
+            for tracked_uid in list(_history):
+                _history[tracked_uid] = [t for t in _history[tracked_uid] if t > cutoff]
+                if not _history[tracked_uid]:
+                    _history.pop(tracked_uid, None)
+            _last_prune = now
+        _history[uid] = [t for t in _history[uid] if t > cutoff]
+        if not _history[uid]:
+            _history.pop(uid, None)
+
+        user_hits = _history.get(uid, [])
+        if len(user_hits) >= limit:
+            wait = window - (now - user_hits[0])
+            await ctx.respond(
+                ctx.t(
+                    "errors.rate_limited",
+                    default="You're being rate limited. Try again in {seconds:.1f}s.",
+                    seconds=wait,
+                ),
+                ephemeral=True,
+            )
+            return
+
+        _history.setdefault(uid, []).append(now)
+        await proceed()
+
+    return handler
+
+
+def boost_only(
+    message: str | None = None,
+) -> MiddlewareFn:
+    """Block commands unless the invoking member is currently boosting the server.
+
+    Silently passes in DMs. Combine with ``guild_only()`` if the command must
+    be server-only.
+
+    Example::
+
+        bot.use(boost_only())
+    """
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        member = ctx.guild.get_member(ctx.user.id)
+        if member is None or member.premium_since is None:
+            text = message or ctx.t(
+                "errors.booster_only",
+                default="This command is for server boosters only.",
+            )
+            await ctx.respond(text, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
+
+
+def has_permission(
+    *permissions: str,
+    message: str | None = None,
+) -> MiddlewareFn:
+    """Block commands unless the invoking member holds all of the given permissions.
+
+    ``permissions`` are ``discord.Permissions`` attribute names
+    (e.g. ``"kick_members"``, ``"manage_messages"``).
+
+    Silently passes in DMs. Combine with ``guild_only()`` if the command must
+    be server-only.
+
+    Example::
+
+        bot.use(has_permission("kick_members", "ban_members"))
+    """
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        if ctx.guild is None:
+            await proceed()
+            return
+        member = ctx.guild.get_member(ctx.user.id)
+        if member is None:
+            text = message or ctx.t(
+                "errors.permissions_unverified",
+                default="Could not verify your permissions.",
+            )
+            await ctx.respond(text, ephemeral=True)
+            return
+        missing = [
+            p for p in permissions
+            if not getattr(member.guild_permissions, p, False)
+        ]
+        if missing:
+            text = message or ctx.t(
+                "errors.permissions_missing",
+                default="You need the following permission(s): {permissions}.",
+                permissions=", ".join(missing),
+            )
+            await ctx.respond(text, ephemeral=True)
+            return
+        await proceed()
+
+    return handler
+
+
+def catch_errors(
+    message: str | None = None,
+) -> MiddlewareFn:
+    """Catch unhandled exceptions, log them, and send an ephemeral error reply."""
+    logger = logging.getLogger("easycord")
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        try:
+            await proceed()
+        except Exception as exc:  # noqa: BLE001 — intentional broad catch for error handler
+            logger.exception("Unhandled error in /%s: %s", ctx.command_name, exc)
+            with contextlib.suppress(Exception):
+                text = message or ctx.t(
+                    "errors.internal",
+                    default="Something went wrong. Please try again.",
+                )
+                await ctx.respond(text, ephemeral=True)
+
+    return handler

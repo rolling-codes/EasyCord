@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "easycord"
+version = "5.0.0"
+description = "Production-grade Discord bot framework with AI orchestration, multi-provider LLMs, and permission-gated tool execution"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["discord", "discord.py", "bot", "framework", "slash commands", "middleware", "plugins"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: AsyncIO",
+]
+dependencies = [
+    "discord.py>=2.0.0",
+]
+
+# authors = [
+#     { name = "Your Name", email = "you@example.com" },
+# ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7",
+    "pytest-asyncio>=0.21",
+    "build",
+    "twine",
+]
+
+[project.urls]
+Homepage       = "https://github.com/rolling-codes/EasyCord"
+Repository     = "https://github.com/rolling-codes/EasyCord"
+Issues         = "https://github.com/rolling-codes/EasyCord/issues"
+Documentation  = "https://github.com/rolling-codes/EasyCord"
+Download       = "https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.setuptools.packages.find]
+include = ["easycord*"]
+exclude = ["tests*", "*.tests*", "*.tests"]
+
+[tool.setuptools.package-data]
+easycord = ["py.typed"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__", "*.pyc", "*.pyo"]
