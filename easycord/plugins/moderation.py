@@ -137,7 +137,7 @@ class ModerationPlugin(Plugin):
             return
 
         # Rate limit bans to 5 per hour per moderator
-        allowed, msg = self.ban_limiter.check_limit(ctx.user.id, "ban", RateLimit(max_calls=5, window_minutes=60))
+        allowed, msg = await self.ban_limiter.check_limit(ctx.user.id, "ban", RateLimit(max_calls=5, window_minutes=60))
         if not allowed:
             await ctx.send(f"⏳ {msg}")
             return
@@ -206,7 +206,7 @@ class ModerationPlugin(Plugin):
             return
 
         # Rate limit warns to 10 per hour per moderator
-        allowed, msg = self.warn_limiter.check_limit(ctx.user.id, "warn", RateLimit(max_calls=10, window_minutes=60))
+        allowed, msg = await self.warn_limiter.check_limit(ctx.user.id, "warn", RateLimit(max_calls=10, window_minutes=60))
         if not allowed:
             await ctx.send(f"⏳ {msg}")
             return

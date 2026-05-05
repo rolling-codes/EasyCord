@@ -9,6 +9,8 @@ from typing import Callable
 import discord
 
 from .plugin import Plugin
+from .tool_limits import RateLimit
+from .tools import ToolSafety
 
 logger = logging.getLogger("easycord")
 
@@ -89,12 +91,42 @@ class _PluginsMixin:
                 self._register_modal_handler(custom_id, method, source_plugin=type(plugin).__name__)
             if getattr(method, "_is_ai_tool", False):
                 tool_name = method._ai_tool_name
+                rate_limit = getattr(method, "_ai_tool_rate_limit", None)
+                rate_limit_obj = (
+                    RateLimit(max_calls=rate_limit[0], window_minutes=rate_limit[1])
+                    if rate_limit
+                    else None
+                )
+                safety = getattr(method, "_ai_tool_safety", ToolSafety.SAFE)
                 self.ai_tools[tool_name] = {
                     "name": tool_name,
                     "description": method._ai_tool_description,
                     "func": method,
                     "parameters": method._ai_tool_parameters,
+                    "safety": safety,
+                    "require_guild": getattr(method, "_ai_tool_require_guild", True),
+                    "require_admin": getattr(method, "_ai_tool_require_admin", False),
+                    "allowed_roles": getattr(method, "_ai_tool_allowed_roles", []),
+                    "allowed_users": getattr(method, "_ai_tool_allowed_users", []),
+                    "timeout_ms": getattr(method, "_ai_tool_timeout_ms", 5000),
+                    "rate_limit": rate_limit_obj,
                 }
+                if tool_name not in self.tool_registry._tools:
+                    self.tool_registry.register(
+                        name=tool_name,
+                        func=method,
+                        description=method._ai_tool_description,
+                        safety=safety,
+                        parameters=method._ai_tool_parameters,
+                        require_guild=getattr(method, "_ai_tool_require_guild", True),
+                        require_admin=getattr(method, "_ai_tool_require_admin", False),
+                        allowed_roles=getattr(method, "_ai_tool_allowed_roles", []),
+                        allowed_users=getattr(method, "_ai_tool_allowed_users", []),
+                        timeout_ms=getattr(method, "_ai_tool_timeout_ms", 5000),
+                        rate_limit=rate_limit_obj,
+                    )
+                if safety is ToolSafety.RESTRICTED:
+                    self.tool_registry.disable(tool_name)
 
     # ── Plugins ───────────────────────────────────────────────
 

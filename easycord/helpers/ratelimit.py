@@ -13,20 +13,20 @@ class RateLimitHelpers:
         return RateLimit(max_calls=max_calls, window_minutes=window_minutes)
 
     @staticmethod
-    def check(limiter: ToolLimiter, user_id: int, tool_name: str, limit: RateLimit) -> bool:
+    async def check(limiter: ToolLimiter, user_id: int, tool_name: str, limit: RateLimit) -> bool:
         """Check if user can execute tool."""
-        allowed, _ = limiter.check_limit(user_id, tool_name, limit)
+        allowed, _ = await limiter.check_limit(user_id, tool_name, limit)
         return allowed
 
     @staticmethod
-    def reset_user(limiter: ToolLimiter, user_id: int) -> None:
+    async def reset_user(limiter: ToolLimiter, user_id: int) -> None:
         """Clear all rate limits for user."""
-        limiter.reset_user(user_id)
+        await limiter.reset_user(user_id)
 
     @staticmethod
-    def reset_tool(limiter: ToolLimiter, tool_name: str) -> None:
+    async def reset_tool(limiter: ToolLimiter, tool_name: str) -> None:
         """Clear all rate limits for tool."""
-        limiter.reset_tool(tool_name)
+        await limiter.reset_tool(tool_name)
 
     @staticmethod
     def get_stats(limiter: ToolLimiter) -> dict:

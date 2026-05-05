@@ -263,6 +263,63 @@ class TestToolRegistry:
 
 class TestOrchestratorLogging:
     @pytest.mark.asyncio
+    async def test_run_supports_legacy_string_provider(self) -> None:
+        from easycord.orchestrator import Orchestrator, RunContext
+
+        class LegacyProvider:
+            def __init__(self) -> None:
+                self.prompt = None
+
+            async def query(self, prompt: str) -> str:
+                self.prompt = prompt
+                return "legacy hello"
+
+        provider = LegacyProvider()
+        registry = ToolRegistry()
+        orchestrator = Orchestrator(strategy=FallbackStrategy([provider]), tools=registry)
+        ctx = _make_ctx()
+        run_ctx = RunContext(messages=[{"role": "user", "content": "hi"}], ctx=ctx)
+
+        response = await orchestrator.run(run_ctx)
+
+        assert response.text == "legacy hello"
+        assert provider.prompt == "user: hi"
+
+    @pytest.mark.asyncio
+    async def test_run_passes_tools_to_tool_aware_provider(self) -> None:
+        from easycord.orchestrator import Orchestrator, RunContext
+
+        class ToolAwareProvider:
+            def __init__(self) -> None:
+                self.tools = None
+
+            async def query(self, prompt: str, tools=None):
+                self.tools = tools
+                output = MagicMock()
+                output.tool_call = None
+                output.text = "tool-aware hello"
+                return output
+
+        provider = ToolAwareProvider()
+        registry = ToolRegistry()
+        registry.register(
+            name="lookup",
+            func=lambda ctx: "ok",
+            description="Lookup data",
+            safety=ToolSafety.SAFE,
+            require_guild=False,
+        )
+        orchestrator = Orchestrator(strategy=FallbackStrategy([provider]), tools=registry)
+        ctx = _make_ctx()
+        run_ctx = RunContext(messages=[{"role": "user", "content": "hi"}], ctx=ctx)
+
+        response = await orchestrator.run(run_ctx)
+
+        assert response.text == "tool-aware hello"
+        assert provider.tools is not None
+        assert provider.tools[0]["function"]["name"] == "lookup"
+
+    @pytest.mark.asyncio
     async def test_provider_failure_emits_warning(self) -> None:
         from easycord.orchestrator import Orchestrator, RunContext
 
@@ -295,3 +352,77 @@ class TestOrchestratorLogging:
             assert "FailingProvider" in warning_args[1]
 
         assert response.text == "hello"
+
+# ---------------------------------------------------------------------------
+# Release blocker regressions
+# ---------------------------------------------------------------------------
+
+class TestReleaseBlockerRegressions:
+    def test_context_builder_uses_context_user_and_member(self) -> None:
+        from easycord.context_builder import ContextBuilder
+
+        ctx = _make_ctx(guild=MagicMock())
+        ctx.guild.name = "Guild"
+        ctx.guild.id = 100
+        ctx.guild.members = [MagicMock()]
+        mod_role = MagicMock()
+        mod_role.name = "Mods"
+        mod_role.id = 5
+        mod_role.position = 1
+        mod_role.permissions.manage_messages = True
+        ctx.guild.roles = [mod_role]
+        ctx.guild.channels = [MagicMock()]
+        ctx.user.name = "alice"
+        member = MagicMock()
+        member.top_role.name = "Admin"
+        type(ctx).member = property(lambda self: member)
+
+        state = ContextBuilder.build_bot_state_summary(ctx)
+        prompt = ContextBuilder._format_state(ctx)
+
+        assert state["user"]["name"] == "alice"
+        assert state["user"]["top_role"] == "Admin"
+        assert "Your Role:** Admin" in prompt
+
+    @pytest.mark.asyncio
+    async def test_builtin_list_roles_returns_permission_data(self) -> None:
+        import json
+        from easycord.builtin_tools import builtin_list_roles
+
+        class Permissions:
+            value = 8
+
+            def __iter__(self):
+                return iter([("administrator", True), ("manage_messages", False)])
+
+        role = MagicMock()
+        role.name = "Admin"
+        role.id = 1
+        role.position = 10
+        role.permissions = Permissions()
+        ctx = MagicMock()
+        ctx.guild.roles = [role]
+
+        data = json.loads(await builtin_list_roles(ctx))
+
+        assert data["roles"][0]["permissions"]["value"] == 8
+        assert data["roles"][0]["permissions"]["enabled"] == ["administrator"]
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_supports_analysis_without_discord_context(self) -> None:
+        from easycord.orchestrator import Orchestrator, RunContext
+
+        class LegacyProvider:
+            async def query(self, prompt: str) -> str:
+                return "analysis complete"
+
+        orchestrator = Orchestrator(
+            strategy=FallbackStrategy([LegacyProvider()]),
+            tools=ToolRegistry(),
+        )
+        response = await orchestrator.run(
+            RunContext(messages=[{"role": "user", "content": "scan"}], ctx=None)
+        )
+
+        assert response.text == "analysis complete"
+

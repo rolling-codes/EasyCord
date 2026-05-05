@@ -53,11 +53,11 @@ class ToolHelpers:
     def check_permission(
         registry: ToolRegistry, tool_name: str, user_id: int, guild_id: int | None = None
     ) -> bool:
-        """Check if user can execute tool."""
+        """Check if tool is registered and enabled (does not check ctx-level permissions)."""
         tool = registry._tools.get(tool_name)
         if not tool:
             return False
-        return registry.can_execute(tool, user_id, guild_id)
+        return tool_name in registry._allowlist and tool_name not in registry._denylist
 
     @staticmethod
     def list_all_tools(registry: ToolRegistry) -> dict[str, ToolDef]:

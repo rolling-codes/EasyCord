@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
@@ -21,7 +22,7 @@ class RunContext:
     """Context for orchestrator.run()."""
 
     messages: list[dict]
-    ctx: Context  # Discord context for permission checks
+    ctx: Context | None  # Discord context for permission checks
     max_steps: int = 5
     timeout_ms: int = 30000
     system_prompt: str | None = None  # AI system context
@@ -99,37 +100,59 @@ class Orchestrator:
 
             try:
                 # Build tool schema for provider
-                tools_schema = self.tools.to_provider_schema(run_ctx.ctx)
+                tools_schema = self.tools.to_provider_schema(run_ctx.ctx) if run_ctx.ctx else []
 
                 # Query provider
-                output = await provider.query(
-                    prompt="",  # using messages directly
-                    tools=tools_schema if tools_schema else None,
+                prompt = self._format_messages(messages)
+                output = await self._query_provider(
+                    provider,
+                    prompt,
+                    tools_schema if tools_schema else None,
                 )
 
-                # Check for tool call
-                if output.tool_call:
-                    allowed, reason = await self.tools.can_execute(
-                        run_ctx.ctx, output.tool_call.name
+                if isinstance(output, str):
+                    if run_ctx.conversation_memory and run_ctx.ctx:
+                        run_ctx.conversation_memory.add_assistant_message(
+                            run_ctx.ctx.user.id,
+                            output,
+                            run_ctx.ctx.guild.id if run_ctx.ctx.guild else None,
+                        )
+                    return FinalResponse(
+                        text=output,
+                        provider=provider,
+                        steps=steps,
                     )
-                    if not allowed:
+
+                # Check for tool call
+                tool_call = getattr(output, "tool_call", None)
+                if tool_call:
+                    if run_ctx.ctx is None:
                         messages.append(
                             {
                                 "role": "assistant",
-                                "content": f"Tool '{output.tool_call.name}' not available: {reason}",
+                                "content": f"Tool '{tool_call.name}' not available: no Discord context",
                             }
                         )
                         steps += 1
                         continue
 
-                    result = await self.tools.execute(
-                        run_ctx.ctx, output.tool_call
-                    )
+                    allowed, reason = await self.tools.can_execute(run_ctx.ctx, tool_call.name)
+                    if not allowed:
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "content": f"Tool '{tool_call.name}' not available: {reason}",
+                            }
+                        )
+                        steps += 1
+                        continue
+
+                    result = await self.tools.execute(run_ctx.ctx, tool_call)
 
                     messages.append(
                         {
                             "role": "tool",
-                            "name": output.tool_call.name,
+                            "name": tool_call.name,
                             "content": result.output if result.output is not None else result.error,
                         }
                     )
@@ -137,16 +160,17 @@ class Orchestrator:
                     continue
 
                 # Check for final text
-                if output.text:
+                text = getattr(output, "text", None)
+                if text:
                     # Save to conversation memory if provided
-                    if run_ctx.conversation_memory:
+                    if run_ctx.conversation_memory and run_ctx.ctx:
                         run_ctx.conversation_memory.add_assistant_message(
                             run_ctx.ctx.user.id,
-                            output.text,
+                            text,
                             run_ctx.ctx.guild.id if run_ctx.ctx.guild else None,
                         )
                     return FinalResponse(
-                        text=output.text,
+                        text=text,
                         provider=provider,
                         steps=steps,
                     )
@@ -170,3 +194,32 @@ class Orchestrator:
             provider=None,
             steps=steps,
         )
+
+    async def _query_provider(
+        self,
+        provider: AIProvider,
+        prompt: str,
+        tools_schema: list[dict] | None,
+    ):
+        """Call providers with tools only when their query signature supports it."""
+        query = provider.query
+        signature = inspect.signature(query)
+        supports_tools = any(
+            p.kind is inspect.Parameter.VAR_KEYWORD or name == "tools"
+            for name, p in signature.parameters.items()
+        )
+        if supports_tools:
+            return await query(prompt=prompt, tools=tools_schema)
+        return await query(prompt)
+
+    @staticmethod
+    def _format_messages(messages: list[dict]) -> str:
+        """Convert chat-style messages into the plain prompt used by legacy providers."""
+        lines = []
+        for message in messages:
+            role = message.get("role", "user")
+            content = message.get("content", "")
+            if role == "tool" and message.get("name"):
+                role = f"tool:{message['name']}"
+            lines.append(f"{role}: {content}")
+        return "\n".join(lines)

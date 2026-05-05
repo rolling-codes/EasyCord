@@ -1,11 +1,13 @@
 # Include the framework source and metadata
 include LICENSE
 include README.md
+include CHANGELOG.md
 include pyproject.toml
 recursive-include easycord *.py py.typed
 
 # Exclude everything that is not part of the published library
 exclude CLAUDE.md
+exclude AGENTS.md
 exclude .gitignore
 prune tests
 prune .claude

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Callable
 
+from easycord.tools import ToolSafety
+
 
 def slash(
     name: str | None = None,
@@ -208,6 +210,12 @@ def modal(id_or_func=None, *, scoped: bool = True) -> Callable:
 def ai_tool(
     description: str = "No description provided.",
     parameters: dict | None = None,
+    safety: ToolSafety = ToolSafety.SAFE,
+    require_guild: bool = True,
+    require_admin: bool = False,
+    allowed_roles: list[int] | None = None,
+    allowed_users: list[int] | None = None,
+    timeout_ms: int = 5000,
     rate_limit: tuple[int, int] | None = None,
     permissions: list[str] | None = None,
 ) -> Callable:
@@ -223,6 +231,19 @@ def ai_tool(
         Description of what this tool does, shown to the AI.
     parameters:
         JSON schema describing the tool's parameters (if any).
+    safety:
+        Safety classification for provider exposure. ``RESTRICTED`` tools are
+        registered but not exposed to providers by default.
+    require_guild:
+        Whether this tool can only run inside a guild.
+    require_admin:
+        Whether this tool requires the invoking user to be a guild admin.
+    allowed_roles:
+        Optional role IDs allowed to run this tool.
+    allowed_users:
+        Optional user IDs allowed to run this tool.
+    timeout_ms:
+        Maximum execution time for the tool.
     rate_limit:
         Tuple of (max_calls, window_minutes) to rate limit this tool per user.
     permissions:
@@ -251,6 +272,12 @@ def ai_tool(
         func._ai_tool_name = func.__name__
         func._ai_tool_description = description
         func._ai_tool_parameters = parameters or {}
+        func._ai_tool_safety = safety
+        func._ai_tool_require_guild = require_guild
+        func._ai_tool_require_admin = require_admin
+        func._ai_tool_allowed_roles = allowed_roles or []
+        func._ai_tool_allowed_users = allowed_users or []
+        func._ai_tool_timeout_ms = timeout_ms
         func._ai_tool_rate_limit = rate_limit
         func._ai_tool_permissions = permissions or []
         return func

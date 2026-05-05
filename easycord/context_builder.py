@@ -86,8 +86,8 @@ Respect permission boundaries: don't attempt to call tools you don't have permis
 - **Members:** {member_count}
 - **Roles:** {role_count}
 - **Channels:** {channel_count}
-- **Your Role:** {ctx.author.top_role.name if ctx.author.top_role else 'No role'}
-- **Is Admin:** {ctx.is_admin()}
+- **Your Role:** {ctx.member.top_role.name if ctx.member and ctx.member.top_role else 'No role'}
+- **Is Admin:** {ctx.is_admin}
 - **Moderator Roles:** {', '.join(moderator_roles) or 'None'}
 """
 
@@ -107,10 +107,10 @@ Respect permission boundaries: don't attempt to call tools you don't have permis
                 "channel_count": len(guild.channels),
             },
             "user": {
-                "name": ctx.author.name,
-                "id": ctx.author.id,
-                "top_role": ctx.author.top_role.name if ctx.author.top_role else None,
-                "is_admin": ctx.is_admin(),
+                "name": ctx.user.name,
+                "id": ctx.user.id,
+                "top_role": ctx.member.top_role.name if ctx.member and ctx.member.top_role else None,
+                "is_admin": ctx.is_admin,
             },
             "roles": [
                 {"name": r.name, "id": r.id, "position": r.position}

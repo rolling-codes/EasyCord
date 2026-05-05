@@ -147,7 +147,7 @@ class AIModeratorPlugin(Plugin):
 
             elif action == "warn":
                 warn_limit = RateLimit(max_calls=10, window_minutes=60)
-                allowed, msg = self.warn_limiter.check_limit(user.id, "warn", warn_limit)
+                allowed, msg = await self.warn_limiter.check_limit(user.id, "warn", warn_limit)
                 if not allowed:
                     logger.warning("Warn rate limit exceeded for %s", user)
                     return False
@@ -157,7 +157,7 @@ class AIModeratorPlugin(Plugin):
 
             elif action == "timeout":
                 timeout_limit = RateLimit(max_calls=5, window_minutes=60)
-                allowed, msg = self.timeout_limiter.check_limit(user.id, "timeout", timeout_limit)
+                allowed, msg = await self.timeout_limiter.check_limit(user.id, "timeout", timeout_limit)
                 if not allowed:
                     logger.warning("Timeout rate limit exceeded for %s", user)
                     return False

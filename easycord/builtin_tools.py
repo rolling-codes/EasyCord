@@ -101,7 +101,10 @@ async def builtin_list_roles(ctx: Context) -> str:
             "name": r.name,
             "id": r.id,
             "position": r.position,
-            "permissions": list(r.permissions.flag.bit_length()),
+            "permissions": {
+                "value": r.permissions.value,
+                "enabled": [name for name, enabled in r.permissions if enabled],
+            },
         }
         for r in ctx.guild.roles
     ]
