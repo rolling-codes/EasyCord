@@ -1,5 +1,18 @@
 # Changelog
 
+## EasyCord v5.1.1 - 2026-05-06
+
+### Bug Fixes
+- Fixed `LevelsPlugin._award_xp` cooldown sentinel — default of `0.0` caused the first-message XP award to be silently blocked on freshly-booted CI runners and any host where `time.monotonic()` starts below `cooldown_seconds`. Changed to `float("-inf")` so a user who has never sent a message always passes the cooldown gate.
+
+### CI & Infra
+- Corrected GitHub Actions versions across all three workflows — `actions/checkout@v6` and `actions/setup-python@v6` do not exist and resolved unpredictably. Pinned to `actions/checkout@v4` and `actions/setup-python@v5`.
+
+### Verification
+- `pytest tests/` → 411 passed.
+
+---
+
 ## EasyCord v5.1.0 - 2026-05-06
 
 ### Bug Fixes

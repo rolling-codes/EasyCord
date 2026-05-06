@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.1.0-blue)
+![Version](https://img.shields.io/badge/v-5.1.1-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -8,7 +8,7 @@
 
 ## Start here
 
-1. Install the latest release: `pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.0/EasyCord-v5.1.0.zip"`
+1. Install the latest release: `pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.1/EasyCord-v5.1.1.zip"`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -29,9 +29,17 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-Release links: [v5.1.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.0) · [Changelog](CHANGELOG.md) · [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0)
+Release links: [v5.1.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.1) · [Changelog](CHANGELOG.md) · [v5.1.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.0) · [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0)
 
-## New in v5.1.0 (Current Release)
+## New in v5.1.1 (Current Release)
+
+**Bug fixes:**
+- Fixed `LevelsPlugin._award_xp` cooldown sentinel — default of `0.0` caused the first-message XP award to be silently blocked on freshly-booted CI runners and any host where `time.monotonic()` starts below `cooldown_seconds`. Changed to `float("-inf")` so a user who has never sent a message always passes the cooldown gate.
+
+**CI & infra:**
+- Corrected GitHub Actions versions across all three workflows — `actions/checkout@v6` and `actions/setup-python@v6` do not exist and resolved unpredictably. Pinned to `actions/checkout@v4` and `actions/setup-python@v5`.
+
+## Previous: v5.1.0
 
 **Bug fixes:**
 - Fixed `LevelsPlugin` role reward assignment — `isinstance(author, discord.Member)` returned `False` on Python 3.11 with specced mocks and in some runtime edge cases; replaced with `hasattr(author, "add_roles")` which is version-agnostic and semantically correct.
@@ -42,7 +50,6 @@ Release links: [v5.1.0 release](https://github.com/rolling-codes/EasyCord/releas
 - Added `OpenClawPlugin` — autonomous agent runner that lets the bot execute multi-step AI tasks on a schedule or on demand, with per-guild task history and slash commands (`/openclaw_task`, `/openclaw_stop`).
 
 **CI & infra:**
-- Upgraded GitHub Actions to Node.js 24: `actions/checkout@v4` → `v6`, `actions/setup-python@v5` → `v6` across all three CI workflows.
 - Added `test_levels_plugin.py` and `test_openclaw.py` — 411 tests now passing.
 - Added `CLAUDE.md`, `AGENTS.md`, and `context/` architecture and conventions docs.
 
