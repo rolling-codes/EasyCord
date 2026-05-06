@@ -1,6 +1,6 @@
 # Architecture
 
-EasyCord is a Discord bot framework (v5.0.0, Python 3.10+). Entry point: `easycord/__init__.py` is the stable public API — internal modules are prefixed `_`.
+EasyCord is a Discord bot framework (v5.1.0, Python 3.10+). Entry point: `easycord/__init__.py` is the stable public API — internal modules are prefixed `_`.
 
 ## Layers
 
@@ -17,6 +17,8 @@ EasyCord is a Discord bot framework (v5.0.0, Python 3.10+). Entry point: `easyco
 **Database** — `database.py`: `SQLiteDatabase` and `MemoryDatabase` with per-guild namespacing. `GuildRecord` is the typed row abstraction.
 
 **AI orchestration** — `orchestrator.py` routes across providers via `FallbackStrategy` (advances through providers on failure, raises `IndexError` on exhaustion). Provider adapters in `plugins/_ai_providers.py` — all provider classes are also exported directly from `easycord` via lazy imports (Anthropic, OpenAI, Gemini, Groq, Mistral, Hugging Face, Together AI, Ollama, LiteLLM). Tools registered in `tools.py` via `ToolRegistry`, gated by `ToolSafety`. Built-in tools in `builtin_tools.py`. Per-tool rate limiting in `tool_limits.py` — `ToolLimiter` methods are async, must be awaited.
+
+**OpenClawPlugin** — `plugins/openclaw.py`: autonomous agent runner with per-guild task history and `/openclaw_task` / `/openclaw_stop` slash commands.
 
 **Plugin AI tools** — `@ai_tool` on plugin methods can declare safety level, admin/guild requirements, role/user gates, timeouts, and rate limits; they register automatically into `bot.tool_registry`.
 

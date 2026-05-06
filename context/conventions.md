@@ -14,3 +14,5 @@
 - `ctx.user` and `ctx.member` are the correct context attributes — `ctx.author` does not exist
 - `ToolLimiter` methods (`check_limit`, `reset_user`, `reset_tool`) are async — always await them
 - Legacy AI providers accept only `query(prompt)` and return plain strings; tool-aware providers accept a `tools` schema argument — the orchestrator handles both
+- Cooldown sentinels in `LevelsPlugin._cooldowns` default to `float("-inf")`, not `0.0` — this ensures the first message always passes the gate regardless of `time.monotonic()` value on fresh runners
+- CI workflow actions are pinned to `actions/checkout@v4` and `actions/setup-python@v5` — v6 does not exist

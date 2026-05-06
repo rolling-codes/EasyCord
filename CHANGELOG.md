@@ -11,7 +11,8 @@
 - Added `OpenClawPlugin` — autonomous agent runner with per-guild task history and `/openclaw_task` / `/openclaw_stop` slash commands.
 
 ### CI & Infra
-- Upgraded GitHub Actions to Node.js 24: `actions/checkout@v4` → `v6`, `actions/setup-python@v5` → `v6` across all CI workflows.
+- Pinned GitHub Actions to `actions/checkout@v4` and `actions/setup-python@v5` across all CI workflows — v6 does not exist and resolved unpredictably.
+- Fixed `LevelsPlugin._award_xp` cooldown sentinel from `0.0` to `float("-inf")` — on freshly-booted CI runners `time.monotonic()` can be under 60 s, causing the first-message cooldown check to silently block all XP awards.
 - Added `test_levels_plugin.py` and `test_openclaw.py` — 411 tests now passing.
 - Added `CLAUDE.md`, `AGENTS.md`, and `context/` architecture and conventions docs.
 

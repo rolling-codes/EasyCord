@@ -34,7 +34,7 @@ EasyCord is a Discord bot framework layered as follows:
 
 **Database** — `database.py` provides `SQLiteDatabase` and `MemoryDatabase` with per-guild namespacing. `GuildRecord` is the typed row abstraction.
 
-**AI orchestration** — `orchestrator.py` routes across 9 LLM providers with `FallbackStrategy`. `_ai_providers.py` holds provider adapters. Tools are registered via `ToolRegistry` and gated by `ToolSafety` permission checks.
+**AI orchestration** — `orchestrator.py` routes across 9 LLM providers with `FallbackStrategy`. `plugins/_ai_providers.py` holds provider adapters. Tools are registered via `ToolRegistry` in `tools.py` and gated by `ToolSafety` permission checks. Per-tool rate limiting in `tool_limits.py` — all `ToolLimiter` methods are async, must be awaited.
 
 **Localization** — `i18n.py` (`LocalizationManager`) handles locale auto-detection with fallback chains (user → guild → system → default). Three diagnostic modes: `SILENT` (production), `WARN` (dev), `STRICT` (CI).
 
@@ -48,3 +48,13 @@ EasyCord is a Discord bot framework layered as follows:
 - The `@ai_tool` decorator registers a function into `ToolRegistry` and requires explicit `ToolSafety` permission annotation.
 - Per-guild state always goes through the database layer — never stored on the `Bot` instance directly.
 - Localization keys are looked up via `LocalizationManager`; strings must not be hardcoded in plugin responses.
+- Use `ctx.user` / `ctx.member` — `ctx.author` does not exist.
+- `ctx.is_admin` is a property, not a method — do not call it as `ctx.is_admin()`.
+- Cooldown sentinels default to `float("-inf")`, not `0.0` — ensures first-message events pass on fresh runners.
+- CI workflows pin to `actions/checkout@v4` and `actions/setup-python@v5`.
+
+## Branch / repo state (as of 2026-05-06)
+
+- Default branch: `main`. `master` is kept in sync with `main`.
+- Current stable tip: `4bcf1cf` — both `main` and `master` point here.
+- 411 tests passing. CI green.
