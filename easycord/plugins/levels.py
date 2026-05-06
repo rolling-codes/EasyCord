@@ -172,7 +172,7 @@ class LevelsPlugin(Plugin):
         user_id = message.author.id
         now = time.monotonic()
 
-        if now - self._cooldowns[guild_id].get(user_id, 0.0) < self._cooldown:
+        if now - self._cooldowns[guild_id].get(user_id, float("-inf")) < self._cooldown:
             return
         self._cooldowns[guild_id][user_id] = now
 
