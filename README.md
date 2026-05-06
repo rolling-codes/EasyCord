@@ -27,7 +27,7 @@ bot.run("YOUR_TOKEN")
 
 **Want to see a production bot without AI?** Open [`examples/core-bot.py`](examples/core-bot.py).
 
-For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
+For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md) (5-minute walkthrough).
 
 Release links: [v5.1.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.1) · [Changelog](CHANGELOG.md) · [v5.1.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.0) · [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0)
 
@@ -131,7 +131,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.0/EasyCord-v5.1.0.zip"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.1/EasyCord-v5.1.1.zip"
 ```
 
 ### Clone and install locally
@@ -180,7 +180,7 @@ locales.register("es", "locales/es.json")
 bot = Bot(localization=locales, default_locale="en")
 ```
 
-Translations fallback gracefully: user locale → guild locale → default locale → English. See [`docs/localization.md`](docs/localization.md) for the full guide.
+Translations fallback gracefully: user locale → guild locale → default locale → English.
 
 ## Optional: AI Integration
 
@@ -215,7 +215,7 @@ async def ask(ctx, prompt: str):
 
 **Setup:** Install `anthropic` SDK and set `ANTHROPIC_API_KEY` environment variable.
 
-See [`docs/examples.md`](docs/examples.md) for examples with OpenAI, Gemini, Groq, Ollama, and custom providers.
+See the AI providers section of [`docs/getting-started.md`](docs/getting-started.md) for examples with OpenAI, Gemini, Groq, Ollama, and custom providers.
 
 ### Advanced: AI Tool Registration (function calling)
 
@@ -373,7 +373,7 @@ locales.register("es", "locales/es.json")
 bot = Bot(localization=locales, default_locale="en")
 ```
 
-Translations fallback gracefully: user locale → guild locale → default locale → English. See [`docs/localization.md`](docs/localization.md) for the full guide.
+Translations fallback gracefully: user locale → guild locale → default locale → English.
 
 ## Why this exists
 
@@ -449,29 +449,14 @@ my_bot/
 
 ## Best beginner path
 
-1. Read [`docs/getting-started.md`](docs/getting-started.md) to make your first bot.
-2. Read [`docs/concepts.md`](docs/concepts.md) to understand the pieces.
-3. Copy [`examples/basic_bot.py`](examples/basic_bot.py) and make one change.
-4. Move a command into a plugin once the file starts feeling crowded.
+1. Read [`docs/getting-started.md`](docs/getting-started.md) — 5-minute walkthrough to a working bot.
+2. Open [`examples/core-bot.py`](examples/core-bot.py) and make one change.
+3. Move a command into a `Plugin` once the file starts feeling crowded.
 
 ## Examples and docs
 
-- [`examples/core-bot.py`](examples/core-bot.py): production bot with zero AI dependencies (commands, events, logging, permissions)
-- [`examples/basic_bot.py`](examples/basic_bot.py): the smallest practical starter bot
-- [`examples/plugin_bot.py`](examples/plugin_bot.py): a feature split across plugins
-- [`examples/group_bot.py`](examples/group_bot.py): grouped slash commands with `SlashGroup`
-- [`docs/index.md`](docs/index.md): documentation home
-- [`docs/getting-started.md`](docs/getting-started.md): 5-minute walkthrough to a working bot
-- [`docs/quickstart-production.md`](docs/quickstart-production.md): complete bot from scratch showing plugins, events, AI, error handling (canonical pattern)
-- [`docs/api.md`](docs/api.md): complete API reference with examples
-- [`docs/examples.md`](docs/examples.md): patterns and snippets
-- [`docs/fork-and-expand.md`](docs/fork-and-expand.md): how to grow a real bot project
-- [`docs/migration-from-discord.py.md`](docs/migration-from-discord.py.md): side-by-side comparison, "delete after migrating" checklist
-- [`docs/security-best-practices.md`](docs/security-best-practices.md): token management, permissions, AI safety pipeline, prompt injection prevention
-- [`docs/performance-tuning.md`](docs/performance-tuning.md): optimize latency, memory, throughput
-- [`docs/troubleshooting.md`](docs/troubleshooting.md): common issues and solutions
-- [`docs/stability-and-scope.md`](docs/stability-and-scope.md): API stability guarantees, intentional gaps, extension surface, upgrade safety
-- [`server_commands/__init__.py`](server_commands/__init__.py): one place to load the bundled plugins
+- [`examples/core-bot.py`](examples/core-bot.py) — production bot without AI: slash commands, events, plugins, per-guild config
+- [`docs/getting-started.md`](docs/getting-started.md) — install, first command, first plugin, localization, AI integration
 
 ## Project backstory
 

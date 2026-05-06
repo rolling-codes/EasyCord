@@ -43,10 +43,9 @@ Homepage       = "https://github.com/rolling-codes/EasyCord"
 Repository     = "https://github.com/rolling-codes/EasyCord"
 Issues         = "https://github.com/rolling-codes/EasyCord/issues"
 Documentation  = "https://github.com/rolling-codes/EasyCord"
-Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/EasyCord-v5.0.0.zip"
-Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0"
-Changelog      = "https://github.com/rolling-codes/EasyCord/blob/v5.0.0/CHANGELOG.md"
-Development     = "https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/EasyCord-v5.0.0-dev.zip"
+Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.1/EasyCord-v5.1.1.zip"
+Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.1"
+Changelog      = "https://github.com/rolling-codes/EasyCord/blob/main/CHANGELOG.md"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
