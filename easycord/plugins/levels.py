@@ -195,7 +195,7 @@ class LevelsPlugin(Plugin):
 
         role_rewards: dict[str, int] = config.get("role_rewards", {})
         role_id = role_rewards.get(str(level))
-        if role_id and isinstance(message.author, discord.Member):
+        if role_id and hasattr(message.author, "add_roles"):
             role = message.guild.get_role(role_id)
             if role:
                 try:

@@ -19,6 +19,7 @@ from .levels import LevelsPlugin
 from .member_logging import MemberLoggingPlugin
 from .moderation import ModerationPlugin
 from .openclaude import AIPlugin, OpenClaudePlugin
+from .openclaw import OpenClawPlugin
 from .polls import PollsPlugin
 from .reaction_roles import ReactionRolesPlugin
 from .role_persistence import RolePersistencePlugin
@@ -46,6 +47,7 @@ __all__ = [
     "OllamaProvider",
     "OpenAIProvider",
     "OpenClaudePlugin",
+    "OpenClawPlugin",
     "PollsPlugin",
     "ReactionRolesPlugin",
     "RolePersistencePlugin",
