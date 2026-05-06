@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.0.0-blue)
+![Version](https://img.shields.io/badge/v-5.1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -8,7 +8,7 @@
 
 ## Start here
 
-1. Install the latest release: `pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/EasyCord-v5.0.0.zip"`
+1. Install the latest release: `pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.0/EasyCord-v5.1.0.zip"`
 2. Create a bot with one slash command.
 3. Split features into plugins once the bot grows.
 
@@ -29,9 +29,24 @@ bot.run("YOUR_TOKEN")
 
 For the shortest path to a working bot, open [`docs/getting-started.md`](docs/getting-started.md).
 
-Release links: [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0) · [Changelog](CHANGELOG.md) · Development build: [EasyCord-v5.0.0-dev.zip](https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/EasyCord-v5.0.0-dev.zip)
+Release links: [v5.1.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.1.0) · [Changelog](CHANGELOG.md) · [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.0.0)
 
-## New in v5.0.0 (Current Release)
+## New in v5.1.0 (Current Release)
+
+**Bug fixes:**
+- Fixed `LevelsPlugin` role reward assignment — `isinstance(author, discord.Member)` returned `False` on Python 3.11 with specced mocks and in some runtime edge cases; replaced with `hasattr(author, "add_roles")` which is version-agnostic and semantically correct.
+- Fixed orchestrator empty-string output — `result.output or result.error` would fall through to the error branch when the AI returned an empty string (a valid response); now uses `result.output if result.output is not None else result.error`.
+- Fixed `ToolRegistry` role check crash in DMs — when `allowed_roles` was set but `require_guild=False`, accessing `ctx.member.roles` in a DM context raised `AttributeError`; now safely fetches the member from the guild or returns a permission-denied message.
+
+**New:**
+- Added `OpenClawPlugin` — autonomous agent runner that lets the bot execute multi-step AI tasks on a schedule or on demand, with per-guild task history and slash commands (`/openclaw_task`, `/openclaw_stop`).
+
+**CI & infra:**
+- Upgraded GitHub Actions to Node.js 24: `actions/checkout@v4` → `v6`, `actions/setup-python@v5` → `v6` across all three CI workflows.
+- Added `test_levels_plugin.py` and `test_openclaw.py` — 411 tests now passing.
+- Added `CLAUDE.md`, `AGENTS.md`, and `context/` architecture and conventions docs.
+
+## Previous: v5.0.0
 
 **Bug fixes:**
 - Fixed `FallbackStrategy.select()` — the fallback chain was broken: `min(attempt, len-1)` caused it to pin to the last provider instead of advancing through the list. All configured providers are now tried in order.
@@ -44,7 +59,7 @@ Release links: [v5.0.0 release](https://github.com/rolling-codes/EasyCord/releas
 - `ToolRegistry.can_execute` is now `async` so the rate-limit check is a proper awaited call instead of a sync call on an async method.
 - Provider failures in the orchestrator are now logged (`WARNING`) instead of silently swallowed, making debugging provider issues possible.
 - `AnthropicProvider` default model updated from `claude-3-5-sonnet-20241022` to `claude-sonnet-4-6`.
-- All 9 AI provider classes (`AnthropicProvider`, `OpenAIProvider`, `GeminiProvider`, `GroqProvider`, `MistralProvider`, `HuggingFaceProvider`, `TogetherAIProvider`, `OllamaProvider`, `LiteLLMProvider`) and the `AIProvider` base class are now accessible directly from `easycord` via lazy import (no circular-import issues).
+- All 9 AI provider classes and the `AIProvider` base class are now accessible directly from `easycord` via lazy import.
 - `easycord.__version__` is now set to `"5.0.0"`.
 - Python 3.13 added to supported classifiers.
 - Package status promoted from `Beta` to `Production/Stable`.
@@ -109,7 +124,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.0.0/EasyCord-v5.0.0.zip"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.1.0/EasyCord-v5.1.0.zip"
 ```
 
 ### Clone and install locally

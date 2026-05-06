@@ -1,5 +1,25 @@
 # Changelog
 
+## EasyCord v5.1.0 - 2026-05-06
+
+### Bug Fixes
+- Fixed `LevelsPlugin` role reward assignment — `isinstance(author, discord.Member)` returned `False` on Python 3.11 with specced mocks and in some runtime edge cases; replaced with `hasattr(author, "add_roles")` which is version-agnostic and semantically correct.
+- Fixed orchestrator empty-string output — `result.output or result.error` would fall through to the error branch when the AI returned an empty string (a valid response); now uses `result.output if result.output is not None else result.error`.
+- Fixed `ToolRegistry` role check crash in DMs — when `allowed_roles` was set but `require_guild=False`, accessing `ctx.member.roles` in a DM context raised `AttributeError`; now safely fetches the member from the guild or returns a permission-denied message.
+
+### New
+- Added `OpenClawPlugin` — autonomous agent runner with per-guild task history and `/openclaw_task` / `/openclaw_stop` slash commands.
+
+### CI & Infra
+- Upgraded GitHub Actions to Node.js 24: `actions/checkout@v4` → `v6`, `actions/setup-python@v5` → `v6` across all CI workflows.
+- Added `test_levels_plugin.py` and `test_openclaw.py` — 411 tests now passing.
+- Added `CLAUDE.md`, `AGENTS.md`, and `context/` architecture and conventions docs.
+
+### Verification
+- `pytest tests/` → 411 passed.
+
+---
+
 ## EasyCord v5.0.0 - 2026-05-05
 
 ### What's New
