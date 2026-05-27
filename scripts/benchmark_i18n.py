@@ -11,11 +11,15 @@ from easycord.i18n import DiagnosticMode, LocalizationManager
 
 
 def _time_ms(fn: Callable[[], None], *, rounds: int = 5) -> float:
+    fn()
     samples: list[float] = []
     for _ in range(rounds):
         start = time.perf_counter()
         fn()
         samples.append((time.perf_counter() - start) * 1000)
+    if len(samples) >= 5:
+        trimmed = sorted(samples)[1:-1]
+        return statistics.fmean(trimmed)
     return statistics.median(samples)
 
 
@@ -63,25 +67,41 @@ def _overhead_percent(
     baseline: Callable[[], None],
     measured: Callable[[], None],
     *,
-    rounds: int = 7,
+    rounds: int = 11,
 ) -> float:
-    baseline_ms = _time_ms(baseline, rounds=rounds)
-    measured_ms = _time_ms(measured, rounds=rounds)
-    if baseline_ms <= 0:
+    baseline()
+    measured()
+
+    overheads: list[float] = []
+    for _ in range(rounds):
+        start = time.perf_counter()
+        baseline()
+        baseline_ms = (time.perf_counter() - start) * 1000
+
+        start = time.perf_counter()
+        measured()
+        measured_ms = (time.perf_counter() - start) * 1000
+
+        if baseline_ms > 0:
+            overheads.append(max(0.0, ((measured_ms - baseline_ms) / baseline_ms) * 100))
+
+    if not overheads:
         return 0.0
-    return max(0.0, ((measured_ms - baseline_ms) / baseline_ms) * 100)
+    trimmed = sorted(overheads)[1:-1] if len(overheads) >= 5 else overheads
+    return statistics.fmean(trimmed)
 
 
 def _diagnostics_overhead() -> float:
     silent = _manager()
     warn = _manager(diagnostic_mode=DiagnosticMode.WARN)
+    iterations = 20_000
 
     def baseline() -> None:
-        for index in range(5000):
+        for index in range(iterations):
             silent.get("command.ping", locale="fr-FR" if index % 2 else "pt-BR")
 
     def measured() -> None:
-        for index in range(5000):
+        for index in range(iterations):
             warn.get("command.ping", locale="fr-FR" if index % 2 else "pt-BR")
 
     return _overhead_percent(baseline, measured)
@@ -90,13 +110,14 @@ def _diagnostics_overhead() -> float:
 def _metrics_overhead() -> float:
     plain = _manager()
     tracked = _manager(track_metrics=True)
+    iterations = 20_000
 
     def baseline() -> None:
-        for index in range(5000):
+        for index in range(iterations):
             plain.get("command.ping", locale="fr-FR" if index % 2 else "pt-BR")
 
     def measured() -> None:
-        for index in range(5000):
+        for index in range(iterations):
             tracked.get("command.ping", locale="fr-FR" if index % 2 else "pt-BR")
 
     return _overhead_percent(baseline, measured)

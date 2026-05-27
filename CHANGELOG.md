@@ -1,5 +1,26 @@
 # Changelog
 
+## EasyCord v5.40.1 - 2026-05-27
+
+### Fixed
+- Updated the runtime dependency to `discord.py>=2.7.1,<3` and verified current app-command context and install metadata support.
+- Added non-SQL memory database startup paths via `db_backend="memory"`, `database=MemoryDatabase()`, and `EASYCORD_DB_BACKEND=memory`.
+- Updated generated starter templates to use the memory database where persistence is unnecessary.
+- Closed SQLite test fixtures cleanly to remove delayed `ResourceWarning` noise under strict warning checks.
+- Repaired the i18n performance regression workflow by adding the benchmark script it expects and aligning baseline cache paths.
+- Added release-readiness coverage for the real GitHub wheel and source distribution asset names.
+
+### Verification
+- Python 3.11.9 via `py -3.11`.
+- `discord.py 2.7.1` in `.venv311`.
+- `ruff check easycord tests --select E9,F63,F7,F82` - passed.
+- `pytest tests/` - 515 passed.
+- `scripts/benchmark_i18n.py` - passed under thresholds.
+- `python -m build` - passed.
+- Earlier environment checks also passed: `pytest tests/ -W error::ResourceWarning`, `python -X tracemalloc=10 -m pytest tests/ -W always::ResourceWarning`, `ruff check .`, `compileall`, `git diff --check`, and CodeRabbit review with 0 issues.
+
+---
+
 ## EasyCord v5.4.0 - 2026-05-10
 
 ### Added

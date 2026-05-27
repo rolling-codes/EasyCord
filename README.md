@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.4.0-blue)
+![Version](https://img.shields.io/badge/v-5.40.1-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -80,9 +80,16 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.4.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.4.0) · [Changelog](CHANGELOG.md)
+Release links: [v5.40.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.40.1) · [Changelog](CHANGELOG.md)
 
-## New in v5.4.0 (Current Release)
+## New in v5.40.1 (Current Release)
+
+**Patch fixes:**
+- Updated EasyCord to require `discord.py>=2.7.1,<3` and verified current app-command contexts, installs, entitlements, and locale metadata.
+- Added non-SQL memory database startup paths via `db_backend="memory"`, `database=MemoryDatabase()`, and `EASYCORD_DB_BACKEND=memory`.
+- Updated generated starter projects to use memory storage for local tests and ephemeral bots.
+- Repaired strict ResourceWarning checks and the i18n performance regression workflow.
+- Validated the release on Python 3.11.9 for GitHub Actions parity.
 
 **Developer experience:**
 - Stabilized JSON output contracts for `easycord doctor --json`, `easycord inspect --json`, and `easycord sync-plan --json`.
@@ -239,7 +246,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.4.0/EasyCord-v5.4.0.zip"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.40.1/easycord-5.40.1-py3-none-any.whl"
 ```
 
 ### Clone and install locally

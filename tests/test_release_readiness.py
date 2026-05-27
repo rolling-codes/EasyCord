@@ -26,11 +26,14 @@ def test_version_metadata_and_docs_are_consistent() -> None:
 
     assert easycord.__version__ == version
     assert re.fullmatch(r"\d+\.\d+\.\d+(?:[-.][A-Za-z0-9.]+)?", version)
-    assert f"releases/download/v{version}/EasyCord-v{version}.zip" in _read("README.md")
-    assert f"releases/download/v{version}/EasyCord-v{version}.zip" in _read("docs/getting-started.md")
+    wheel_asset = f"releases/download/v{version}/easycord-{version}-py3-none-any.whl"
+    sdist_asset = f"releases/download/v{version}/easycord-{version}.tar.gz"
+    assert wheel_asset in _read("README.md")
+    assert wheel_asset in _read("docs/getting-started.md")
     assert f"## EasyCord v{version}" in _read("CHANGELOG.md")
     assert f"releases/tag/v{version}" in pyproject["project"]["urls"]["Release"]
-    assert f"releases/download/v{version}/EasyCord-v{version}.zip" in pyproject["project"]["urls"]["Download"]
+    assert wheel_asset in pyproject["project"]["urls"]["Download"]
+    assert sdist_asset in _read(f"release_v{version}/notes.md")
     assert pyproject["project"]["scripts"]["easycord"] == "easycord.cli:main"
     assert "discord.py>=2.7.1,<3" in pyproject["project"]["dependencies"]
     assert "discord.py>=2.7.1,<3" in _read("docs/getting-started.md")
