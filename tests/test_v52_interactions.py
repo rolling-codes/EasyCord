@@ -5,7 +5,9 @@ import asyncio
 
 import pytest
 
-from easycord import Bot, Plugin, autocomplete, component, slash, slash_command, task
+import discord
+
+from easycord import Bot, Plugin, SlashGroup, autocomplete, component, slash, slash_command, task
 from easycord.registry import InteractionRegistry
 from easycord.testing import FakeInteraction, invoke_autocomplete
 from easycord.validators import ChoiceSet, Duration, Range, Regex, Snowflake, URL, ValidationError
@@ -30,6 +32,62 @@ async def test_registry_tracks_slash_and_context_menu_inventory() -> None:
         assert [entry["name"] for entry in grouped["slash"]] == ["ping"]
         assert [entry["name"] for entry in grouped["context_menu"]] == ["Profile"]
         assert grouped["slash"][0]["sync_state"] == "local"
+    finally:
+        await bot.close()
+
+
+async def test_discord_271_metadata_reaches_slash_context_menu_and_group() -> None:
+    contexts = discord.AppCommandContext(
+        guild=True,
+        dm_channel=True,
+        private_channel=True,
+    )
+    installs = discord.AppInstallationType(guild=True, user=True)
+
+    class UtilityGroup(
+        SlashGroup,
+        name="utility",
+        description="Utility commands",
+        allowed_contexts=contexts,
+        allowed_installs=installs,
+    ):
+        @slash(description="Group ping")
+        async def ping(self, ctx):
+            await ctx.respond("pong")
+
+    bot = Bot(auto_sync=False, db_backend="memory")
+    try:
+        @bot.slash(
+            description="Info",
+            allowed_contexts=contexts,
+            allowed_installs=installs,
+        )
+        async def info(ctx):
+            await ctx.respond("info")
+
+        @bot.user_command(
+            name="Profile",
+            allowed_contexts=contexts,
+            allowed_installs=installs,
+        )
+        async def profile(ctx, member):
+            await ctx.respond(str(member.id))
+
+        bot.add_group(UtilityGroup())
+
+        slash_cmd = bot.tree.get_command("info")
+        menu_cmd = bot.tree.get_command("Profile", type=discord.AppCommandType.user)
+        group_cmd = bot.tree.get_command("utility")
+
+        assert slash_cmd is not None
+        assert menu_cmd is not None
+        assert group_cmd is not None
+        assert slash_cmd.allowed_contexts is contexts
+        assert slash_cmd.allowed_installs is installs
+        assert menu_cmd.allowed_contexts is contexts
+        assert menu_cmd.allowed_installs is installs
+        assert group_cmd.allowed_contexts is contexts
+        assert group_cmd.allowed_installs is installs
     finally:
         await bot.close()
 

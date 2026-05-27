@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
-import time
 
 import discord
 import pytest
@@ -66,8 +65,7 @@ class TestCommandError:
 
     def test_handler_registered_on_plugin(self):
         """_scan_methods should populate _command_error_handlers."""
-        from easycord import Bot, Plugin
-        import discord
+        from easycord import Plugin
 
         class MathPlugin(Plugin):
             @slash(description="Divide")
@@ -267,8 +265,11 @@ class TestStackedCommandDecorators:
         async def info(ctx):
             pass
 
-        assert info._slash_allowed_contexts is not None
-        assert info._slash_allowed_installs is not None
+        assert info._slash_allowed_contexts.guild is True
+        assert info._slash_allowed_contexts.dm_channel is True
+        assert info._slash_allowed_contexts.private_channel is True
+        assert info._slash_allowed_installs.guild is True
+        assert info._slash_allowed_installs.user is True
 
     def test_premium_required_metadata(self):
         @slash(description="Premium")
@@ -545,8 +546,11 @@ class TestScannerMetadataPropagation:
         _PluginsMixin._scan_methods(bot, plugin)
 
         kwargs = bot._register_slash.call_args.kwargs
-        assert kwargs["allowed_contexts"] is not None
-        assert kwargs["allowed_installs"] is not None
+        assert kwargs["allowed_contexts"].guild is True
+        assert kwargs["allowed_contexts"].dm_channel is True
+        assert kwargs["allowed_contexts"].private_channel is True
+        assert kwargs["allowed_installs"].guild is True
+        assert kwargs["allowed_installs"].user is True
 
     def test_context_menu_metadata_propagates_to_register_context_menu(self):
         from easycord import Plugin

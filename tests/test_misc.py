@@ -1,8 +1,6 @@
 """Tests for builders, conversation_memory extras, registry, shared plugin helpers."""
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import discord
@@ -12,7 +10,7 @@ from easycord.builders.embed import EmbedBuilder
 from easycord.builders.button import ButtonRowBuilder
 from easycord.builders.modal import ModalBuilder
 from easycord.builders.select import SelectMenuBuilder
-from easycord.conversation_memory import Conversation, ConversationMemory, ConversationTurn
+from easycord.conversation_memory import Conversation, ConversationMemory
 from easycord.registry import InteractionRegistry
 from easycord.plugins._shared import (
     format_template,
@@ -101,7 +99,6 @@ class TestButtonRowBuilder:
 class TestModalBuilder:
     @pytest.mark.asyncio
     async def test_send_no_title_raises(self) -> None:
-        from easycord.builders.modal import ModalBuilder
         from unittest.mock import AsyncMock
         ctx = MagicMock()
         ctx.ask_form = AsyncMock(return_value={})
@@ -110,7 +107,6 @@ class TestModalBuilder:
 
     @pytest.mark.asyncio
     async def test_send_calls_ask_form(self) -> None:
-        from easycord.builders.modal import ModalBuilder
         from unittest.mock import AsyncMock
         ctx = MagicMock()
         ctx.ask_form = AsyncMock(return_value={"reason": "test"})
@@ -131,12 +127,10 @@ class TestModalBuilder:
 
 class TestSelectMenuBuilder:
     def test_build_returns_view(self) -> None:
-        from easycord.builders.select import SelectMenuBuilder
         view = SelectMenuBuilder().option("A", "a").build(custom_id="sel")
         assert isinstance(view, discord.ui.View)
 
     def test_options_added(self) -> None:
-        from easycord.builders.select import SelectMenuBuilder
         view = (
             SelectMenuBuilder()
             .option("Option A", "a")
@@ -148,7 +142,6 @@ class TestSelectMenuBuilder:
         assert len(select.options) == 2
 
     def test_placeholder(self) -> None:
-        from easycord.builders.select import SelectMenuBuilder
         view = (
             SelectMenuBuilder()
             .placeholder("Pick one")
@@ -158,7 +151,6 @@ class TestSelectMenuBuilder:
         assert view.children[0].placeholder == "Pick one"
 
     def test_no_options_raises(self) -> None:
-        from easycord.builders.select import SelectMenuBuilder
         with pytest.raises(ValueError):
             SelectMenuBuilder().build(custom_id="sel")
 

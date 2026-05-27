@@ -14,7 +14,7 @@ cd EasyCord
 pip install -e ".[dev]"
 ```
 
-Python 3.10 or newer is required. The only runtime dependency is `discord.py>=2.4.0`.
+Python 3.10 or newer is required. The only runtime dependency is `discord.py>=2.7.1,<3`.
 
 ---
 
@@ -33,6 +33,11 @@ easycord audit-tools bot:bot
 
 The generated project includes a runnable `bot.py`, one example plugin, an
 `.env.example`, and a starter command test.
+
+Starter projects use EasyCord's non-SQL in-memory database for local tests and
+ephemeral bots. For persistent storage, pass `db_backend="sqlite"` or provide a
+`SQLiteDatabase`; for non-SQL use, pass `db_backend="memory"`,
+`database=MemoryDatabase()`, or set `EASYCORD_DB_BACKEND=memory`.
 
 `easycord doctor [module:bot]` checks Python support, `discord.py`,
 `DISCORD_TOKEN`, and optional bot imports before you connect to Discord. Use

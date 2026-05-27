@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from easycord.orchestrator import FallbackStrategy, RunContext
 from easycord.tool_limits import RateLimit, ToolLimiter
-from easycord.tools import ToolRegistry, ToolResult, ToolSafety
+from easycord.tools import ToolRegistry, ToolSafety
 
 
 # ---------------------------------------------------------------------------

@@ -3,10 +3,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import discord
 import pytest
 
-from easycord.context import Context
 from easycord.plugins.tags import TagsPlugin
 from easycord.plugins.polls import PollsPlugin
 from easycord.plugins.welcome import WelcomePlugin

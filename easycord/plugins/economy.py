@@ -153,7 +153,6 @@ class EconomyPlugin(Plugin):
         )[:10]
 
         cfg = await self._get_config(ctx.guild.id)
-        currency = cfg.get("currency_name", "Credits")
         symbol = cfg.get("currency_symbol", "💰")
 
         lines = []
@@ -188,7 +187,7 @@ class EconomyPlugin(Plugin):
             return
 
         await self._add_balance(ctx.guild.id, ctx.user.id, -amount)
-        new_recipient = await self._add_balance(ctx.guild.id, user.id, amount)
+        await self._add_balance(ctx.guild.id, user.id, amount)
 
         cfg = await self._get_config(ctx.guild.id)
         currency = cfg.get("currency_name", "Credits")

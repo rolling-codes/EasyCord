@@ -1,7 +1,7 @@
 """Tests for BaseContext and Context using a mock discord.Interaction."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
@@ -27,6 +27,12 @@ def _mock_interaction(
     interaction.guild = guild
     interaction.locale = locale
     interaction.guild_locale = guild_locale
+    interaction.context = discord.AppCommandContext(
+        guild=guild is not None,
+        dm_channel=guild is None,
+        private_channel=False,
+    )
+    interaction.entitlements = []
     interaction.command = MagicMock()
     interaction.command.name = "test_cmd"
     interaction.data = {}
@@ -105,6 +111,18 @@ class TestBaseContext:
     def test_guild_locale(self) -> None:
         ctx = BaseContext(_mock_interaction(guild_locale="de-DE"))
         assert ctx.guild_locale == "de-DE"
+
+    def test_app_context(self) -> None:
+        interaction = _mock_interaction(guild=_mock_guild())
+        ctx = BaseContext(interaction)
+        assert ctx.app_context is interaction.context
+
+    def test_entitlements(self) -> None:
+        entitlement = object()
+        interaction = _mock_interaction()
+        interaction.entitlements = [entitlement]
+        ctx = BaseContext(interaction)
+        assert ctx.entitlements == [entitlement]
 
     def test_data_property(self) -> None:
         ctx = BaseContext(_mock_interaction())

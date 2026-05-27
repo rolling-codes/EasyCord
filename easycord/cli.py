@@ -30,9 +30,9 @@ _PROJECT_TEMPLATES: tuple[ProjectTemplate, ...] = (
     "database",
 )
 _PROJECT_TEMPLATE_DESCRIPTIONS = {
-    "minimal": "Single-file bot with a slash command and test.",
-    "plugin": "Plugin-oriented scaffold; this is the default.",
-    "ai": "Plugin scaffold with an AI-provider placeholder command.",
+    "minimal": "Single-file bot with a slash command and non-SQL tests.",
+    "plugin": "Plugin-oriented scaffold with a memory database; this is the default.",
+    "ai": "Plugin scaffold with an AI-provider placeholder command and memory database.",
     "database": "Plugin scaffold with SQLite app setup and in-memory tests.",
 }
 
@@ -107,7 +107,7 @@ def _minimal_project_files(name: str) -> dict[str, str]:
             from easycord import Bot
 
 
-            bot = Bot(auto_sync=False)
+            bot = Bot(auto_sync=False, db_backend="memory")
 
 
             @bot.slash(description="Ping the bot")
@@ -143,7 +143,7 @@ def _plugin_project_files(name: str) -> dict[str, str]:
             from plugins.{plugin_module} import {plugin_class}
 
 
-            bot = Bot(auto_sync=False)
+            bot = Bot(auto_sync=False, db_backend="memory")
             bot.add_plugin({plugin_class}())
 
 
@@ -160,7 +160,7 @@ def _plugin_project_files(name: str) -> dict[str, str]:
                 async def hello(self, ctx):
                     await ctx.respond(f"Hello, {{ctx.user.display_name}}!")
             ''',
-        "tests/test_bot.py": f'''\
+        "tests/test_bot.py": '''\
             from bot import bot
             from easycord.testing import invoke
 
@@ -185,7 +185,7 @@ def _ai_project_files(name: str) -> dict[str, str]:
             from plugins.{plugin_module} import {plugin_class}
 
 
-            bot = Bot(auto_sync=False)
+            bot = Bot(auto_sync=False, db_backend="memory")
             bot.add_plugin({plugin_class}())
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from easycord.server_config import ServerConfig, ServerConfigStore
+from easycord.server_config import ServerConfigStore
 
 
 class ConfigHelpers:

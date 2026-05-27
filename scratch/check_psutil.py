@@ -1,5 +1,6 @@
-try:
-    import psutil
+from importlib.util import find_spec
+
+if find_spec("psutil") is not None:
     print("psutil is installed")
-except ImportError:
+else:
     print("psutil is NOT installed")

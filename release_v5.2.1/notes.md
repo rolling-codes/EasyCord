@@ -13,7 +13,7 @@
 ### Changed
 - Refactored Plugin instance tracking to use unique `_instance_id` values instead of class names, preventing state cross-pollution.
 - Updated `InteractionRegistry` to compare structural segments of dynamic component patterns for collision detection.
-- Bumped minimum required `discord.py` version to `>=2.4.0` for `AppInstallationType` support.
+- Bumped minimum required `discord.py` version to `>=2.7.1,<3` for current app-command context and installation support.
 - Standardized all bundled plugins to use `ctx.respond()` instead of deprecated `ctx.send_embed_from_dict()`.
 
 ### Fixed

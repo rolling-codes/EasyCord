@@ -516,8 +516,6 @@ class LocalizationManager:
         """Look up a translated string and fall back safely if missing."""
         requested_locale = _normalize_locale(locale)
         guild_normalized = _normalize_locale(guild_locale)
-        found_in = None
-        is_cache_hit = False
 
         # Build preferred chain (user locale + guild locale, NO default)
         preferred_chain: list[str] = []
@@ -534,8 +532,6 @@ class LocalizationManager:
         for candidate in preferred_chain:
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
-                found_in = candidate
-                is_cache_hit = True
                 if self.track_metrics:
                     self._metrics["cache_hits"] += 1
                     self._update_locale_frequency(candidate)
@@ -556,7 +552,6 @@ class LocalizationManager:
             default=default,
         )
         if auto_translated is not None:
-            found_in = "auto_translator"
             if self.track_metrics:
                 self._metrics["auto_translated"] += 1
                 if requested_locale:
@@ -572,7 +567,6 @@ class LocalizationManager:
         for candidate in default_chain:
             catalog = self._catalogs.get(candidate)
             if catalog and key in catalog:
-                found_in = candidate
                 if self.track_metrics:
                     self._metrics["fallback_resolution"] += 1
                     self._update_locale_frequency(candidate)

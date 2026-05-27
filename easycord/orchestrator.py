@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
-from easycord.tools import ToolCall, ToolRegistry
+from easycord.tools import ToolRegistry
 
 logger = logging.getLogger("easycord.orchestrator")
 

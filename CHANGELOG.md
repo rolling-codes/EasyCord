@@ -17,6 +17,9 @@
 ### Compatibility
 - Existing CLI commands, flags, formatter exports, and testing helpers remain available.
 - CLI commands remain dependency-free and avoid live Discord side effects by default.
+- Runtime dependency floor is `discord.py>=2.7.1,<3`; SQLite remains available,
+  while `MemoryDatabase`, `db_backend="memory"`, and `EASYCORD_DB_BACKEND=memory`
+  provide non-SQL startup paths for tests and ephemeral bots.
 
 ### Verification
 - `pytest tests/`
@@ -58,7 +61,7 @@
 ### Changed
 - Refactored Plugin instance tracking to use unique `_instance_id` values instead of class names, preventing state cross-pollution.
 - Updated `InteractionRegistry` to compare structural segments of dynamic component patterns for collision detection.
-- Bumped minimum required `discord.py` version to `>=2.4.0` for `AppInstallationType` support.
+- Bumped minimum required `discord.py` version to `>=2.7.1,<3` for current app-command context and installation support.
 - Standardized all bundled plugins to use `ctx.respond()` instead of deprecated `ctx.send_embed_from_dict()`.
 
 ### Fixed
@@ -73,7 +76,7 @@
 - Fixed choice validators crashing on mixed-type choice sets.
 
 ### Compatibility
-- `discord.py >= 2.4.0` is now required.
+- `discord.py >= 2.7.1,<3` is now required.
 - `InteractionRegistry` replaces `CommandTree` as the authoritative internal metadata store.
 
 ### Migration Notes

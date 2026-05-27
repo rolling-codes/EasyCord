@@ -1,7 +1,7 @@
 """Tests for middleware factories and build_chain."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

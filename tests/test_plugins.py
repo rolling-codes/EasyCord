@@ -4,14 +4,6 @@ from __future__ import annotations
 import pytest
 
 from easycord.plugins.tags import TagsStore
-from easycord.plugins._shared import (
-    channel_reference,
-    format_template,
-    read_json_file,
-    require_guild,
-    role_reference,
-    write_json_file,
-)
 from easycord.plugins._config_manager import PluginConfigManager
 from easycord.plugins._levels_data import (
     LevelsStore,

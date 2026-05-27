@@ -180,7 +180,9 @@ def test_cli_new_creates_project(tmp_path: Path, capsys) -> None:
     assert (project / "bot.py").exists()
     assert (project / "plugins" / "demo_bot.py").exists()
     assert (project / "tests" / "test_bot.py").exists()
-    assert "Bot(auto_sync=False)" in (project / "bot.py").read_text(encoding="utf-8")
+    assert 'Bot(auto_sync=False, db_backend="memory")' in (
+        project / "bot.py"
+    ).read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize(

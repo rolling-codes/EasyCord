@@ -398,4 +398,3 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
 
 # Imported here to avoid a circular import at module level while still allowing
 # the type annotation in add_group to resolve at runtime.
-from .group import SlashGroup  # noqa: E402

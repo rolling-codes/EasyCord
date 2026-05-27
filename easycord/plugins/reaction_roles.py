@@ -10,7 +10,7 @@ from easycord import Plugin, on
 from easycord.server_config import ServerConfigStore
 
 if TYPE_CHECKING:
-    from easycord import Context
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,6 @@ class ReactionRolesPlugin(Plugin):
 
     async def _get_mappings(self, guild_id: int, message_id: int) -> dict[str, int]:
         """Get emoji->role_id mappings for a message."""
-        from easycord import ServerConfig
 
         cfg_obj = await self.config_store.load(guild_id)
         all_mappings = cfg_obj.get_other("reaction_roles", {})
@@ -53,7 +52,6 @@ class ReactionRolesPlugin(Plugin):
 
     async def _set_mapping(self, guild_id: int, message_id: int, emoji: str, role_id: int) -> None:
         """Add/update emoji->role mapping for a message."""
-        from easycord import ServerConfig
 
         cfg_obj = await self.config_store.load(guild_id)
         all_mappings = cfg_obj.get_other("reaction_roles", {})
@@ -67,7 +65,6 @@ class ReactionRolesPlugin(Plugin):
 
     async def _remove_mapping(self, guild_id: int, message_id: int, emoji: str) -> None:
         """Remove emoji->role mapping for a message."""
-        from easycord import ServerConfig
 
         cfg_obj = await self.config_store.load(guild_id)
         all_mappings = cfg_obj.get_other("reaction_roles", {})
@@ -154,7 +151,6 @@ class ReactionRolesPlugin(Plugin):
         if payload.guild_id is None:
             return
 
-        from easycord import ServerConfig
 
         cfg_obj = await self.config_store.load(payload.guild_id)
         all_mappings = cfg_obj.get_other("reaction_roles", {})
@@ -168,7 +164,6 @@ class ReactionRolesPlugin(Plugin):
     @on("guild_role_delete")
     async def _on_role_delete(self, role: discord.Role) -> None:
         """Clean up deleted role from all mappings."""
-        from easycord import ServerConfig
 
         cfg_obj = await self.config_store.load(role.guild.id)
         all_mappings = cfg_obj.get_other("reaction_roles", {})

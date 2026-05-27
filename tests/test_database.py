@@ -1,12 +1,10 @@
 """Tests for SQLiteDatabase and MemoryDatabase."""
 from __future__ import annotations
 
-import os
-import tempfile
 
 import pytest
 
-from easycord.database import DatabaseConfig, GuildRecord, MemoryDatabase, SQLiteDatabase
+from easycord.database import DatabaseConfig, MemoryDatabase, SQLiteDatabase
 
 
 # ---------------------------------------------------------------------------
@@ -174,10 +172,13 @@ class TestMemoryDatabase:
 
 class TestSQLiteDatabase:
     @pytest.fixture
-    def db(self, tmp_path):
+    async def db(self, tmp_path):
         path = tmp_path / "test.db"
         d = SQLiteDatabase(str(path))
-        yield d
+        try:
+            yield d
+        finally:
+            await d.close()
 
     @pytest.mark.asyncio
     async def test_ensure_guild_and_get_guild(self, db) -> None:

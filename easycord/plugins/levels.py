@@ -10,7 +10,6 @@ import discord
 from easycord import Plugin, slash, on
 from ._levels_data import (
     LevelsStore,
-    level_from_xp,
     progress_bar,
     rank_for_level,
     xp_for_level,

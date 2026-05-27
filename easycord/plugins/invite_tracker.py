@@ -10,7 +10,7 @@ from easycord import Plugin, on
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
-    from easycord import Context
+    pass
 
 logger = logging.getLogger(__name__)
 

@@ -1,11 +1,8 @@
 """Tests for easycord.plugins.levels — LevelsPlugin."""
-import asyncio
 import json
-import time
 import discord
 import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from easycord.plugins.levels import LevelsPlugin
 from easycord.plugins._levels_data import (

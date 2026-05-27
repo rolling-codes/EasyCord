@@ -8,7 +8,6 @@ import pytest
 
 from easycord.plugins.economy import EconomyPlugin, _DEFAULTS as ECONOMY_DEFAULTS
 from easycord.plugins.auto_responder import AutoResponderPlugin
-from easycord.plugins.invite_tracker import InviteTrackerPlugin
 from easycord.plugins.role_persistence import RolePersistencePlugin
 
 
@@ -245,7 +244,6 @@ class TestAutoResponderPlugin:
 class TestRolePersistencePlugin:
     @pytest.fixture
     def plugin(self, tmp_path):
-        from easycord.plugins.role_persistence import RolePersistencePlugin
         p = RolePersistencePlugin.__new__(RolePersistencePlugin)
         from easycord.plugins._config_manager import PluginConfigManager
         p.config = PluginConfigManager(str(tmp_path / "role_persist"))

@@ -89,6 +89,38 @@ async def test_build_bot_honors_memory_backend() -> None:
         await bot.close()
 
 
+async def test_bot_memory_backend_does_not_create_sqlite_file(tmp_path) -> None:
+    db_path = tmp_path / "should-not-exist.db"
+    bot = Bot(auto_sync=False, db_backend="memory", db_path=str(db_path))
+    try:
+        assert isinstance(bot.db, MemoryDatabase)
+        assert not db_path.exists()
+    finally:
+        await bot.close()
+
+
+async def test_bot_accepts_explicit_memory_database() -> None:
+    database = MemoryDatabase()
+    bot = Bot(auto_sync=False, database=database)
+    try:
+        assert bot.db is database
+    finally:
+        await bot.close()
+
+
+async def test_bot_uses_memory_backend_from_environment(monkeypatch, tmp_path) -> None:
+    db_path = tmp_path / "env-should-not-exist.db"
+    monkeypatch.setenv("EASYCORD_DB_BACKEND", "memory")
+    monkeypatch.setenv("EASYCORD_DB_PATH", str(db_path))
+
+    bot = Bot(auto_sync=False)
+    try:
+        assert isinstance(bot.db, MemoryDatabase)
+        assert not db_path.exists()
+    finally:
+        await bot.close()
+
+
 async def test_build_bot_honors_sqlite_backend(tmp_path) -> None:
     db_path = tmp_path / "bot.db"
     bot = BotConfig(

@@ -8,7 +8,7 @@ from easycord.utils.easy_embed import EasyEmbed
 from easycord.utils.paginator import Paginator
 from easycord.helpers.embed import EmbedBuilder as HelpersEmbedBuilder
 from easycord.helpers.ratelimit import RateLimitHelpers
-from easycord.tool_limits import RateLimit, ToolLimiter
+from easycord.tool_limits import ToolLimiter
 
 
 # ---------------------------------------------------------------------------

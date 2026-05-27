@@ -39,7 +39,7 @@ jobs:
         uses: actions/cache/restore@v4
         id: cache-baseline
         with:
-          path: baseline-benchmark-results.json
+          path: baseline/benchmark-results.json
           key: benchmark-baseline-${{ github.base_ref || 'main' }}
           restore-keys: |
             benchmark-baseline-main
@@ -147,9 +147,16 @@ jobs:
 
       - name: Save baseline (main/develop only)
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && success()
+        shell: bash
+        run: |
+          mkdir -p baseline
+          cp benchmark-results.json baseline/benchmark-results.json
+
+      - name: Cache baseline (main/develop only)
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && success()
         uses: actions/cache/save@v4
         with:
-          path: benchmark-results.json
+          path: baseline/benchmark-results.json
           key: benchmark-baseline-${{ github.ref_name }}
 
       - name: Comment PR with benchmark results

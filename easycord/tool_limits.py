@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from easycord.context import Context
+    pass
 
 
 @dataclass

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Literal
 
 import discord
@@ -104,7 +103,7 @@ class AIModeratorPlugin(Plugin):
         messages.append({"role": "user", "content": prompt})
 
         try:
-            from easycord import ContextBuilder, RunContext
+            from easycord import RunContext
 
             run_ctx = RunContext(
                 messages=messages,

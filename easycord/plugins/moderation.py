@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from easycord import Plugin, RateLimit, ToolLimiter, on, slash
+from easycord import Plugin, RateLimit, ToolLimiter, slash
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:

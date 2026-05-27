@@ -11,7 +11,7 @@ from easycord import Plugin, on
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
-    from easycord import Context
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,6 @@ class AutoResponderPlugin(Plugin):
 
     async def _add_trigger(self, guild_id: int, keyword: str, response: str) -> None:
         """Add literal keyword trigger."""
-        from easycord import ServerConfig
 
         cfg = await self._get_config(guild_id)
         cfg["triggers"][keyword] = response
@@ -107,7 +106,6 @@ class AutoResponderPlugin(Plugin):
         except re.error as e:
             raise ValueError(f"Invalid regex: {e}") from e
 
-        from easycord import ServerConfig
 
         cfg = await self._get_config(guild_id)
         cfg["regex_triggers"][pattern] = response
@@ -115,7 +113,6 @@ class AutoResponderPlugin(Plugin):
 
     async def _remove_trigger(self, guild_id: int, keyword: str) -> bool:
         """Remove trigger. Return True if found."""
-        from easycord import ServerConfig
 
         cfg = await self._get_config(guild_id)
         triggers = cfg.get("triggers", {})

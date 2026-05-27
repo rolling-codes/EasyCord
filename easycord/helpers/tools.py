@@ -1,10 +1,9 @@
 """Tool registry helper shortcuts."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Any
+from typing import TYPE_CHECKING, Any
 
-from easycord.tools import ToolDef, ToolRegistry, ToolSafety
-from easycord.tool_limits import RateLimit
+from easycord.tools import ToolDef, ToolRegistry
 
 if TYPE_CHECKING:
     pass

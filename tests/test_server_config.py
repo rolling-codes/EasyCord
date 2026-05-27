@@ -1,7 +1,6 @@
 """Tests for ServerConfig and ServerConfigStore."""
 from __future__ import annotations
 
-import json
 
 import pytest
 

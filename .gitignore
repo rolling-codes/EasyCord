@@ -14,12 +14,15 @@ MANIFEST
 
 # Virtual environments
 .venv/
+.venv*/
+.venv311/
 venv/
 env/
 .env
 *.env
 
 # Test / coverage
+benchmark-results.json
 .pytest_cache/
 .pytest_cache_codex/
 .tmp_pytest/
