@@ -15,7 +15,6 @@ def test_from_env_reads_known_fields_and_extra(monkeypatch) -> None:
     monkeypatch.setenv("EASYCORD_DB_PATH", "data/env.db")
     monkeypatch.setenv("EASYCORD_AUTO_SYNC", "false")
     monkeypatch.setenv("EASYCORD_LOG_LEVEL", "WARNING")
-    monkeypatch.setenv("EASYCORD_AUTO_ADAPT_GUILDS", "true")
 
     cfg = BotConfig.from_env(custom="value", extra={"nested": True})
 
@@ -25,7 +24,6 @@ def test_from_env_reads_known_fields_and_extra(monkeypatch) -> None:
     assert cfg.db_path == "data/env.db"
     assert cfg.auto_sync is False
     assert cfg.log_level == "WARNING"
-    assert cfg.auto_adapt_guilds is True
     assert cfg.extra == {"custom": "value", "nested": True}
 
 
@@ -109,14 +107,6 @@ async def test_build_bot_passes_guild_sync_target() -> None:
     bot = BotConfig(token="token", guild_id=987).build_bot(auto_sync=False)
     try:
         assert bot._sync_guild_id == 987
-    finally:
-        await bot.close()
-
-
-async def test_build_bot_passes_guild_adaptation_option() -> None:
-    bot = BotConfig(token="token", auto_adapt_guilds=True).build_bot(auto_sync=False)
-    try:
-        assert bot._auto_adapt_guilds is True
     finally:
         await bot.close()
 

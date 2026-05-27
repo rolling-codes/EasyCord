@@ -16,7 +16,7 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
-__version__ = "6.1.0"
+__version__ = "5.4.0"
 
 from .audit import AuditLog
 from .bot import Bot
@@ -29,7 +29,6 @@ from .database import DatabaseConfig, EasyCordDatabase, GuildRecord, MemoryDatab
 from .config import BotConfig
 from .decorators import ai_tool, autocomplete, command_error, component, cooldown, describe, install_type, message_command, modal, on, premium_required, require_permissions, slash, slash_command, task, user_command
 from .i18n import LocalizationManager
-from .guild_adaptation import plan_guild_adaptation
 from .group import SlashGroup
 from .plugin import Plugin
 from .server_config import ServerConfig, ServerConfigStore
@@ -55,13 +54,6 @@ _PROVIDER_NAMES = frozenset({
     "OpenAIProvider",
     "TogetherAIProvider",
 })
-
-
-def launch_command_center() -> None:
-    """Launch the optional desktop Command Center."""
-    from ui.desktop import launch
-
-    launch()
 
 
 def __getattr__(name: str):
@@ -118,7 +110,6 @@ __all__ = [
     "GuildRecord",
     "InfoEmbed",
     "install_type",
-    "launch_command_center",
     "ModalBuilder",
     "message_command",
     "modal",
@@ -127,7 +118,6 @@ __all__ = [
     "Orchestrator",
     "Plugin",
     "Paginator",
-    "plan_guild_adaptation",
     "ProviderStrategy",
     "premium_required",
     "RateLimit",

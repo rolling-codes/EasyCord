@@ -14,14 +14,6 @@ from .tools import ToolSafety
 
 logger = logging.getLogger("easycord")
 
-_EVENT_INTENT_MAP = {
-    "member_join": "members",
-    "member_remove": "members",
-    "member_update": "members",
-    "user_update": "members",
-    "message": "message_content",
-}
-
 
 class _PluginsMixin:
     """Mixin: plugin add/remove, background tasks, and method scanning."""
@@ -196,7 +188,6 @@ class _PluginsMixin:
             )
         plugin._bot = self
         self._plugins.append(plugin)
-        self._check_plugin_intents(plugin)
         self._scan_methods(plugin)
         if self.is_ready():
             # Schedule on_load and task startup as a single sequential coroutine
@@ -212,22 +203,6 @@ class _PluginsMixin:
                 task.add_done_callback(background_tasks.discard)
             task.add_done_callback(self._log_task_exception)
         return self
-
-    def _check_plugin_intents(self, plugin: Plugin) -> None:
-        """Verify that the bot has the required intents for this plugin's events."""
-        intents = self.intents
-        for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
-            if getattr(method, "_is_event", False):
-                event_name = method._event_name
-                required = _EVENT_INTENT_MAP.get(event_name)
-                if required and not getattr(intents, required):
-                    logger.warning(
-                        "Plugin %r uses %r event, but %r intent is disabled. "
-                        "This event will never fire. Enable it with Bot(intents=...)",
-                        type(plugin).__name__,
-                        event_name,
-                        required,
-                    )
 
     def add_plugins(self, *plugins: Plugin) -> None:
         """Add several plugins in one call."""

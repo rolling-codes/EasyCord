@@ -1,41 +1,5 @@
 # Changelog
 
-## EasyCord v6.0.1 - 2026-05-11
-
-### Fixed
-- **Desktop Bridge Tests**: Hardened `tests/test_desktop_bridge.py` to handle missing optional dependencies (skips automatically if `pywebview` is not installed).
-- **Linter Support**: Added ignore comments for dynamic imports in tests to silence false-positive IDE warnings.
-- **Verification**: Cleaned up test logic for exception masking and memory usage reporting.
-
----
-
-## EasyCord v6.0.0 - 2026-05-11
-
-### Added
-- **Command Center**: A React-based desktop application for managing Discord bots locally via `pywebview`.
-- **Hardened BotAPI Bridge**: Secure Python-to-JS communication with explicit state management (`OFFLINE`, `STARTING`, `ONLINE`, `STOPPING`) and thread safety.
-- **Optional Desktop Support**: GUI-related dependencies (`pywebview`, `psutil`) are now optional to keep the core framework dependency-free. Install via `pip install easycord[desktop]`.
-- **Live Monitoring**: Real-time telemetry (API latency, memory, uptime) and live system log streaming directly in the desktop UI.
-- **Security & Validation**: 
-    - Automatic token and secret sanitization from all UI-exposed logs.
-    - Strict Snowflake validation for Guild IDs.
-    - Local-only binding for the internal GUI static server.
-- **Automated Verification**: New `test_desktop_bridge.py` covering lifecycle edge cases and security masking.
-
-### Changed
-- Refactored `ui/desktop` for production-grade stability and process safety.
-- Updated `pyproject.toml` to support `[desktop]` optional installs.
-
-### Verification
-- `pytest tests/test_desktop_bridge.py`
-- `python -m compileall easycord tests`
-- `python -c "import easycord; print(easycord.__version__)"` (verified clean core import)
-
----
-
-## Unreleased
-... (existing unreleased items if any)
-
 ## EasyCord v5.4.0 - 2026-05-10
 
 ### Added

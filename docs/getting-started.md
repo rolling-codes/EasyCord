@@ -152,9 +152,7 @@ class PrefixPlugin(Plugin):
 
     @slash(description="Set the welcome channel")
     async def set_welcome(self, ctx, channel_id: str):
-        cfg = await self._store.load(ctx.guild.id)
-        cfg.set_channel("welcome", int(channel_id))
-        await self._store.save(cfg)
+        await self._store.set(ctx.guild.id, "welcome_channel", channel_id)
         await ctx.respond(f"Welcome channel set to <#{channel_id}>.")
 ```
 
@@ -165,31 +163,6 @@ from easycord import Bot, SQLiteDatabase
 
 bot = Bot(database=SQLiteDatabase(path="data/bot.db"))
 ```
-
-### Server adaptation on join
-
-Bots can opt into offline guild adaptation when they join a server. EasyCord
-looks at cached channel and role names, then stores inferred config keys like
-`logging`, `welcome`, `announcements`, `rules`, `general`, `support`,
-`admin`, `moderator`, and `member` in `ServerConfigStore`.
-
-```python
-from easycord import Bot
-
-bot = Bot(auto_adapt_guilds=True)
-```
-
-This never creates channels, edits roles, syncs commands, or calls Discord APIs.
-It only saves inferred IDs from the guild object Discord already provided.
-Existing config keys are preserved unless you explicitly overwrite them:
-
-```python
-plan = bot.plan_guild_adaptation(guild)
-saved = await bot.apply_guild_adaptation(guild, overwrite=True)
-```
-
-Use `EASYCORD_AUTO_ADAPT_GUILDS=true` with `BotConfig.from_env()` for
-environment-driven startup.
 
 ---
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "6.1.0"
+version = "5.4.0"
 description = "Production-grade Discord bot framework with AI orchestration, multi-provider LLMs, and permission-gated tool execution"
 readme = "README.md"
 license = "MIT"
@@ -26,15 +26,14 @@ dependencies = [
     "discord.py>=2.4.0",
 ]
 
+# authors = [
+#     { name = "Your Name", email = "you@example.com" },
+# ]
+
 [project.optional-dependencies]
-desktop = [
-    "pywebview>=5.1",
-    "psutil>=5.9",
-]
 dev = [
     "pytest>=7",
     "pytest-asyncio>=0.21",
-    "pytest-mock>=3.10",
     "tomli>=2; python_version < '3.11'",
     "build",
     "twine",
@@ -45,24 +44,22 @@ Homepage       = "https://github.com/rolling-codes/EasyCord"
 Repository     = "https://github.com/rolling-codes/EasyCord"
 Issues         = "https://github.com/rolling-codes/EasyCord/issues"
 Documentation  = "https://github.com/rolling-codes/EasyCord"
-Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v6.1.0/EasyCord-v6.1.0.zip"
-Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v6.1.0"
+Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v5.4.0/EasyCord-v5.4.0.zip"
+Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v5.4.0"
 Changelog      = "https://github.com/rolling-codes/EasyCord/blob/main/CHANGELOG.md"
 
 [project.scripts]
 easycord = "easycord.cli:main"
-easycord-desktop = "ui.desktop.main:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
-include = ["easycord*", "ui*"]
+include = ["easycord*"]
 exclude = ["tests*", "*.tests*", "*.tests"]
 
 [tool.setuptools.package-data]
 easycord = ["py.typed"]
-ui = ["EasyCord.html", "easycord-ui/*.css", "easycord-ui/*.jsx"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["__pycache__", "*.pyc", "*.pyo"]

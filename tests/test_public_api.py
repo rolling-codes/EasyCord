@@ -15,7 +15,6 @@ def test_public_exports_import_from_easycord() -> None:
         format_sync_plan,
         format_tool_audit,
         install_type,
-        plan_guild_adaptation,
         premium_required,
         require_permissions,
     )
@@ -31,7 +30,6 @@ def test_public_exports_import_from_easycord() -> None:
         "format_sync_plan",
         "format_tool_audit",
         "install_type",
-        "plan_guild_adaptation",
         "premium_required",
         "require_permissions",
     ):
@@ -47,7 +45,6 @@ def test_public_exports_import_from_easycord() -> None:
     assert callable(format_sync_plan)
     assert callable(format_tool_audit)
     assert callable(install_type)
-    assert callable(plan_guild_adaptation)
     assert callable(premium_required)
     assert callable(require_permissions)
 

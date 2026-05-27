@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-6.0.1-blue)
+![Version](https://img.shields.io/badge/v-5.4.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -8,10 +8,9 @@
 
 ## Start here
 
-1. Install: `pip install easycord` (or `pip install "easycord[desktop]"` for the Command Center)
+1. Install: `pip install easycord`
 2. Create: A bot with one slash command.
 3. Grow: Split features into plugins.
-4. Manage: Launch the desktop Command Center to monitor your bot.
 
 ### Architecture
 
@@ -81,16 +80,9 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v6.0.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v6.0.1) · [Changelog](CHANGELOG.md)
+Release links: [v5.4.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.4.0) · [Changelog](CHANGELOG.md)
 
-## New in v6.0.0 (Command Center)
-
-**Desktop Management:**
-- **Command Center**: A React-based desktop application for managing Discord bots locally via `pywebview`.
-- **Hardened BotAPI Bridge**: Secure Python-to-JS communication with explicit state management and thread safety.
-- **Optional Desktop Support**: GUI-related dependencies are now optional. Install via `pip install easycord[desktop]`.
-- **Live Monitoring**: Real-time telemetry (API latency, memory, uptime) and live system log streaming.
-- **Security & Validation**: Automatic token/secret sanitization and strict Snowflake validation for Guild IDs.
+## New in v5.4.0 (Current Release)
 
 **Developer experience:**
 - Stabilized JSON output contracts for `easycord doctor --json`, `easycord inspect --json`, and `easycord sync-plan --json`.
@@ -101,28 +93,6 @@ Release links: [v6.0.1 release](https://github.com/rolling-codes/EasyCord/releas
 - Added `easycord new --list-templates`, `easycord audit-tools --fail-on-warnings`, and role-aware `FakeContextBuilder.with_roles(...)`.
 
 See [`docs/developer-toolkit.md`](docs/developer-toolkit.md).
-
-## Server Adaptation
-
-EasyCord can infer useful per-guild settings from an existing server layout
-when the bot joins. Enable it with `Bot(auto_adapt_guilds=True)` or
-`EASYCORD_AUTO_ADAPT_GUILDS=true` through `BotConfig.from_env()`.
-
-The adaptation is offline and conservative: it reads cached channel and role
-names, stores keys such as `logging`, `welcome`, `announcements`, `rules`,
-`general`, `support`, `admin`, and `moderator` in `ServerConfigStore`, and
-preserves existing config by default. It does not create channels, edit roles,
-sync commands, or call Discord APIs.
-
-```python
-from easycord import Bot
-
-bot = Bot(auto_adapt_guilds=True)
-
-# Available for tests, setup commands, or one-off admin flows:
-plan = bot.plan_guild_adaptation(guild)
-saved = await bot.apply_guild_adaptation(guild)
-```
 
 ## Previous: v5.3.0
 

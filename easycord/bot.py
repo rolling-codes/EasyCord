@@ -22,9 +22,7 @@ from ._bot_commands import _CommandsMixin
 from ._bot_events import _EventsMixin
 from ._bot_guild import _GuildMixin
 from ._bot_plugins import _PluginsMixin
-from .guild_adaptation import validate_guild_adaptation_profile
 from .registry import InteractionRegistry
-from .server_config import ServerConfigStore
 from .tools import ToolRegistry
 from .builtin_tools import register_builtin_tools
 
@@ -63,13 +61,6 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         Optional development guild ID. When set, auto-sync copies global
         commands into that guild and syncs the guild command set instead of
         publishing commands globally.
-    auto_adapt_guilds:
-        When ``True``, infer channel and role config from cached guild names
-        on guild join and persist it to ``ServerConfigStore``. Defaults to
-        ``False`` so existing bots keep their startup behavior.
-    guild_adaptation_profile:
-        Named adaptation profile: ``"conservative"``, ``"standard"``, or
-        ``"aggressive"``. Defaults to ``"standard"`` when adaptation is enabled.
     """
 
     def __init__(
@@ -90,24 +81,12 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         ai_provider=None,
         enable_conversation_memory: bool = False,
         enable_health_command: bool = False,
-        auto_adapt_guilds: bool = False,
-        guild_adaptation_profile: str = "standard",
-        on_guild_adaptation: Callable[[Any], Any] | None = None,
-        guild_config_store: ServerConfigStore | None = None,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
         self.tree = app_commands.CommandTree(self)
         self._auto_sync = auto_sync
         self._sync_guild_id = sync_guild_id
-        self._auto_adapt_guilds = auto_adapt_guilds
-        self._guild_adaptation_profile = validate_guild_adaptation_profile(
-            guild_adaptation_profile
-        )
-        self._guild_adaptation_callbacks: list[Callable[[Any], Any]] = []
-        if on_guild_adaptation is not None:
-            self._guild_adaptation_callbacks.append(on_guild_adaptation)
-        self._guild_config_store = guild_config_store
         self._middleware: list[MiddlewareFn] = []
         self._event_handlers: dict[str, list[Callable]] = {}
         self._plugins: list[Plugin] = []

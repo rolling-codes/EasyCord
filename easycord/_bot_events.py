@@ -101,43 +101,28 @@ class _EventsMixin:
         self,
         exc: Exception,
         ctx=None,
-        command_name: str | None = None,
         plugin_name: str | None = None,
         plugin_instance=None,
     ) -> None:
-        """Route unhandled exceptions through per-command, plugin, or global handlers."""
-        # 1. Per-command handler
-        if command_name:
-            per_cmd = getattr(self, "_command_error_handlers", {}).get(command_name)
-            if per_cmd is not None:
-                try:
-                    await per_cmd(ctx, exc)
-                    return
-                except Exception as handler_exc:
-                    logger.exception("Error in per-command error handler", exc_info=handler_exc)
-
-        # 2. Plugin-level handler
+        """Route an exception through plugin and global error handlers."""
         if plugin_instance is None and plugin_name is not None:
             for p in getattr(self, "_plugins", []):
-                # Match by instance ID or class name
-                if getattr(p, "_instance_id", None) == plugin_name or type(p).__name__ == plugin_name:
+                if getattr(p, "_instance_id", type(p).__name__) == plugin_name:
                     plugin_instance = p
                     break
 
         if plugin_instance is not None:
             from .plugin import Plugin as _Plugin
             if isinstance(plugin_instance, _Plugin):
-                try:
-                    plugin_on_error = type(plugin_instance).on_error
-                    base_on_error = _Plugin.on_error
-                    if plugin_on_error is not base_on_error:
+                plugin_on_error = type(plugin_instance).on_error
+                base_on_error = _Plugin.on_error
+                if plugin_on_error is not base_on_error:
+                    try:
                         await plugin_instance.on_error(ctx, exc)
-                        return
-                except Exception as handler_exc:
-                    logger.exception("Error in plugin on_error handler", exc_info=handler_exc)
+                    except Exception as handler_exc:
+                        logger.exception("Error in plugin on_error handler", exc_info=handler_exc)
                     return
 
-        # 3. Global handler
         error_handler = getattr(self, "_error_handler", None)
         if error_handler is not None:
             try:
@@ -146,7 +131,6 @@ class _EventsMixin:
                 logger.exception("Error in global on_error handler", exc_info=handler_exc)
             return
 
-        # 4. Final fallback
         logger.exception("Unhandled exception in framework interaction or task", exc_info=exc)
 
     # ── User & member lookup ──────────────────────────────────
@@ -326,8 +310,6 @@ class _EventsMixin:
     async def on_guild_join(self, guild: discord.Guild) -> None:
         """Auto-create a database row when the bot joins a new guild."""
         db = getattr(self, "db", None)
-        if db is not None and getattr(db, "auto_sync_guilds", True):
-            await db.ensure_guild(guild.id)
-        if getattr(self, "_auto_adapt_guilds", False):
-            result = await self.apply_guild_adaptation(guild)  # type: ignore[attr-defined]
-            await self._dispatch_guild_adaptation_callbacks(result)  # type: ignore[attr-defined]
+        if db is None or not getattr(db, "auto_sync_guilds", True):
+            return
+        await db.ensure_guild(guild.id)

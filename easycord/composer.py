@@ -48,7 +48,6 @@ class Composer:
         self._db_backend: str | None = None
         self._db_path: str | None = None
         self._db_auto_sync_guilds: bool | None = None
-        self._auto_adapt_guilds: bool = False
         self._localization: LocalizationManager | None = None
         self._default_locale: str = "en-US"
         self._translations: dict | None = None
@@ -92,11 +91,6 @@ class Composer:
     def db_auto_sync_guilds(self, enabled: bool = True) -> Composer:
         """Enable or disable automatic guild-row creation."""
         self._db_auto_sync_guilds = enabled
-        return self
-
-    def auto_adapt_guilds(self, enabled: bool = True) -> Composer:
-        """Enable inferred per-guild channel and role config on guild join."""
-        self._auto_adapt_guilds = enabled
         return self
 
     def localization(self, manager: LocalizationManager) -> Composer:
@@ -264,7 +258,6 @@ class Composer:
             db_backend=self._db_backend,
             db_path=self._db_path,
             db_auto_sync_guilds=self._db_auto_sync_guilds,
-            auto_adapt_guilds=self._auto_adapt_guilds,
             localization=self._localization,
             default_locale=self._default_locale,
             translations=self._translations,

@@ -37,8 +37,6 @@ _CONFIG_FIELDS = {
     "auto_sync",
     "log_level",
     "enable_health_command",
-    "auto_adapt_guilds",
-    "guild_adaptation_profile",
     "extra",
 }
 _VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"}
@@ -72,12 +70,6 @@ class BotConfig:
     enable_health_command:
         Automatically register a global ``/health`` command showing bot status.
         Defaults to ``False``.
-    auto_adapt_guilds:
-        Automatically infer channel and role config into ``ServerConfigStore``
-        when the bot joins a guild. Defaults to ``False``.
-    guild_adaptation_profile:
-        Guild adaptation profile: ``"conservative"``, ``"standard"``, or
-        ``"aggressive"``. Defaults to ``"standard"``.
     extra:
         Arbitrary key-value pairs for application-specific settings.
         Access via ``cfg.extra["my_key"]`` or ``cfg.get("my_key", default)``.
@@ -90,8 +82,6 @@ class BotConfig:
     auto_sync: bool = True
     log_level: str = "INFO"
     enable_health_command: bool = False
-    auto_adapt_guilds: bool = False
-    guild_adaptation_profile: str = "standard"
     extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -109,10 +99,6 @@ class BotConfig:
                 "BotConfig: log_level must be one of "
                 f"{', '.join(sorted(_VALID_LOG_LEVELS))}, got {self.log_level!r}."
             )
-        from .guild_adaptation import validate_guild_adaptation_profile
-        self.guild_adaptation_profile = validate_guild_adaptation_profile(
-            self.guild_adaptation_profile
-        )
 
     # ── Constructors ──────────────────────────────────────────
 
@@ -132,8 +118,6 @@ class BotConfig:
         ``EASYCORD_AUTO_SYNC``    ``auto_sync``
         ``EASYCORD_LOG_LEVEL``    ``log_level``
         ``EASYCORD_HEALTH_COMMAND`` ``enable_health_command``
-        ``EASYCORD_AUTO_ADAPT_GUILDS`` ``auto_adapt_guilds``
-        ``EASYCORD_GUILD_ADAPTATION_PROFILE`` ``guild_adaptation_profile``
         ========================  =============================================
 
         Keyword arguments in *overrides* take precedence over env vars.
@@ -183,21 +167,6 @@ class BotConfig:
                 enable_health_command = raw_health.lower() not in ("0", "false", "no")
             else:
                 enable_health_command = bool(raw_health)
-        raw_adapt = overrides.pop("auto_adapt_guilds", None)
-        if raw_adapt is None:
-            raw_adapt = os.environ.get("EASYCORD_AUTO_ADAPT_GUILDS", "false")
-            auto_adapt_guilds = raw_adapt.lower() not in ("0", "false", "no")
-        else:
-            if isinstance(raw_adapt, str):
-                auto_adapt_guilds = raw_adapt.lower() not in ("0", "false", "no")
-            else:
-                auto_adapt_guilds = bool(raw_adapt)
-        guild_adaptation_profile = overrides.pop("guild_adaptation_profile", None)
-        if guild_adaptation_profile is None:
-            guild_adaptation_profile = os.environ.get(
-                "EASYCORD_GUILD_ADAPTATION_PROFILE",
-                "standard",
-            )
         return cls(
             token=token,
             guild_id=guild_id,
@@ -206,8 +175,6 @@ class BotConfig:
             auto_sync=auto_sync,
             log_level=log_level,
             enable_health_command=enable_health_command,
-            auto_adapt_guilds=auto_adapt_guilds,
-            guild_adaptation_profile=guild_adaptation_profile,
             extra={**overrides, **dict(override_extra or {})},
         )
 
@@ -281,6 +248,4 @@ class BotConfig:
         if self.db_backend == "sqlite":
             kwargs.setdefault("db_path", self.db_path)
         kwargs.setdefault("enable_health_command", self.enable_health_command)
-        kwargs.setdefault("auto_adapt_guilds", self.auto_adapt_guilds)
-        kwargs.setdefault("guild_adaptation_profile", self.guild_adaptation_profile)
         return Bot(**kwargs)

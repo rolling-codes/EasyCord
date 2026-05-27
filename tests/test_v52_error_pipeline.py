@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
 
 from easycord import Bot, Plugin, autocomplete, component, modal, slash, task
 from easycord.testing import FakeInteraction
