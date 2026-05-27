@@ -7,6 +7,7 @@
 - Added non-SQL memory database startup paths via `db_backend="memory"`, `database=MemoryDatabase()`, and `EASYCORD_DB_BACKEND=memory`.
 - Updated generated starter templates to use the memory database where persistence is unnecessary.
 - Closed SQLite test fixtures cleanly to remove delayed `ResourceWarning` noise under strict warning checks.
+- Stabilized level-up tests on fresh CI runners by resetting XP cooldowns with an expired sentinel.
 - Repaired the i18n performance regression workflow by adding the benchmark script it expects and aligning baseline cache paths.
 - Added release-readiness coverage for the real GitHub wheel and source distribution asset names.
 

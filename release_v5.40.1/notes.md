@@ -6,6 +6,7 @@
 - Added non-SQL memory database startup paths via `Bot(db_backend="memory")`, `Bot(database=MemoryDatabase())`, and `EASYCORD_DB_BACKEND=memory`.
 - Updated generated starter/test templates to use memory storage where persistence is unnecessary.
 - Closed SQLite test fixtures cleanly so strict `ResourceWarning` checks stay quiet.
+- Stabilized level-up tests on fresh CI runners by resetting XP cooldowns with an expired sentinel.
 - Repaired the i18n performance regression workflow by adding `scripts/benchmark_i18n.py` and fixing benchmark baseline cache paths.
 - Added release-readiness checks for the real GitHub wheel and source distribution asset names.
 

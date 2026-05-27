@@ -273,7 +273,7 @@ async def test_award_xp_posts_levelup_embed(plugin):
     await plugin.add_xp(1, 42, 90)
     msg = _make_message(guild_id=1, user_id=42)
     # Reset cooldown so the message handler fires.
-    plugin._cooldowns[1][42] = 0.0
+    plugin._cooldowns[1][42] = float("-inf")
     await plugin._award_xp(msg)
     msg.channel.send.assert_called_once()
     embed = msg.channel.send.call_args.kwargs.get("embed") or msg.channel.send.call_args[1].get("embed")
@@ -290,7 +290,7 @@ async def test_award_xp_no_levelup_embed_when_announce_disabled(plugin, tmp_path
     )
     await quiet.add_xp(1, 42, 90)
     msg = _make_message(guild_id=1, user_id=42)
-    quiet._cooldowns[1][42] = 0.0
+    quiet._cooldowns[1][42] = float("-inf")
     await quiet._award_xp(msg)
     msg.channel.send.assert_not_called()
 
@@ -302,7 +302,7 @@ async def test_award_xp_assigns_role_reward_on_levelup(plugin, tmp_path):
     msg = _make_message(guild_id=1, user_id=42)
     msg.guild.get_role = MagicMock(return_value=role)
     await plugin.add_xp(1, 42, 90)
-    plugin._cooldowns[1][42] = 0.0
+    plugin._cooldowns[1][42] = float("-inf")
     await plugin._award_xp(msg)
     msg.author.add_roles.assert_called_once_with(role, reason="Reached level 1")
 
