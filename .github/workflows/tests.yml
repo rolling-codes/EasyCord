@@ -23,5 +23,7 @@ jobs:
         continue-on-error: true
         run: ruff check .
         if: always()
+      - name: Check release metadata
+        run: python scripts/check_release_metadata.py
       - name: Test (pytest)
         run: pytest

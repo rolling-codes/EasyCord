@@ -6,6 +6,7 @@ from pathlib import Path
 
 import easycord
 from easycord.builtin_plugins import builtin_plugin_classes
+from scripts.check_release_metadata import collect_errors
 
 try:
     import tomllib
@@ -21,6 +22,8 @@ def _read(path: str) -> str:
 
 
 def test_version_metadata_and_docs_are_consistent() -> None:
+    assert collect_errors(ROOT) == []
+
     pyproject = tomllib.loads(_read("pyproject.toml"))
     version = pyproject["project"]["version"]
 
@@ -43,8 +46,6 @@ def test_manifest_includes_documentation_assets() -> None:
     manifest = _read("MANIFEST.in")
 
     required_lines = {
-        "include AGENTS.md",
-        "include CLAUDE.md",
         "recursive-include docs *.md",
         "recursive-include examples *.py",
         "recursive-include context *.md",
@@ -52,8 +53,16 @@ def test_manifest_includes_documentation_assets() -> None:
     for line in required_lines:
         assert line in manifest
 
-    assert "exclude AGENTS.md" not in manifest
-    assert "exclude CLAUDE.md" not in manifest
+    excluded_lines = {
+        "exclude AGENTS.md",
+        "exclude CLAUDE.md",
+        "prune tests",
+        "prune scripts",
+        "prune release_v*",
+        "prune .github",
+    }
+    for line in excluded_lines:
+        assert line in manifest
 
 
 def test_docs_match_builtin_plugin_loader() -> None:

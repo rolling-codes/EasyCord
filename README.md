@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.40.1-blue)
+![Version](https://img.shields.io/badge/v-5.40.2-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -80,9 +80,21 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.40.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.40.1) · [Changelog](CHANGELOG.md)
+Release links: [v5.40.2 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.40.2) · [Changelog](CHANGELOG.md)
 
-## New in v5.40.1 (Current Release)
+## New in v5.40.2 (Current Release)
+
+**Patch fixes:**
+- Added a release metadata checker that keeps the package version, README badge, release links, changelog heading, and expected wheel/source asset names in sync.
+- Wired the metadata checker into GitHub Actions so release drift fails pull requests before packaging.
+- Cleaned the source distribution manifest so published artifacts include runtime source, docs, examples, and context notes while excluding local automation, release prep folders, tests, caches, and contributor-only files.
+
+**Verification:**
+- `python scripts/check_release_metadata.py`
+- `pytest tests/`
+- `python -m compileall -q easycord tests scripts`
+
+## Previous: v5.40.1
 
 **Patch fixes:**
 - Updated EasyCord to require `discord.py>=2.7.1,<3` and verified current app-command contexts, installs, entitlements, and locale metadata.
@@ -246,7 +258,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.40.1/easycord-5.40.1-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.40.2/easycord-5.40.2-py3-none-any.whl"
 ```
 
 ### Clone and install locally

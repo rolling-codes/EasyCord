@@ -1,5 +1,19 @@
 # Changelog
 
+## EasyCord v5.40.2 - 2026-05-28
+
+### Fixed
+- Added `scripts/check_release_metadata.py` to enforce a single `pyproject.toml` version across `easycord.__version__`, README release links, CHANGELOG headings, project URLs, and release asset names.
+- Added release metadata tests and wired the checker into GitHub Actions before the pytest run.
+- Cleaned `MANIFEST.in` so source distributions keep the public library, docs, examples, and context notes while excluding local caches, release prep folders, workflow files, scripts, tests, and contributor-only development files.
+
+### Verification
+- `python scripts/check_release_metadata.py` - passed.
+- `pytest -o cache_dir=.pytest_cache_codex tests/` - 517 passed.
+- `python -m compileall -q easycord tests scripts` - passed.
+
+---
+
 ## EasyCord v5.40.1 - 2026-05-27
 
 ### Fixed
