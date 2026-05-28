@@ -1,12 +1,12 @@
 """Release-readiness checks for docs, metadata, and packaging."""
 from __future__ import annotations
 
+import importlib.util
 import re
 from pathlib import Path
 
 import easycord
 from easycord.builtin_plugins import builtin_plugin_classes
-from scripts.check_release_metadata import collect_errors
 
 try:
     import tomllib
@@ -15,6 +15,12 @@ except ImportError:  # Python < 3.11
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CHECKER_PATH = ROOT / "scripts" / "check_release_metadata.py"
+SPEC = importlib.util.spec_from_file_location("check_release_metadata", CHECKER_PATH)
+assert SPEC is not None and SPEC.loader is not None
+CHECKER = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(CHECKER)
+collect_errors = CHECKER.collect_errors
 
 
 def _read(path: str) -> str:
