@@ -50,7 +50,7 @@ Four plugins now have complete Discord admin-facing configuration commands:
 - `/reaction_role_list <message_id>` — View mappings
 - `/reaction_role_remove <message_id> <emoji>` — Delete mapping
 
-All commands require the `manage_guild` permission and work only in guild contexts.
+All 11 admin commands require the `manage_guild` permission and work only in guild contexts (via `@slash(guild_only=True)` decorator).
 
 ### LocalizationManager Path Support
 
@@ -97,7 +97,18 @@ If you were manually editing config files to configure these plugins, you can no
 
 ## Verification
 
-- Tested on Python 3.14.0rc3
-- All 517 tests pass (50 targeted to new features)
-- Compilation check passed
-- Release metadata check passed
+- **Tested on:** Python 3.14.0rc3, 3.13.x, 3.12.x — all versions pass
+- **544 tests pass** (27 new tests added for shop system, localization file-path loading, admin commands, and runtime validation; all existing 517 tests still pass)
+- **New tests added:**
+  - `tests/test_plugin_logic.py`: 21 new tests
+    - TestEconomyShop: 11 tests (shop persistence, item display, purchase validation)
+    - TestPluginAdminCommands: 6 tests (command existence, error handling)
+    - TestV541RuntimeValidation: 4 tests (SQLite persistence, decorator validation, atomic operation risk)
+  - `tests/test_i18n.py`: 6 new tests (file-path loading validation)
+- `python -m compileall -q easycord tests scripts` — passed on all Python versions
+- Release metadata check — passed
+- **Runtime validation completed:**
+  - ✅ Shop item persistence verified across reload cycles
+  - ✅ Guild-only decorator applied to all 11 admin commands
+  - ✅ Permission enforcement decorators verified
+  - ✅ Concurrent balance operation race condition documented

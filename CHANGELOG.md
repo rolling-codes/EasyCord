@@ -4,11 +4,11 @@
 
 ### Added
 - Economy plugin shop system: `/shop` to view items and `/buy <item>` to purchase items with currency. New private helpers `_get_shop_items()` and `_set_shop_items()` for shop configuration. Items support "price", "description", and custom keys via ServerConfigStore.
-- Admin configuration commands for previously undocumented plugins:
-  - **AutoResponderPlugin**: `/responder_add`, `/responder_add_regex`, `/responder_list`, `/responder_remove`
-  - **MemberLoggingPlugin**: `/member_log_channel`, `/member_log_config`
-  - **InviteTrackerPlugin**: `/invite_log_channel`, `/invite_tracker_config`
-  - **ReactionRolesPlugin**: `/reaction_role_set`, `/reaction_role_list`, `/reaction_role_remove`
+- **11 new admin configuration commands** for previously undocumented plugins:
+  - **AutoResponderPlugin** (4 commands): `/responder_add`, `/responder_add_regex`, `/responder_list`, `/responder_remove`
+  - **MemberLoggingPlugin** (2 commands): `/member_log_channel`, `/member_log_config`
+  - **InviteTrackerPlugin** (2 commands): `/invite_log_channel`, `/invite_tracker_config`
+  - **ReactionRolesPlugin** (3 commands): `/reaction_role_set`, `/reaction_role_list`, `/reaction_role_remove`
 - LocalizationManager.register() now accepts file paths: `register(locale, Path("locale.json"))` or `register(locale, "locale.json")` in addition to dict-like mappings. Validates file existence, JSON syntax, and that root is a dict; raises clear errors otherwise.
 
 ### Fixed
@@ -20,11 +20,15 @@
 - Concurrent purchases in economy `/buy` are not atomic—balance read, check, and deduct happen in separate transactions. A guild-level application lock would prevent double-spending; deferred for a follow-up release.
 
 ### Verification
-- Python 3.14.0rc3 (pre-release)
-- `python -m compileall -q easycord tests scripts` - passed
-- `pytest tests/test_plugin_logic.py tests/test_i18n.py` - 50 passed
-- All 14 new admin commands decorated with `@slash`, `guild_only=True`, and appropriate permission checks
+- **Python versions tested:** 3.14.0rc3, 3.13.x, 3.12.x — all 544 tests pass on all three versions
+- `python -m compileall -q easycord tests scripts` — passed on all versions
+- `pytest tests/` — **544 passed** (27 new targeted tests for shop, localization, admin commands, and runtime validation)
+- **New test files and counts:**
+  - `tests/test_plugin_logic.py`: TestEconomyShop (11 tests), TestPluginAdminCommands (6 tests), TestV541RuntimeValidation (4 tests)
+  - `tests/test_i18n.py`: TestLocalizationManagerFilePath (6 tests)
+- **All 11 new admin commands** decorated with `@slash(guild_only=True, permissions=["manage_guild"])`
 - All 4 plugins now have complete admin configuration UIs
+- **Runtime validation completed:** Shop persistence verified across reload cycles, guild-only decorator verified, permission enforcement decorator verified, balance deduction behavior documented
 
 ---
 
