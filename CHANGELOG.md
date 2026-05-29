@@ -1,5 +1,33 @@
 # Changelog
 
+## EasyCord v5.41.0 - 2026-05-29
+
+### Added
+- Economy plugin shop system: `/shop` to view items and `/buy <item>` to purchase items with currency. New private helpers `_get_shop_items()` and `_set_shop_items()` for shop configuration. Items support "price", "description", and custom keys via ServerConfigStore.
+- Admin configuration commands for previously undocumented plugins:
+  - **AutoResponderPlugin**: `/responder_add`, `/responder_add_regex`, `/responder_list`, `/responder_remove`
+  - **MemberLoggingPlugin**: `/member_log_channel`, `/member_log_config`
+  - **InviteTrackerPlugin**: `/invite_log_channel`, `/invite_tracker_config`
+  - **ReactionRolesPlugin**: `/reaction_role_set`, `/reaction_role_list`, `/reaction_role_remove`
+- LocalizationManager.register() now accepts file paths: `register(locale, Path("locale.json"))` or `register(locale, "locale.json")` in addition to dict-like mappings. Validates file existence, JSON syntax, and that root is a dict; raises clear errors otherwise.
+
+### Fixed
+- Economy plugin command collision: renamed `/leaderboard` → `/economy_leaderboard` to avoid conflict with LevelsPlugin.
+- Economy plugin shop safety: `/shop` and `/buy` use `.get("price")` to safely handle shop items missing the price key; now display an error instead of raising KeyError.
+- Improved error messages for localization path loading: clear distinction between file-not-found, JSON decode errors, and non-object JSON roots.
+
+### Known Limitations
+- Concurrent purchases in economy `/buy` are not atomic—balance read, check, and deduct happen in separate transactions. A guild-level application lock would prevent double-spending; deferred for a follow-up release.
+
+### Verification
+- Python 3.14.0rc3 (pre-release)
+- `python -m compileall -q easycord tests scripts` - passed
+- `pytest tests/test_plugin_logic.py tests/test_i18n.py` - 50 passed
+- All 14 new admin commands decorated with `@slash`, `guild_only=True`, and appropriate permission checks
+- All 4 plugins now have complete admin configuration UIs
+
+---
+
 ## EasyCord v5.40.2 - 2026-05-28
 
 ### Fixed

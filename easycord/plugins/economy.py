@@ -39,7 +39,7 @@ class EconomyPlugin(Plugin):
 
         /balance              — Check your balance
         /daily                — Claim daily reward
-        /leaderboard          — Top earners
+        /economy_leaderboard  — Top earners
         /transfer <user> <amount>  — Send currency to user
         /shop                 — View shop items
         /buy <item>           — Purchase item
@@ -97,6 +97,17 @@ class EconomyPlugin(Plugin):
         cfg_obj.set_other("daily_claims", daily_claims)
         await self.config.store.save(cfg_obj)
 
+    async def _get_shop_items(self, guild_id: int) -> dict[str, dict]:
+        """Get shop items for guild."""
+        cfg_obj = await self.config.store.load(guild_id)
+        return cfg_obj.get_other("shop_items", {})
+
+    async def _set_shop_items(self, guild_id: int, items: dict) -> None:
+        """Set shop items for guild."""
+        cfg_obj = await self.config.store.load(guild_id)
+        cfg_obj.set_other("shop_items", items)
+        await self.config.store.save(cfg_obj)
+
     @on("message")
     async def _on_message(self, message: discord.Message) -> None:
         """Award currency for messages."""
@@ -137,7 +148,7 @@ class EconomyPlugin(Plugin):
         await ctx.respond(f"{symbol} Claimed **{reward}** {currency}! New balance: **{new_balance}**")
 
     @slash(description="Top earners leaderboard", guild_only=True)
-    async def leaderboard(self, ctx: Context) -> None:
+    async def economy_leaderboard(self, ctx: Context) -> None:
         """Show top 10 richest members."""
         cfg_obj = await self.config.store.load(ctx.guild.id)
         balances = cfg_obj.get_other("balances", {})
@@ -192,3 +203,52 @@ class EconomyPlugin(Plugin):
         cfg = await self._get_config(ctx.guild.id)
         currency = cfg.get("currency_name", "Credits")
         await ctx.respond(f"✅ Transferred **{amount}** {currency} to {user.mention}")
+
+    @slash(description="View shop items", guild_only=True)
+    async def shop(self, ctx: Context) -> None:
+        """View shop items."""
+        items = await self._get_shop_items(ctx.guild.id)
+        if not items:
+            await ctx.respond("🏪 The shop is empty.", ephemeral=True)
+            return
+        cfg = await self._get_config(ctx.guild.id)
+        symbol = cfg.get("currency_symbol", "💰")
+        lines = []
+        for name, data in items.items():
+            price = data.get("price")
+            if price is None:
+                continue
+            desc = data.get("description", "")
+            lines.append(f"`{name}` — **{price}** {symbol}: {desc}")
+        if not lines:
+            await ctx.respond("🏪 The shop is empty.", ephemeral=True)
+            return
+        embed = discord.Embed(title="🏪 Shop", description="\n".join(lines), color=discord.Color.blurple())
+        await ctx.respond(embed=embed)
+
+    @slash(description="Purchase a shop item", guild_only=True)
+    async def buy(self, ctx: Context, item: str) -> None:
+        """Purchase a shop item.
+
+        Known limitation: balance read, check, and deduct are not atomic.
+        Concurrent purchases from the same guild may both pass the balance
+        check before either deduction is written.
+        """
+        items = await self._get_shop_items(ctx.guild.id)
+        if item not in items:
+            await ctx.respond(f"❌ Item `{item}` not found in shop.", ephemeral=True)
+            return
+        price = items[item].get("price")
+        if price is None:
+            await ctx.respond(f"❌ Item `{item}` is not configured correctly.", ephemeral=True)
+            return
+        balance = await self._get_balance(ctx.guild.id, ctx.user.id)
+        if balance < price:
+            cfg = await self._get_config(ctx.guild.id)
+            currency = cfg.get("currency_name", "Credits")
+            await ctx.respond(f"❌ Insufficient balance ({balance}/{price} {currency})", ephemeral=True)
+            return
+        await self._add_balance(ctx.guild.id, ctx.user.id, -price)
+        cfg = await self._get_config(ctx.guild.id)
+        currency = cfg.get("currency_name", "Credits")
+        await ctx.respond(f"✅ Purchased `{item}` for {price} {currency}!")

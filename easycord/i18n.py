@@ -1,10 +1,12 @@
 """Lightweight localization helpers for EasyCord."""
 from __future__ import annotations
 
+import json
 import locale as stdlib_locale
 import logging
 from collections.abc import Mapping
 from enum import Enum
+from pathlib import Path
 from typing import Callable
 from typing import Any
 
@@ -258,11 +260,29 @@ class LocalizationManager:
         for locale, values in (translations or {}).items():
             self.register(locale, values)
 
-    def register(self, locale: Any, translations: Mapping[str, str]) -> None:
-        """Register or merge a locale catalog."""
+    def register(self, locale: Any, translations: Mapping[str, str] | str | Path) -> None:
+        """Register or merge a locale catalog.
+
+        Args:
+            locale: Locale tag (e.g. "en", "en-US")
+            translations: A dict-like mapping, or a str/Path pointing to a UTF-8 JSON file.
+        """
         normalized = _normalize_locale(locale)
         if normalized is None:
             raise ValueError("locale must be a non-empty string")
+        if isinstance(translations, (str, Path)):
+            p = Path(translations)
+            if not p.exists():
+                raise FileNotFoundError(f"Locale file not found: {p}")
+            try:
+                raw = json.loads(p.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Locale file for '{normalized}' contains invalid JSON: {exc}") from exc
+            if not isinstance(raw, dict):
+                raise ValueError(
+                    f"Locale file for '{normalized}' must contain a JSON object, not {type(raw).__name__}"
+                )
+            translations = raw
         self._catalogs.setdefault(normalized, {}).update(
             {str(key): str(value) for key, value in translations.items()}
         )

@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from easycord import Plugin, on
+from easycord import Context, Plugin, on, slash
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
-    pass
+    from easycord import Context
 
 logger = logging.getLogger(__name__)
 
@@ -141,3 +141,18 @@ class InviteTrackerPlugin(Plugin):
 
         if invite.guild.id in self._invite_cache and invite.code in self._invite_cache[invite.guild.id]:
             del self._invite_cache[invite.guild.id][invite.code]
+
+    @slash(description="Set the invite log channel", guild_only=True, permissions=["manage_guild"])
+    async def invite_log_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
+        """Set where invite logs are posted."""
+        await self.config.update(ctx.guild.id, "invite_tracker", log_channel=channel.id)
+        await ctx.respond(f"✅ Invite logs will be posted to {channel.mention}", ephemeral=True)
+
+    @slash(description="View invite tracker config", guild_only=True)
+    async def invite_tracker_config(self, ctx: Context) -> None:
+        """View current invite tracker configuration."""
+        cfg = await self._get_config(ctx.guild.id)
+        channel_id = cfg.get("log_channel")
+        enabled = cfg.get("enabled", True)
+        channel_mention = f"<#{channel_id}>" if channel_id else "Not set"
+        await ctx.respond(f"Invite Tracker\nChannel: {channel_mention}\nEnabled: {enabled}", ephemeral=True)

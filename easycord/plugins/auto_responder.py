@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from easycord import Plugin, on
+from easycord import Context, Plugin, on, slash
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
-    pass
+    from easycord import Context
 
 logger = logging.getLogger(__name__)
 
@@ -129,3 +129,40 @@ class AutoResponderPlugin(Plugin):
         if found:
             await self._update_config(guild_id, triggers=triggers, regex_triggers=regex_triggers)
         return found
+
+    @slash(description="Add a keyword trigger", guild_only=True, permissions=["manage_guild"])
+    async def responder_add(self, ctx: Context, keyword: str, response: str) -> None:
+        """Add literal keyword trigger."""
+        await self._add_trigger(ctx.guild.id, keyword, response)
+        await ctx.respond(f"✅ Added trigger: `{keyword}`", ephemeral=True)
+
+    @slash(description="Add a regex trigger", guild_only=True, permissions=["manage_guild"])
+    async def responder_add_regex(self, ctx: Context, pattern: str, response: str) -> None:
+        """Add regex trigger."""
+        try:
+            await self._add_regex_trigger(ctx.guild.id, pattern, response)
+            await ctx.respond(f"✅ Added regex trigger: `{pattern}`", ephemeral=True)
+        except ValueError as e:
+            await ctx.respond(f"❌ Invalid regex: {e}", ephemeral=True)
+
+    @slash(description="List all keyword triggers", guild_only=True)
+    async def responder_list(self, ctx: Context) -> None:
+        """List all triggers for this guild."""
+        cfg = await self._get_config(ctx.guild.id)
+        triggers = cfg.get("triggers", {})
+        regex_triggers = cfg.get("regex_triggers", {})
+        lines = [f"`{k}` → {v}" for k, v in triggers.items()]
+        lines += [f"(regex) `{k}` → {v}" for k, v in regex_triggers.items()]
+        if not lines:
+            await ctx.respond("No triggers configured.", ephemeral=True)
+            return
+        await ctx.respond("\n".join(lines), ephemeral=True)
+
+    @slash(description="Remove a keyword trigger", guild_only=True, permissions=["manage_guild"])
+    async def responder_remove(self, ctx: Context, keyword: str) -> None:
+        """Remove a trigger."""
+        found = await self._remove_trigger(ctx.guild.id, keyword)
+        if found:
+            await ctx.respond(f"✅ Removed trigger: `{keyword}`", ephemeral=True)
+        else:
+            await ctx.respond(f"❌ Trigger `{keyword}` not found.", ephemeral=True)

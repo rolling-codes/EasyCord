@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from easycord import Plugin, on
+from easycord import Context, Plugin, on, slash
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
-    pass
+    from easycord import Context
 
 logger = logging.getLogger(__name__)
 
@@ -170,3 +170,18 @@ class MemberLoggingPlugin(Plugin):
         """
         if before.name != after.name:
             logger.info("User renamed: %s → %s (%s)", before.name, after.name, after.id)
+
+    @slash(description="Set the member log channel", guild_only=True, permissions=["manage_guild"])
+    async def member_log_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
+        """Set where member logs are posted."""
+        await self.config.update(ctx.guild.id, "member_logging", log_channel=channel.id)
+        await ctx.respond(f"✅ Member logs will be posted to {channel.mention}", ephemeral=True)
+
+    @slash(description="View member logging config", guild_only=True)
+    async def member_log_config(self, ctx: Context) -> None:
+        """View current member logging configuration."""
+        cfg = await self._get_config(ctx.guild.id)
+        channel_id = cfg.get("log_channel")
+        enabled = cfg.get("enabled", True)
+        channel_mention = f"<#{channel_id}>" if channel_id else "Not set"
+        await ctx.respond(f"Member Logging\nChannel: {channel_mention}\nEnabled: {enabled}", ephemeral=True)

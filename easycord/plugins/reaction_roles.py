@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from easycord import Plugin, on
+from easycord import Context, Plugin, on, slash
 from easycord.server_config import ServerConfigStore
 
 if TYPE_CHECKING:
-    pass
+    from easycord import Context
 
 logger = logging.getLogger(__name__)
 
@@ -181,3 +181,40 @@ class ReactionRolesPlugin(Plugin):
             cfg_obj.set_other("reaction_roles", all_mappings)
             await self.config_store.save(cfg_obj)
             logger.info("Cleaned up deleted role %s from reaction roles", role.name)
+
+    @slash(description="Map an emoji reaction to a role on a message", guild_only=True, permissions=["manage_guild"])
+    async def reaction_role_set(self, ctx: Context, message_id: str, emoji: str, role: discord.Role) -> None:
+        """Map an emoji reaction to a role."""
+        try:
+            mid = int(message_id)
+        except ValueError:
+            await ctx.respond("❌ Invalid message ID — must be a numeric snowflake.", ephemeral=True)
+            return
+        await self._set_mapping(ctx.guild.id, mid, emoji, role.id)
+        await ctx.respond(f"✅ {emoji} → {role.mention} on message `{mid}`", ephemeral=True)
+
+    @slash(description="List reaction role mappings for a message", guild_only=True)
+    async def reaction_role_list(self, ctx: Context, message_id: str) -> None:
+        """List reaction role mappings for a message."""
+        try:
+            mid = int(message_id)
+        except ValueError:
+            await ctx.respond("❌ Invalid message ID.", ephemeral=True)
+            return
+        mappings = await self._get_mappings(ctx.guild.id, mid)
+        if not mappings:
+            await ctx.respond("No reaction roles set for that message.", ephemeral=True)
+            return
+        lines = [f"{emoji} → <@&{role_id}>" for emoji, role_id in mappings.items()]
+        await ctx.respond("\n".join(lines), ephemeral=True)
+
+    @slash(description="Remove a reaction role mapping", guild_only=True, permissions=["manage_guild"])
+    async def reaction_role_remove(self, ctx: Context, message_id: str, emoji: str) -> None:
+        """Remove a reaction role mapping."""
+        try:
+            mid = int(message_id)
+        except ValueError:
+            await ctx.respond("❌ Invalid message ID.", ephemeral=True)
+            return
+        await self._remove_mapping(ctx.guild.id, mid, emoji)
+        await ctx.respond(f"✅ Removed {emoji} from message `{mid}`", ephemeral=True)
