@@ -99,6 +99,17 @@ class ModerationPlugin(Plugin):
 
     async def _get_or_create_mute_role(self, guild: discord.Guild) -> discord.Role | None:
         """Get or create mute role for guild."""
+        # Check configured mute role first
+        cfg = await self._get_config(guild.id)
+        mute_role_id = cfg.get("mute_role")
+        if mute_role_id:
+            mute_role = guild.get_role(mute_role_id)
+            if mute_role:
+                return mute_role
+            else:
+                logger.warning("Configured mute role %s not found in guild %s", mute_role_id, guild.id)
+
+        # Fall back to name-based search
         mute_role = discord.utils.get(guild.roles, name="Muted")
         if not mute_role:
             try:
@@ -242,6 +253,7 @@ class ModerationPlugin(Plugin):
                 try:
                     await member.add_roles(mute_role, reason=f"Auto-muted after {warn_count} warnings")
                     await ctx.respond(f"🔇 Auto-muted {user.mention} (warning threshold reached)")
+                    await self._log_moderation(ctx, "auto_mute", user, f"Auto-muted after {warn_count} warnings")
                 except discord.Forbidden:
                     logger.warning("Cannot add mute role to %s", user.id)
 
@@ -343,4 +355,41 @@ class ModerationPlugin(Plugin):
             inline=False,
         )
 
+        mute_role_id = cfg.get("mute_role")
+        mute_role = ctx.guild.get_role(mute_role_id) if mute_role_id else None
+        embed.add_field(
+            name="Mute Role",
+            value=f"{mute_role.mention}" if mute_role else "Not set (defaults to 'Muted')",
+            inline=False,
+        )
+
         await ctx.respond(embed=embed)
+
+    @slash(description="Set the audit channel for moderation logs", guild_only=True, permissions=["manage_guild"])
+    async def set_audit_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
+        """Configure the audit channel for moderation action logs."""
+        await self._update_config(ctx.guild.id, audit_channel=channel.id)
+        await ctx.respond(f"✅ Audit channel set to {channel.mention}", ephemeral=True)
+
+    @slash(description="Set the mute role", guild_only=True, permissions=["manage_guild"])
+    async def set_mute_role(self, ctx: Context, role: discord.Role) -> None:
+        """Configure which role is assigned for mute actions."""
+        await self._update_config(ctx.guild.id, mute_role=role.id)
+        await ctx.respond(f"✅ Mute role set to {role.mention}", ephemeral=True)
+
+    @slash(description="Clear all warnings for a user", guild_only=True, permissions=["manage_guild"])
+    async def clear_warnings(self, ctx: Context, user: discord.User) -> None:
+        """Remove all warnings for a user."""
+        cfg_obj = await self.config.store.load(ctx.guild.id)
+        all_warnings = cfg_obj.get_other("warnings", {})
+
+        if str(user.id) not in all_warnings:
+            await ctx.respond(f"✅ {user.mention} has no warnings to clear")
+            return
+
+        del all_warnings[str(user.id)]
+        cfg_obj.set_other("warnings", all_warnings)
+        await self.config.store.save(cfg_obj)
+
+        await ctx.respond(f"✅ Cleared all warnings for {user.mention}")
+        await self._log_moderation(ctx, "clear_warnings", user, "Admin cleared warnings")
