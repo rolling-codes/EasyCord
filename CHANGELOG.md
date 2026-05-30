@@ -1,6 +1,6 @@
 # Changelog
 
-## EasyCord v5.43.0 - 2026-05-30
+## EasyCord v5.43.1 - 2026-05-30
 
 ### Added
 - **Phase 1: Orchestration Loop** — Core AI orchestration with multi-step tool execution:

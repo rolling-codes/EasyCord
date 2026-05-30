@@ -1,4 +1,4 @@
-## EasyCord v5.43.0 - 2026-05-30
+## EasyCord v5.43.1 - 2026-05-30
 
 ### Added
 - **Phase 1: Orchestration Loop** — Core AI orchestration with multi-step tool execution:
@@ -25,10 +25,10 @@
 - `pytest tests/test_orchestrator_phase1.py` — 13 Phase 1 tests passing
 - `pytest tests/` — 584 tests passing (all existing tests continue to pass, no regressions)
 - `python -m compileall .` — zero compilation errors
-- All version metadata consistent (v5.43.0 in pyproject.toml, __init__.py, CHANGELOG.md, README.md badges, and release URLs)
+- All version metadata consistent (v5.43.1 in pyproject.toml, __init__.py, CHANGELOG.md, README.md badges, and release URLs)
 
 ### Release Assets
 
 Download from https://github.com/rolling-codes/EasyCord/releases:
-- releases/download/v5.43.0/easycord-5.43.0-py3-none-any.whl — Python wheel
-- releases/download/v5.43.0/easycord-5.43.0.tar.gz — Source distribution
+- releases/download/v5.43.1/easycord-5.43.1-py3-none-any.whl — Python wheel
+- releases/download/v5.43.1/easycord-5.43.1.tar.gz — Source distribution

@@ -1,10 +1,10 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.43.0-blue)
+![Version](https://img.shields.io/badge/v-5.43.1-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 
-**[→ Release v5.43.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.43.0)**
+**[→ Release v5.43.1](https://github.com/rolling-codes/EasyCord/releases/tag/v5.43.1)**
 
 > A modern Discord bot framework for production bots. **No AI required.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add bundled plugins for features (moderation, roles, logging, leveling). Optionally add intelligent agents with multi-provider LLM support and permission-gated tool calling.
 
@@ -260,7 +260,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.43.0/easycord-5.43.0-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.43.1/easycord-5.43.1-py3-none-any.whl"
 ```
 
 ### Clone and install locally
