@@ -411,6 +411,8 @@ class TestOrchestratorLogging:
         from easycord.orchestrator import Orchestrator, RunContext
 
         class ToolAwareProvider:
+            supports_tools = True
+
             def __init__(self) -> None:
                 self.tools = None
 
