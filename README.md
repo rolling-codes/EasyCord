@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.41.0-blue)
+![Version](https://img.shields.io/badge/v-5.42.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -80,9 +80,9 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.41.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.41.0) · [Changelog](CHANGELOG.md)
+Release links: [v5.42.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.42.0) · [Changelog](CHANGELOG.md)
 
-## New in v5.41.0 (Current Release)
+## New in v5.42.0 (Current Release)
 
 **Patch fixes:**
 - Added a release metadata checker that keeps the package version, README badge, release links, changelog heading, and expected wheel/source asset names in sync.
@@ -258,7 +258,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.41.0/easycord-5.41.0-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.42.0/easycord-5.42.0-py3-none-any.whl"
 ```
 
 ### Clone and install locally

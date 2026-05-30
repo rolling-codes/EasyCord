@@ -1,5 +1,47 @@
 # Changelog
 
+## EasyCord v5.42.0 - 2026-05-29
+
+### Added
+- **14 new admin configuration commands** for plugin management:
+  - **SuggestionsPlugin**: `/set_suggestions_channel` to configure the suggestions channel
+  - **ModerationPlugin**: `/set_audit_channel`, `/set_mute_role`, `/clear_warnings` for audit logging and warning management
+  - **AIModeratorPlugin**: `/set_mod_review_channel`, `/set_mod_audit_channel` for review channel configuration
+  - **LevelsPlugin**: `/remove_level_role`, `/set_levelup_channel` for level role management
+  - **RolePersistencePlugin**: `/saved_roles`, `/clear_saved_roles` for role visibility and cleanup
+  - **EconomyPlugin**: `/shop_add`, `/shop_remove` for shop population via Discord (previously required direct database edits)
+  - **StarboardPlugin**: `/starboard_toggle` to enable/disable archival
+- **Event handlers for self-healing configurations:**
+  - `on_guild_channel_delete` in MemberLoggingPlugin and InviteTrackerPlugin to clear deleted log channel references
+  - `on_member_ban` in RolePersistencePlugin to prevent auto-restore of banned members' roles
+  - `on_message_delete` in StarboardPlugin to clean up orphan starboard posts when source messages are deleted
+- **Observability improvements:**
+  - Full traceback logging in OpenClawPlugin task failures via `logger.exception()`
+  - One-time-per-guild permission warnings in InviteTrackerPlugin to prevent log spam
+  - Discord native relative timestamp `<t:timestamp:R>` in PollsPlugin footer for live countdown (replaces static "Closes in Xs" string)
+  - DM warning logging in AIModeratorPlugin when user has DMs disabled
+  - `ctx.conversation_messages(limit=None)` convenience method to expose conversation history as message dicts for AI providers
+- **Atomicity fix** in EconomyPlugin `/buy` command: per-guild asyncio.Lock prevents TOCTOU race on concurrent purchases
+
+### Fixed
+- **SuggestionsPlugin**: `/suggestion_approve` and `/suggestion_reject` now edit the original Discord embed with green/red color and "Approved/Rejected by X" footer (previously only changed internal status)
+- **ModerationPlugin**: Auto-mute in `/warn` command now logs to audit channel (previously skipped logging)
+- **ModerationPlugin**: `/warn` auto-mute and other commands now respect configured `mute_role` instead of always searching for "Muted" by name
+- **AIModeratorPlugin**: Added `logger.warning()` when unable to DM user (previously silent failure)
+- **All plugins with config channels**: Prevent "channel not found" warnings from firing repeatedly when channel is deleted (now clears config on deletion)
+
+### Known Limitations
+- EconomyPlugin shop population now supports Discord UI but still lacks transactional guarantees (balance read-check-deduct are now atomic per-guild, but concurrent purchases across guilds still have no global coordination)
+
+### Verification
+- All 544 tests pass (no new tests added, existing coverage maintained)
+- `python -m compileall -q easycord tests scripts` — passed
+- `pytest tests/` — **544 passed** in 2.34s
+- All new slash commands decorated with appropriate `@slash(..., permissions=["manage_guild"])`
+- All event handlers properly integrated with existing plugin lifecycle
+
+---
+
 ## EasyCord v5.41.0 - 2026-05-29
 
 ### Added
