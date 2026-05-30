@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.40.2-blue)
+![Version](https://img.shields.io/badge/v-5.43.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -54,6 +54,28 @@ class Fun(Plugin):
 bot.add_plugin(Fun())
 ```
 
+Reusable plugins can be scaffolded and checked with the Python-first authoring
+helpers:
+
+```python
+from pathlib import Path
+
+from easycord import create_package_plugin
+
+result = create_package_plugin(
+    name="fun",
+    target=Path("easycord-fun"),
+    author="EasyCord Developer",
+)
+```
+
+Generated plugin projects include a required manifest. Runnable bot scaffolds
+default to local storage with command sync disabled; generated tests use
+in-memory storage so they stay disposable. Package plugins are exposed through
+the `easycord.plugins` entry-point group. The CLI wrappers are
+`easycord plugin create`, `easycord plugin check`, and
+`easycord plugin discover`; see [plugin authoring docs](docs/plugin-authoring.md).
+
 #### 2. Components & Modals
 ```python
 from easycord import component, modal
@@ -80,19 +102,27 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.40.2 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.40.2) · [Changelog](CHANGELOG.md)
+Release links: [v5.43.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.43.0) · [Changelog](CHANGELOG.md)
 
-## New in v5.40.2 (Current Release)
+## New in v5.43.0 (Current Release)
+
+**Plugin authoring:**
+- Added Python-first plugin creator helpers for in-project plugins and reusable package plugins.
+- Added required plugin manifests, project validation, and entry-point discovery through the `easycord.plugins` group.
+- Added thin CLI wrappers: `easycord plugin create`, `easycord plugin check`, and `easycord plugin discover`.
+- Documented local-safe scaffold defaults: generated bot code disables command sync and uses local storage by default, while generated tests use memory storage.
+
+**Verification:**
+- `python scripts/check_release_metadata.py`
+- `pytest -o cache_dir=.pytest_cache_codex tests/` - 534 passed.
+- `python -m compileall -q easycord tests scripts`
+
+## Previous: v5.40.2
 
 **Patch fixes:**
 - Added a release metadata checker that keeps the package version, README badge, release links, changelog heading, and expected wheel/source asset names in sync.
 - Wired the metadata checker into GitHub Actions so release drift fails pull requests before packaging.
 - Cleaned the source distribution manifest so published artifacts include runtime source, docs, examples, and context notes while excluding local automation, release prep folders, tests, caches, and contributor-only files.
-
-**Verification:**
-- `python scripts/check_release_metadata.py`
-- `pytest tests/`
-- `python -m compileall -q easycord tests scripts`
 
 ## Previous: v5.40.1
 
@@ -258,7 +288,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.40.2/easycord-5.40.2-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.43.0/easycord-5.43.0-py3-none-any.whl"
 ```
 
 ### Clone and install locally

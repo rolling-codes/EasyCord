@@ -180,9 +180,9 @@ def test_cli_new_creates_project(tmp_path: Path, capsys) -> None:
     assert (project / "bot.py").exists()
     assert (project / "plugins" / "demo_bot.py").exists()
     assert (project / "tests" / "test_bot.py").exists()
-    assert 'Bot(auto_sync=False, db_backend="memory")' in (
-        project / "bot.py"
-    ).read_text(encoding="utf-8")
+    bot_source = (project / "bot.py").read_text(encoding="utf-8")
+    assert "Bot(auto_sync=False)" in bot_source
+    assert "db_backend=\"memory\"" not in bot_source
 
 
 @pytest.mark.parametrize(
@@ -241,6 +241,48 @@ def test_cli_test_template_prints_and_writes(tmp_path: Path, capsys) -> None:
     output = tmp_path / "tests" / "test_greetings.py"
     assert main(["test-template", "greetings", "--output", str(output)]) == 0
     assert "async def test_greetings_command" in output.read_text(encoding="utf-8")
+
+
+def test_cli_plugin_create_check_and_discover(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+    fake_entry_points,
+) -> None:
+    project = tmp_path / "app"
+
+    assert main(["plugin", "create", "greetings", "--target", str(project)]) == 0
+    output = capsys.readouterr().out
+    assert "Created EasyCord plugin greetings" in output
+    assert (project / "plugins" / "greetings.py").exists()
+    assert (project / "plugins" / "greetings.easycord-plugin.json").exists()
+    test_source = (project / "tests" / "test_greetings.py").read_text(encoding="utf-8")
+    assert 'Bot(auto_sync=False, db_backend="memory")' in test_source
+
+    json_project = tmp_path / "json_app"
+    assert main(["plugin", "create", "json-greetings", "--target", str(json_project), "--json"]) == 0
+    created = json.loads(capsys.readouterr().out)
+    assert created["manifest"]["name"] == "json_greetings"
+    assert created["plugin_path"].endswith("json_greetings.py")
+
+    assert main(["plugin", "check", str(project)]) == 0
+    assert "EasyCord plugin check" in capsys.readouterr().out
+
+    from importlib.metadata import EntryPoint
+
+    entry_point = EntryPoint(
+        name="greetings",
+        value="plugins.greetings:GreetingsPlugin",
+        group="easycord.plugins",
+    )
+    monkeypatch.setattr(
+        "easycord.plugin_creator.metadata.entry_points",
+        fake_entry_points(entry_point),
+    )
+
+    assert main(["plugin", "discover", "--json"]) == 0
+    discovered = json.loads(capsys.readouterr().out)
+    assert discovered[0]["name"] == "greetings"
 
 
 def test_cli_inspect_and_sync_plan(tmp_path: Path, monkeypatch, capsys) -> None:

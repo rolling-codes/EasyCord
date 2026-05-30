@@ -103,6 +103,7 @@ def test_release_docs_cover_new_public_features() -> None:
             _read("README.md"),
             _read("docs/getting-started.md"),
             _read("docs/developer-toolkit.md"),
+            _read("docs/plugin-authoring.md"),
             _read("CHANGELOG.md"),
         ]
     )
@@ -148,6 +149,23 @@ def test_release_docs_cover_new_public_features() -> None:
         "invoke_message_command",
         "invoke_component",
         "invoke_modal",
+        "PluginManifest",
+        "PluginScaffoldOptions",
+        "PluginScaffoldResult",
+        "PluginCheck",
+        "PluginCheckReport",
+        "create_in_project_plugin",
+        "create_package_plugin",
+        "create_plugin_scaffold",
+        "load_plugin_manifest",
+        "validate_plugin_manifest",
+        "check_plugin_project",
+        "discover_plugins",
+        "load_entrypoint_plugins",
+        "easycord plugin create",
+        "easycord plugin check",
+        "easycord plugin discover",
+        "easycord.plugins",
     ):
         assert term in docs
 

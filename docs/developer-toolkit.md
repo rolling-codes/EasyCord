@@ -13,8 +13,9 @@ pytest
 
 The default `plugin` scaffold matches v5.3 behavior and includes `bot.py`, one
 plugin under `plugins/`, `.env.example`, `pyproject.toml`, and a starter pytest
-file using `easycord.testing.invoke()`. Generated code uses
-`Bot(auto_sync=False)` so local imports and tests do not touch Discord.
+file using `easycord.testing.invoke()`. Generated runnable bot code uses
+`Bot(auto_sync=False)`, which keeps command sync disabled and uses EasyCord's
+default local storage unless you configure another database backend.
 
 Choose a template when you want a smaller or more specialized starting point:
 
@@ -160,6 +161,50 @@ easycord test-template greetings --output tests/test_greetings.py
 
 The template uses `Bot(auto_sync=False, db_backend="memory")`, adds the plugin,
 and invokes a command without connecting to Discord.
+
+## Author plugin packages
+
+Use the plugin authoring helpers when you want a reusable plugin module or a
+distributable package instead of a full bot project. The Python API is the
+primary interface:
+
+```python
+from pathlib import Path
+
+from easycord import create_package_plugin
+
+result = create_package_plugin(
+    name="greetings",
+    target=Path("easycord-greetings"),
+    author="EasyCord Developer",
+)
+print(result.manifest_path)
+```
+
+Generated plugins include a required manifest. Runnable bot scaffolds default
+to local storage; generated tests use `Bot(auto_sync=False,
+db_backend="memory")` so test runs stay offline and disposable. Validate
+projects before publishing or loading them dynamically:
+
+```python
+from easycord import check_plugin_project, discover_plugins, load_entrypoint_plugins
+
+report = check_plugin_project("easycord-greetings")
+plugins = discover_plugins()
+installed = load_entrypoint_plugins(group="easycord.plugins")
+```
+
+The CLI wrappers are intentionally thin:
+
+```bash
+easycord plugin create greetings
+easycord plugin check easycord-greetings
+easycord plugin discover --json
+```
+
+Package plugins should publish entry points under `easycord.plugins`. See
+[`plugin-authoring.md`](plugin-authoring.md) for the manifest fields and full
+helper list.
 
 ## Offline interaction tests
 

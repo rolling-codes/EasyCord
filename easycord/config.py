@@ -57,7 +57,7 @@ class BotConfig:
         Development guild ID.  When set, slash commands are synced to this
         guild only (instant) instead of globally (up to 1 hour).
     db_backend:
-        ``"memory"`` (default) or ``"sqlite"``.
+        ``"sqlite"`` (default local storage) or ``"memory"``.
     db_path:
         Path to the SQLite file, used only when ``db_backend="sqlite"``.
         Defaults to ``"data/bot.db"``.
@@ -77,7 +77,7 @@ class BotConfig:
 
     token: str
     guild_id: int | None = None
-    db_backend: str = "memory"
+    db_backend: str = "sqlite"
     db_path: str = "data/bot.db"
     auto_sync: bool = True
     log_level: str = "INFO"
@@ -142,7 +142,7 @@ class BotConfig:
             ) from None
         db_backend = overrides.pop("db_backend", None)
         if db_backend is None:
-            db_backend = os.environ.get("EASYCORD_DB_BACKEND", "memory")
+            db_backend = os.environ.get("EASYCORD_DB_BACKEND", "sqlite")
         db_path = overrides.pop("db_path", None)
         if db_path is None:
             db_path = os.environ.get("EASYCORD_DB_PATH", "data/bot.db")

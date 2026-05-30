@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.40.2/easycord-5.40.2-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.43.0/easycord-5.43.0-py3-none-any.whl"
 ```
 
 Or clone and install locally:
@@ -34,10 +34,12 @@ easycord audit-tools bot:bot
 The generated project includes a runnable `bot.py`, one example plugin, an
 `.env.example`, and a starter command test.
 
-Starter projects use EasyCord's non-SQL in-memory database for local tests and
-ephemeral bots. For persistent storage, pass `db_backend="sqlite"` or provide a
-`SQLiteDatabase`; for non-SQL use, pass `db_backend="memory"`,
-`database=MemoryDatabase()`, or set `EASYCORD_DB_BACKEND=memory`.
+Starter projects use EasyCord's local SQLite storage by default, so a bot works
+without an external database connection. Generated tests use
+`db_backend="memory"` to avoid writing local files. For explicit persistence,
+pass `db_backend="sqlite"` or provide a `SQLiteDatabase`; for disposable
+storage, pass `db_backend="memory"`, `database=MemoryDatabase()`, or set
+`EASYCORD_DB_BACKEND=memory`.
 
 `easycord doctor [module:bot]` checks Python support, `discord.py`,
 `DISCORD_TOKEN`, and optional bot imports before you connect to Discord. Use
@@ -111,6 +113,29 @@ bot = Bot()
 bot.add_plugin(GreetPlugin())
 bot.run("YOUR_TOKEN")
 ```
+
+For reusable plugins, start from the plugin authoring helpers instead of copying
+files by hand. Generated plugin projects include a required manifest, runnable
+bot examples default to local storage, and generated tests use memory storage
+so they stay disposable:
+
+```python
+from pathlib import Path
+
+from easycord import check_plugin_project, create_package_plugin
+
+result = create_package_plugin(
+    name="greet",
+    target=Path("easycord-greet"),
+    author="EasyCord Developer",
+)
+report = check_plugin_project(result.target)
+```
+
+Installed plugin packages are discovered through the `easycord.plugins` entry
+point group. The matching CLI wrappers are `easycord plugin create`,
+`easycord plugin check`, and `easycord plugin discover`. See
+[`plugin-authoring.md`](plugin-authoring.md) for the full API.
 
 ---
 

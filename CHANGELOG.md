@@ -1,5 +1,24 @@
 # Changelog
 
+## EasyCord v5.43.0 - 2026-05-30
+
+### Added
+- Added `easycord.plugin_creator` as a public Python API for generating in-project plugins and reusable package plugins.
+- Added plugin manifests with schema version `1`, validation helpers, and entry-point discovery through the `easycord.plugins` group.
+- Added CLI wrappers for plugin authoring: `easycord plugin create`, `easycord plugin check`, and `easycord plugin discover`.
+- Added `docs/plugin-authoring.md` and refreshed developer toolkit/getting-started docs for plugin manifests, package discovery, and local-safe scaffold defaults.
+
+### Changed
+- Default config-driven bots to local SQLite storage when no database backend is configured.
+- Keep generated runnable bot scaffolds local-safe with command sync disabled; generated tests continue to use memory storage.
+
+### Verification
+- `python scripts/check_release_metadata.py` - passed.
+- `pytest -o cache_dir=.pytest_cache_codex tests/` - 534 passed.
+- `python -m compileall -q easycord tests scripts` - passed.
+
+---
+
 ## EasyCord v5.40.2 - 2026-05-28
 
 ### Fixed
