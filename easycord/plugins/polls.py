@@ -1,6 +1,8 @@
 """Button-based polling plugin for bots."""
 from __future__ import annotations
 
+import time
+
 import discord
 
 from easycord import Plugin, slash
@@ -22,6 +24,7 @@ class _PollView(discord.ui.View):
         self.question = question
         self.options = options
         self.votes: dict[int, int] = {}  # user_id → option index
+        self.close_time = int(time.time()) + duration
 
         self._register_buttons()
 
@@ -68,7 +71,11 @@ class _PollView(discord.ui.View):
         ]
 
         color = discord.Color.greyple() if closed else discord.Color.blurple()
-        footer = "📊 Poll closed" if closed else f"⏱️ Closes in {self.timeout:.0f}s"
+        if closed:
+            footer = "📊 Poll closed"
+        else:
+            # Use Discord's native relative timestamp for live countdown
+            footer = f"⏱️ Closes <t:{self.close_time}:R>"
         embed = discord.Embed(
             title=f"📊 {self.question}",
             description="\n\n".join(lines),

@@ -39,6 +39,8 @@ class InviteTrackerPlugin(Plugin):
         self.config = PluginConfigManager(".easycord/invite-tracker")
         # Cache invites to detect changes: {guild_id: {code: uses}}
         self._invite_cache: dict[int, dict[str, int]] = {}
+        # Guilds already warned about permission denied (avoid log spam)
+        self._permission_denied_guilds: set[int] = set()
 
     async def on_load(self) -> None:
         """Initialize invite tracker plugin."""
@@ -66,7 +68,9 @@ class InviteTrackerPlugin(Plugin):
             cache = {invite.code: invite.uses for invite in invites}
             self._invite_cache[guild_id] = cache
         except discord.Forbidden:
-            logger.warning("No permission to view invites in guild %s", guild_id)
+            if guild_id not in self._permission_denied_guilds:
+                logger.warning("No permission to view invites in guild %s", guild_id)
+                self._permission_denied_guilds.add(guild_id)
 
     async def _log_invite(self, member: discord.Member, invite_code: str | None) -> None:
         """Log member join via invite."""
@@ -141,6 +145,19 @@ class InviteTrackerPlugin(Plugin):
 
         if invite.guild.id in self._invite_cache and invite.code in self._invite_cache[invite.guild.id]:
             del self._invite_cache[invite.guild.id][invite.code]
+
+    @on("guild_channel_delete")
+    async def _on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
+        """Clear log channel config if the configured channel is deleted."""
+        if not isinstance(channel, discord.TextChannel):
+            return
+
+        cfg = await self._get_config(channel.guild.id)
+        log_channel_id = cfg.get("log_channel")
+
+        if log_channel_id == channel.id:
+            await self.config.update(channel.guild.id, "invite_tracker", log_channel=None)
+            logger.info("Invite tracker log channel %s was deleted in guild %s. Config cleared.", channel.id, channel.guild.id)
 
     @slash(description="Set the invite log channel", guild_only=True, permissions=["manage_guild"])
     async def invite_log_channel(self, ctx: Context, channel: discord.TextChannel) -> None:

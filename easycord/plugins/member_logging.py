@@ -171,6 +171,19 @@ class MemberLoggingPlugin(Plugin):
         if before.name != after.name:
             logger.info("User renamed: %s → %s (%s)", before.name, after.name, after.id)
 
+    @on("guild_channel_delete")
+    async def _on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
+        """Clear log channel config if the configured channel is deleted."""
+        if not isinstance(channel, discord.TextChannel):
+            return
+
+        cfg = await self._get_config(channel.guild.id)
+        log_channel_id = cfg.get("log_channel")
+
+        if log_channel_id == channel.id:
+            await self.config.update(channel.guild.id, "member_logging", log_channel=None)
+            logger.info("Member logging channel %s was deleted in guild %s. Config cleared.", channel.id, channel.guild.id)
+
     @slash(description="Set the member log channel", guild_only=True, permissions=["manage_guild"])
     async def member_log_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
         """Set where member logs are posted."""

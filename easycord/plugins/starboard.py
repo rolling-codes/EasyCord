@@ -81,27 +81,6 @@ class StarboardPlugin(Plugin):
         cfg_obj.set_other("archived_messages", archived)
         await self.config.store.save(cfg_obj)
 
-    async def _get_archived(self, guild_id: int) -> dict[str, int]:
-        """Get archived messages map for guild."""
-        cfg_obj = await self.config.store.load(guild_id)
-        return cfg_obj.get_other("archived_messages", {})
-
-    async def _set_archived(self, guild_id: int, message_id: int, post_id: int) -> None:
-        """Store archived message mapping."""
-        cfg_obj = await self.config.store.load(guild_id)
-        archived = cfg_obj.get_other("archived_messages", {})
-        archived[str(message_id)] = post_id
-        cfg_obj.set_other("archived_messages", archived)
-        await self.config.store.save(cfg_obj)
-
-    async def _remove_archived(self, guild_id: int, message_id: int) -> None:
-        """Remove archived message mapping."""
-        cfg_obj = await self.config.store.load(guild_id)
-        archived = cfg_obj.get_other("archived_messages", {})
-        archived.pop(str(message_id), None)
-        cfg_obj.set_other("archived_messages", archived)
-        await self.config.store.save(cfg_obj)
-
     async def _archive_message(self, message: discord.Message, reaction_count: int) -> None:
         """Post or update message on starboard."""
         if not message.guild:
@@ -269,6 +248,14 @@ class StarboardPlugin(Plugin):
         except (discord.NotFound, discord.Forbidden, discord.HTTPException):
             pass
 
+    @on("message_delete")
+    async def _on_message_delete(self, message: discord.Message) -> None:
+        """Clean up starboard post when original message is deleted."""
+        if not message.guild:
+            return
+
+        await self._unarchive_message(message.guild.id, message.id)
+
     # ── Slash commands ────────────────────────────────────────
 
     from easycord import slash, Context
@@ -296,7 +283,7 @@ class StarboardPlugin(Plugin):
         cfg = await self._get_config(ctx.guild.id)
         channel_id = cfg.get("channel_id")
         channel = ctx.guild.get_channel(channel_id) if channel_id else None
-        
+
         embed = discord.Embed(
             title=f"⭐ Starboard Config — {ctx.guild.name}",
             color=discord.Color.gold(),
@@ -305,5 +292,13 @@ class StarboardPlugin(Plugin):
         embed.add_field(name="Channel", value=channel.mention if channel else "*not set*", inline=True)
         embed.add_field(name="Emoji", value=cfg.get("emoji", "⭐"), inline=True)
         embed.add_field(name="Threshold", value=str(cfg.get("threshold", 3)), inline=True)
-        
+
         await ctx.respond(embed=embed, ephemeral=True)
+
+    @slash(description="Toggle starboard on or off.", permissions=["manage_guild"], guild_only=True)
+    async def starboard_toggle(self, ctx: Context) -> None:
+        cfg = await self._get_config(ctx.guild.id)
+        enabled = not cfg.get("enabled", True)
+        await self._update_config(ctx.guild.id, enabled=enabled)
+        status = "enabled ✅" if enabled else "disabled ❌"
+        await ctx.respond(f"Starboard is now {status}.", ephemeral=True)
