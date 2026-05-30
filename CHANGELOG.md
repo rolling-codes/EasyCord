@@ -3,7 +3,32 @@
 ## EasyCord v5.43.2 - 2026-05-30
 
 ### Release Notice
-This release combines features from v5.43.0 (plugin creator) and v5.43.1 (Phase 1 orchestration). See v5.43.0 and v5.43.1 sections below for detailed feature information.
+This release combines features from v5.43.0 (plugin creator system) and v5.43.1 (Phase 1 AI orchestration). See v5.43.1 and v5.43.0 sections below for detailed feature breakdowns.
+
+### Features from v5.43.1: Phase 1: Orchestration Loop
+Core AI orchestration with multi-step tool execution:
+- **Orchestrator** class for intelligent provider routing and tool-call loop management
+- **RunContext** dataclass for configuring orchestration: messages, context, max_steps, timeout_ms, system_prompt, conversation_memory
+- **FallbackStrategy** for multi-provider resilience (tries providers in sequence, advances on failure)
+- **ProviderStrategy** abstract base for custom provider selection strategies
+- Tool execution with permission gates: guild-only, admin-only, role-gated, user-allowlisted, rate-limited
+- Step accounting: counts provider queries (max_steps), accumulates in FinalResponse
+- Timeout enforcement: orchestrator loop enforced via asyncio.wait_for (configurable, default 30s)
+- Tool result message protocol: appends success/failure status to message history
+- Memory integration: ConversationMemory updated only on final response (not on errors or timeouts)
+- Multi-provider fallback: linear chain advances through providers on exception or invalid output
+- Per-tool audit fields: ToolCall.id, ToolResult.tool_id, ToolResult.tool_name for call tracking
+
+### Features from v5.43.0: Plugin Creator System
+(See v5.43.0 section below for full details)
+- Python-first plugin creator helpers for in-project and reusable package plugins
+- Plugin manifests with schema version 1 and entry-point discovery
+- CLI wrappers: `easycord plugin create`, `easycord plugin check`, `easycord plugin discover`
+
+### Verification
+- `pytest tests/test_orchestrator_phase1.py` — 13 Phase 1 tests passing
+- `pytest tests/` — 554+ tests passing (all existing tests continue to pass, no regressions)
+- `python -m compileall .` — zero compilation errors
 
 ---
 

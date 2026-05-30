@@ -6,6 +6,7 @@ import inspect
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Optional
+from uuid import uuid4
 
 if TYPE_CHECKING:
     from easycord.context import Context
@@ -44,6 +45,7 @@ class ToolCall:
 
     name: str
     args: dict[str, Any] = field(default_factory=dict)
+    id: str = field(default_factory=lambda: uuid4().hex)
 
 
 @dataclass
@@ -51,8 +53,11 @@ class ToolResult:
     """Result of tool execution."""
 
     success: bool
-    output: str
+    output: str = ""
     error: Optional[str] = None
+    tool_id: str = ""
+    tool_name: str = ""
+    mutations: list[str] = field(default_factory=list)
 
 
 class ToolRegistry:
@@ -195,7 +200,12 @@ class ToolRegistry:
     ) -> ToolResult:
         """Execute a tool call (assumes caller has already verified access via can_execute)."""
         if call.name not in self._tools:
-            return ToolResult(False, "", f"Tool '{call.name}' not found")
+            return ToolResult(
+                success=False,
+                error=f"Tool '{call.name}' not found",
+                tool_id=call.id,
+                tool_name=call.name,
+            )
 
         tool = self._tools[call.name]
 
@@ -204,11 +214,26 @@ class ToolRegistry:
                 self._call_func(tool.func, ctx, call.args),
                 timeout=tool.timeout_ms / 1000.0,
             )
-            return ToolResult(True, str(result))
+            return ToolResult(
+                success=True,
+                output=str(result),
+                tool_id=call.id,
+                tool_name=call.name,
+            )
         except asyncio.TimeoutError:
-            return ToolResult(False, "", "Tool execution timeout")
+            return ToolResult(
+                success=False,
+                error="Tool execution timeout",
+                tool_id=call.id,
+                tool_name=call.name,
+            )
         except Exception as e:
-            return ToolResult(False, "", f"Error: {str(e)}")
+            return ToolResult(
+                success=False,
+                error=f"Error: {str(e)}",
+                tool_id=call.id,
+                tool_name=call.name,
+            )
 
     async def _call_func(self, func: Callable, ctx: Context, args: dict) -> Any:
         """Call function, handling both sync and async."""

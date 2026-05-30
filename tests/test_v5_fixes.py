@@ -8,7 +8,7 @@ import pytest
 
 from easycord.orchestrator import FallbackStrategy, RunContext
 from easycord.tool_limits import RateLimit, ToolLimiter
-from easycord.tools import ToolRegistry, ToolSafety
+from easycord.tools import ToolCall, ToolRegistry, ToolResult, ToolSafety
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +257,128 @@ class TestToolRegistry:
 
 
 # ---------------------------------------------------------------------------
+# ToolCall/ToolResult — audit fields (id, tool_id, tool_name, mutations)
+# ---------------------------------------------------------------------------
+
+class TestToolAuditFields:
+    def test_tool_call_id_auto_generates(self) -> None:
+        """ToolCall.id auto-generates as 32-char hex string."""
+        call = ToolCall(name="test_tool")
+        assert call.id is not None
+        assert isinstance(call.id, str)
+        assert len(call.id) == 32
+        assert all(c in "0123456789abcdef" for c in call.id)
+
+    def test_tool_call_id_unique_per_call(self) -> None:
+        """Each ToolCall has a unique id."""
+        calls = [ToolCall(name="test_tool") for _ in range(100)]
+        ids = [call.id for call in calls]
+        assert len(ids) == len(set(ids))  # All unique
+
+    def test_tool_call_id_explicit_support(self) -> None:
+        """ToolCall.id can be explicitly provided."""
+        custom_id = "mycustom123456789abcdefghijklmn"
+        call = ToolCall(name="test_tool", id=custom_id)
+        assert call.id == custom_id
+
+    def test_tool_result_legacy_construction(self) -> None:
+        """ToolResult supports backward-compatible construction."""
+        # Old-style: positional success, output as positional
+        result1 = ToolResult(success=True, output="ok")
+        assert result1.success is True
+        assert result1.output == "ok"
+        assert result1.error is None
+
+        # New-style: with audit fields
+        result2 = ToolResult(success=True, output="ok", tool_id="id123", tool_name="tool")
+        assert result2.success is True
+        assert result2.tool_id == "id123"
+        assert result2.tool_name == "tool"
+
+    def test_tool_result_tool_id_preserved(self) -> None:
+        """ToolResult.tool_id is preserved after tool execution."""
+        registry = ToolRegistry()
+        registry.register(
+            name="test_tool",
+            func=lambda ctx: "ok",
+            description="A test tool",
+            safety=ToolSafety.SAFE,
+            require_guild=False,
+        )
+        call = ToolCall(name="test_tool")
+        ctx = _make_ctx()
+
+        result = asyncio.run(registry.execute(ctx, call))
+
+        assert result.tool_id == call.id
+        assert result.success is True
+
+    def test_tool_result_tool_name_preserved(self) -> None:
+        """ToolResult.tool_name is preserved after tool execution."""
+        registry = ToolRegistry()
+        registry.register(
+            name="test_tool",
+            func=lambda ctx: "ok",
+            description="A test tool",
+            safety=ToolSafety.SAFE,
+            require_guild=False,
+        )
+        call = ToolCall(name="test_tool")
+        ctx = _make_ctx()
+
+        result = asyncio.run(registry.execute(ctx, call))
+
+        assert result.tool_name == call.name
+        assert result.tool_name == "test_tool"
+
+    def test_tool_result_mutations_fresh_per_instance(self) -> None:
+        """ToolResult.mutations defaults to a fresh empty list per instance."""
+        result1 = ToolResult(success=True, output="ok")
+        result2 = ToolResult(success=True, output="ok")
+
+        assert result1.mutations == []
+        assert result2.mutations == []
+        assert result1.mutations is not result2.mutations  # Different objects
+
+    @pytest.mark.asyncio
+    async def test_tool_result_failure_preserves_audit_fields(self) -> None:
+        """Failed tool execution preserves tool_id, tool_name, and sets success=False."""
+        registry = ToolRegistry()
+        registry.register(
+            name="test_tool",
+            func=lambda ctx: "ok",
+            description="A test tool",
+            safety=ToolSafety.SAFE,
+            require_guild=False,
+            timeout_ms=1,  # Very short timeout to trigger timeout error
+        )
+
+        async def slow_tool(ctx):
+            await asyncio.sleep(10)
+            return "never"
+
+        registry.register(
+            name="slow_tool",
+            func=slow_tool,
+            description="A slow test tool",
+            safety=ToolSafety.SAFE,
+            require_guild=False,
+            timeout_ms=10,  # Short timeout
+        )
+
+        call = ToolCall(name="slow_tool")
+        ctx = _make_ctx()
+
+        result = await registry.execute(ctx, call)
+
+        # Verify failure case populates audit fields
+        assert result.success is False
+        assert result.tool_id == call.id
+        assert result.tool_name == call.name
+        assert result.error == "Tool execution timeout"
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator — provider failure logging
 # ---------------------------------------------------------------------------
 
@@ -289,6 +411,8 @@ class TestOrchestratorLogging:
         from easycord.orchestrator import Orchestrator, RunContext
 
         class ToolAwareProvider:
+            supports_tools = True
+
             def __init__(self) -> None:
                 self.tools = None
 
