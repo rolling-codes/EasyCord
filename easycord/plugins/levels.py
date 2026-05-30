@@ -209,7 +209,15 @@ class LevelsPlugin(Plugin):
                 except discord.HTTPException:
                     pass
 
-        await message.channel.send(embed=embed)
+        # Post to configured levelup_channel if set, otherwise post to current channel
+        levelup_channel_id = config.get("levelup_channel")
+        target_channel = message.channel
+        if levelup_channel_id:
+            ch = message.guild.get_channel(levelup_channel_id)
+            if ch and isinstance(ch, discord.TextChannel):
+                target_channel = ch
+
+        await target_channel.send(embed=embed)
 
     # ── Slash commands ────────────────────────────────────────
 
@@ -288,3 +296,28 @@ class LevelsPlugin(Plugin):
             )
             return
         await ctx.respond(embed=self._build_ranks_embed(ctx, config))
+
+    @slash(description="Remove the role reward for a specific level.", permissions=["manage_guild"], guild_only=True)
+    async def remove_level_role(self, ctx, level: int) -> None:
+        if not _positive_level(level):
+            await ctx.respond(ctx.t("levels.level_min", default="Level must be at least 1."), ephemeral=True)
+            return
+
+        removed = await self._remove_config_value(ctx.guild.id, "role_rewards", level)
+        if removed is None:
+            await ctx.respond(
+                ctx.t("levels.no_role_at_level", default="No role reward is configured at level {level}.", level=level),
+                ephemeral=True,
+            )
+            return
+
+        await ctx.respond(
+            ctx.t("levels.role_reward_removed", default="Removed role reward from Level {level}.", level=level),
+            ephemeral=True,
+        )
+
+    @slash(description="Set the channel for level-up announcements.", permissions=["manage_guild"], guild_only=True)
+    async def set_levelup_channel(self, ctx, channel: discord.TextChannel) -> None:
+        """Configure the level-up announcement channel."""
+        await self._store.update_config(ctx.guild.id, lambda c: c.update({"levelup_channel": channel.id}))
+        await ctx.respond(f"✅ Level-up announcements will be posted in {channel.mention}", ephemeral=True)

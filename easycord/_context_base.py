@@ -248,11 +248,33 @@ class BaseContext:
         guild_id = self.guild.id if self.guild else None
         conversation = memory.get_or_create(user_id, guild_id)
         turns = list(conversation.turns)
+        if limit is not None and limit <= 0:
+            return []
         if limit is not None:
-            if limit <= 0:
-                return []
             turns = turns[-limit:]
         return turns
+
+    async def conversation_messages(self, limit: int | None = None) -> list[dict]:
+        """Return conversation history as message dicts for AI providers.
+
+        Returns a list of {"role": ..., "content": ...} dicts suitable for
+        passing to multi-turn AI providers.
+
+        If conversation memory is disabled or no user is available, an empty
+        list is returned.
+        """
+        memory = getattr(self.interaction.client, "conversation_memory", None)
+        user_id = getattr(self.user, "id", None)
+        if memory is None or user_id is None:
+            return []
+        guild_id = self.guild.id if self.guild else None
+        conversation = memory.get_or_create(user_id, guild_id)
+        messages = conversation.to_messages()
+        if limit is not None and limit <= 0:
+            return []
+        if limit is not None:
+            messages = messages[-limit:]
+        return messages
 
     async def send_embed(
         self,

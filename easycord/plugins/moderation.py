@@ -325,7 +325,7 @@ class ModerationPlugin(Plugin):
             await ctx.respond(f"❌ {user.mention} is not in this server")
             return
 
-        mute_role = discord.utils.get(ctx.guild.roles, name="Muted")
+        mute_role = await self._get_or_create_mute_role(ctx.guild)
         if not mute_role or mute_role not in member.roles:
             await ctx.respond(f"ℹ️ {user.mention} is not muted")
             return

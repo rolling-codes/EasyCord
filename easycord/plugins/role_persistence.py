@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from easycord import Plugin, on
+from easycord import Plugin, on, slash
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
-    pass
+    from easycord import Context
 
 logger = logging.getLogger(__name__)
 
@@ -103,3 +103,59 @@ class RolePersistencePlugin(Plugin):
             del saved_roles[str(member.id)]
             cfg_obj.set_other("saved_roles", saved_roles)
             await self.config.store.save(cfg_obj)
+
+    @on("member_ban")
+    async def _on_member_ban(self, guild: discord.Guild, user: discord.User) -> None:
+        """Delete saved roles when a member is banned."""
+        cfg_obj = await self.config.store.load(guild.id)
+        saved_roles = cfg_obj.get_other("saved_roles", {})
+
+        if str(user.id) in saved_roles:
+            del saved_roles[str(user.id)]
+            cfg_obj.set_other("saved_roles", saved_roles)
+            await self.config.store.save(cfg_obj)
+            logger.info("Cleared saved roles for banned member %s in guild %s", user.id, guild.id)
+
+    # ── Slash commands ────────────────────────────────────────
+
+    @slash(description="View saved roles for a member.", guild_only=True)
+    async def saved_roles(self, ctx: Context, user: discord.User) -> None:
+        """Show saved roles for a user."""
+        cfg_obj = await self.config.store.load(ctx.guild.id)
+        saved_roles = cfg_obj.get_other("saved_roles", {})
+        role_ids = saved_roles.get(str(user.id), [])
+
+        if not role_ids:
+            await ctx.respond(f"No saved roles for {user.mention}", ephemeral=True)
+            return
+
+        role_mentions = []
+        for role_id in role_ids:
+            role = ctx.guild.get_role(role_id)
+            if role:
+                role_mentions.append(role.mention)
+            else:
+                role_mentions.append(f"Role {role_id} (not found)")
+
+        embed = discord.Embed(
+            title=f"Saved Roles for {user.name}",
+            description="\n".join(role_mentions) if role_mentions else "None",
+            color=discord.Color.blurple(),
+        )
+        await ctx.respond(embed=embed, ephemeral=True)
+
+    @slash(description="Clear saved roles for a member.", guild_only=True, permissions=["manage_guild"])
+    async def clear_saved_roles(self, ctx: Context, user: discord.User) -> None:
+        """Delete saved role record for a user."""
+        cfg_obj = await self.config.store.load(ctx.guild.id)
+        saved_roles = cfg_obj.get_other("saved_roles", {})
+
+        if str(user.id) not in saved_roles:
+            await ctx.respond(f"No saved roles for {user.mention}", ephemeral=True)
+            return
+
+        del saved_roles[str(user.id)]
+        cfg_obj.set_other("saved_roles", saved_roles)
+        await self.config.store.save(cfg_obj)
+
+        await ctx.respond(f"✅ Cleared saved roles for {user.mention}", ephemeral=True)

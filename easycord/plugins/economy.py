@@ -1,6 +1,7 @@
 """Economy system — earn, spend, and trade in-game currency."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -48,6 +49,7 @@ class EconomyPlugin(Plugin):
     def __init__(self):
         super().__init__()
         self.config = PluginConfigManager(".easycord/economy")
+        self._buy_locks: dict[int, asyncio.Lock] = {}  # Per-guild lock for /buy to prevent TOCTOU
 
     async def on_load(self) -> None:
         """Initialize economy plugin."""
@@ -228,27 +230,56 @@ class EconomyPlugin(Plugin):
 
     @slash(description="Purchase a shop item", guild_only=True)
     async def buy(self, ctx: Context, item: str) -> None:
-        """Purchase a shop item.
+        """Purchase a shop item."""
+        # Get or create per-guild lock to prevent TOCTOU race on concurrent purchases
+        if not hasattr(self, "_buy_locks"):
+            self._buy_locks = {}
+        if ctx.guild.id not in self._buy_locks:
+            self._buy_locks[ctx.guild.id] = asyncio.Lock()
 
-        Known limitation: balance read, check, and deduct are not atomic.
-        Concurrent purchases from the same guild may both pass the balance
-        check before either deduction is written.
-        """
-        items = await self._get_shop_items(ctx.guild.id)
-        if item not in items:
-            await ctx.respond(f"❌ Item `{item}` not found in shop.", ephemeral=True)
-            return
-        price = items[item].get("price")
-        if price is None:
-            await ctx.respond(f"❌ Item `{item}` is not configured correctly.", ephemeral=True)
-            return
-        balance = await self._get_balance(ctx.guild.id, ctx.user.id)
-        if balance < price:
+        async with self._buy_locks[ctx.guild.id]:
+            items = await self._get_shop_items(ctx.guild.id)
+            if item not in items:
+                await ctx.respond(f"❌ Item `{item}` not found in shop.", ephemeral=True)
+                return
+            price = items[item].get("price")
+            if price is None:
+                await ctx.respond(f"❌ Item `{item}` is not configured correctly.", ephemeral=True)
+                return
+            balance = await self._get_balance(ctx.guild.id, ctx.user.id)
+            if balance < price:
+                cfg = await self._get_config(ctx.guild.id)
+                currency = cfg.get("currency_name", "Credits")
+                await ctx.respond(f"❌ Insufficient balance ({balance}/{price} {currency})", ephemeral=True)
+                return
+            await self._add_balance(ctx.guild.id, ctx.user.id, -price)
             cfg = await self._get_config(ctx.guild.id)
             currency = cfg.get("currency_name", "Credits")
-            await ctx.respond(f"❌ Insufficient balance ({balance}/{price} {currency})", ephemeral=True)
+            await ctx.respond(f"✅ Purchased `{item}` for {price} {currency}!")
+
+    @slash(description="Add an item to the shop", guild_only=True, permissions=["manage_guild"])
+    async def shop_add(self, ctx: Context, name: str, price: int, description: str = None) -> None:
+        """Add a new item to the shop."""
+        if price <= 0:
+            await ctx.respond("❌ Price must be positive", ephemeral=True)
             return
-        await self._add_balance(ctx.guild.id, ctx.user.id, -price)
-        cfg = await self._get_config(ctx.guild.id)
-        currency = cfg.get("currency_name", "Credits")
-        await ctx.respond(f"✅ Purchased `{item}` for {price} {currency}!")
+
+        items = await self._get_shop_items(ctx.guild.id)
+        items[name] = {
+            "price": price,
+            "description": description or "",
+        }
+        await self._set_shop_items(ctx.guild.id, items)
+        await ctx.respond(f"✅ Added `{name}` to shop for {price} credits", ephemeral=True)
+
+    @slash(description="Remove an item from the shop", guild_only=True, permissions=["manage_guild"])
+    async def shop_remove(self, ctx: Context, name: str) -> None:
+        """Remove an item from the shop."""
+        items = await self._get_shop_items(ctx.guild.id)
+        if name not in items:
+            await ctx.respond(f"❌ Item `{name}` not found in shop", ephemeral=True)
+            return
+
+        del items[name]
+        await self._set_shop_items(ctx.guild.id, items)
+        await ctx.respond(f"✅ Removed `{name}` from shop", ephemeral=True)

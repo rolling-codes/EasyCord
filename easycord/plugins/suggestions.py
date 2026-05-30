@@ -67,9 +67,9 @@ class SuggestionsPlugin(Plugin):
     async def _update_config(self, guild_id: int, **kwargs) -> None:
         """Update suggestions config for guild."""
         cfg_obj = await self.config.store.load(guild_id)
-        config = cfg_obj.get_other("suggestions", _DEFAULTS.copy())
+        config = cfg_obj.get_other("suggestions_config", _DEFAULTS.copy())
         config.update(kwargs)
-        cfg_obj.set_other("suggestions", config)
+        cfg_obj.set_other("suggestions_config", config)
         await self.config.store.save(cfg_obj)
 
     @slash(description="Set the suggestions channel", guild_only=True, permissions=["manage_guild"])
@@ -112,14 +112,14 @@ class SuggestionsPlugin(Plugin):
 
             # Store suggestion info
             cfg_obj = await self.config.store.load(ctx.guild.id)
-            suggestions = cfg_obj.get_other("suggestions", {})
+            suggestions = cfg_obj.get_other("suggestions_records", {})
             suggestions[str(suggestion_id)] = {
                 "user_id": ctx.user.id,
                 "idea": idea,
                 "message_id": msg.id,
                 "status": "pending",
             }
-            cfg_obj.set_other("suggestions", suggestions)
+            cfg_obj.set_other("suggestions_records", suggestions)
             await self.config.store.save(cfg_obj)
 
             await ctx.respond(f"✅ Suggestion #{suggestion_id} posted!", ephemeral=True)
@@ -130,7 +130,7 @@ class SuggestionsPlugin(Plugin):
     async def suggestions(self, ctx: Context) -> None:
         """Show all pending suggestions."""
         cfg_obj = await self.config.store.load(ctx.guild.id)
-        suggestions = cfg_obj.get_other("suggestions", {})
+        suggestions = cfg_obj.get_other("suggestions_records", {})
 
         pending = {sid: s for sid, s in suggestions.items() if s.get("status") == "pending"}
 
@@ -158,7 +158,7 @@ class SuggestionsPlugin(Plugin):
             return
 
         cfg_obj = await self.config.store.load(ctx.guild.id)
-        suggestions = cfg_obj.get_other("suggestions", {})
+        suggestions = cfg_obj.get_other("suggestions_records", {})
         suggestion = suggestions.get(str(suggestion_id))
 
         if not suggestion:
@@ -166,7 +166,7 @@ class SuggestionsPlugin(Plugin):
             return
 
         suggestion["status"] = "approved"
-        cfg_obj.set_other("suggestions", suggestions)
+        cfg_obj.set_other("suggestions_records", suggestions)
         await self.config.store.save(cfg_obj)
 
         # Update the Discord embed
@@ -197,7 +197,7 @@ class SuggestionsPlugin(Plugin):
             return
 
         cfg_obj = await self.config.store.load(ctx.guild.id)
-        suggestions = cfg_obj.get_other("suggestions", {})
+        suggestions = cfg_obj.get_other("suggestions_records", {})
         suggestion = suggestions.get(str(suggestion_id))
 
         if not suggestion:
@@ -205,7 +205,7 @@ class SuggestionsPlugin(Plugin):
             return
 
         suggestion["status"] = "rejected"
-        cfg_obj.set_other("suggestions", suggestions)
+        cfg_obj.set_other("suggestions_records", suggestions)
         await self.config.store.save(cfg_obj)
 
         # Update the Discord embed

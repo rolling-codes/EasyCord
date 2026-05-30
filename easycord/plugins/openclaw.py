@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import logging
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ from easycord.tools import ToolRegistry
 if TYPE_CHECKING:
     from easycord import Context
 
+logger = logging.getLogger(__name__)
 
 _HISTORY_KEY = "openclaw_history"
 _STATUS_RUNNING = "running"
@@ -244,6 +246,7 @@ class OpenClawPlugin(Plugin):
             await self._record_history(task)
             raise
         except Exception as exc:
+            logger.exception("OpenClaw task %s failed in guild %s", task.id, task.guild_id)
             task.status = _STATUS_FAILED
             task.error = str(exc)
             task.finished_at = self._now()

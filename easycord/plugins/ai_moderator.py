@@ -217,7 +217,7 @@ class AIModeratorPlugin(Plugin):
                 try:
                     await message.author.send(f"⚠️ Your message was flagged: {reason} ({confidence*100:.0f}% confidence)")
                 except discord.Forbidden:
-                    pass
+                    logger.warning("Could not DM warning to user %s — DMs disabled", message.author.id)
 
             elif action_level == "notify_only":
                 # Log to review channel
@@ -244,7 +244,7 @@ class AIModeratorPlugin(Plugin):
         """Enable/disable moderation."""
         await self._update_config(ctx.guild.id, enabled=enabled)
         status = "enabled" if enabled else "disabled"
-        await ctx.send(f"✅ Moderation {status}")
+        await ctx.respond(f"✅ Moderation {status}")
 
     @slash(description="View moderation config", guild_only=True)
     async def mod_config(self, ctx: Context) -> None:
@@ -255,6 +255,23 @@ class AIModeratorPlugin(Plugin):
         embed.add_field(name="Action Level", value=cfg.get("action_level", "unknown"), inline=True)
         embed.add_field(name="Confidence Threshold", value=f"{cfg.get('confidence_threshold', 0.85)*100:.0f}%", inline=True)
         embed.add_field(name="Rules", value=", ".join(cfg.get("rules", [])), inline=False)
+
+        review_channel_id = cfg.get("mod_review_channel")
+        review_channel = ctx.guild.get_channel(review_channel_id) if review_channel_id else None
+        embed.add_field(
+            name="Review Channel",
+            value=f"{review_channel.mention}" if review_channel else "Not set",
+            inline=False,
+        )
+
+        audit_channel_id = cfg.get("audit_channel")
+        audit_channel = ctx.guild.get_channel(audit_channel_id) if audit_channel_id else None
+        embed.add_field(
+            name="Audit Channel",
+            value=f"{audit_channel.mention}" if audit_channel else "Not set",
+            inline=False,
+        )
+
         await ctx.respond(embed=embed)
 
     @slash(description="Set confidence threshold (0.0-1.0)", guild_only=True)
@@ -262,29 +279,29 @@ class AIModeratorPlugin(Plugin):
         """Set confidence threshold."""
         threshold = max(0.0, min(1.0, threshold))
         await self._update_config(ctx.guild.id, confidence_threshold=threshold)
-        await ctx.send(f"✅ Threshold set to {threshold*100:.0f}%")
+        await ctx.respond(f"✅ Threshold set to {threshold*100:.0f}%")
 
     @slash(description="Set action level: notify_only, warn, auto_delete", guild_only=True)
     async def mod_action_level(self, ctx: Context, level: str) -> None:
         """Set action level."""
         if level not in ("notify_only", "warn", "auto_delete"):
-            await ctx.send("❌ Invalid level. Use: notify_only, warn, auto_delete")
+            await ctx.respond("❌ Invalid level. Use: notify_only, warn, auto_delete")
             return
         await self._update_config(ctx.guild.id, action_level=level)
-        await ctx.send(f"✅ Action level set to {level}")
+        await ctx.respond(f"✅ Action level set to {level}")
 
     @slash(description="Add rule to check: spam, abuse, nsfw", guild_only=True)
     async def mod_add_rule(self, ctx: Context, rule: str) -> None:
         """Add moderation rule."""
         if rule not in ("spam", "abuse", "nsfw"):
-            await ctx.send("❌ Invalid rule. Use: spam, abuse, nsfw")
+            await ctx.respond("❌ Invalid rule. Use: spam, abuse, nsfw")
             return
         cfg = await self._get_config(ctx.guild.id)
         rules = cfg.get("rules", [])
         if rule not in rules:
             rules.append(rule)
             await self._update_config(ctx.guild.id, rules=rules)
-        await ctx.send(f"✅ Added rule: {rule}")
+        await ctx.respond(f"✅ Added rule: {rule}")
 
     @slash(description="Remove rule", guild_only=True)
     async def mod_remove_rule(self, ctx: Context, rule: str) -> None:
@@ -294,4 +311,16 @@ class AIModeratorPlugin(Plugin):
         if rule in rules:
             rules.remove(rule)
             await self._update_config(ctx.guild.id, rules=rules)
-        await ctx.send(f"✅ Removed rule: {rule}")
+        await ctx.respond(f"✅ Removed rule: {rule}")
+
+    @slash(description="Set the channel for moderation review notifications", guild_only=True, permissions=["manage_guild"])
+    async def set_mod_review_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
+        """Configure the moderation review channel."""
+        await self._update_config(ctx.guild.id, mod_review_channel=channel.id)
+        await ctx.respond(f"✅ Moderation review channel set to {channel.mention}", ephemeral=True)
+
+    @slash(description="Set the channel for moderation audit logs", guild_only=True, permissions=["manage_guild"])
+    async def set_mod_audit_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
+        """Configure the moderation audit channel."""
+        await self._update_config(ctx.guild.id, audit_channel=channel.id)
+        await ctx.respond(f"✅ Moderation audit channel set to {channel.mention}", ephemeral=True)
