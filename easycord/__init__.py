@@ -16,7 +16,7 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
-__version__ = "5.42.0"
+__version__ = "5.43.2"
 
 from .audit import AuditLog
 from .bot import Bot
@@ -31,6 +31,21 @@ from .decorators import ai_tool, autocomplete, command_error, component, cooldow
 from .i18n import LocalizationManager
 from .group import SlashGroup
 from .plugin import Plugin
+from .plugin_creator import (
+    PluginCheck,
+    PluginCheckReport,
+    PluginManifest,
+    PluginScaffoldOptions,
+    PluginScaffoldResult,
+    check_plugin_project,
+    create_in_project_plugin,
+    create_package_plugin,
+    create_plugin_scaffold,
+    discover_plugins,
+    load_entrypoint_plugins,
+    load_plugin_manifest,
+    validate_plugin_manifest,
+)
 from .server_config import ServerConfig, ServerConfigStore
 from .tools import ToolCall, ToolDef, ToolRegistry, ToolResult, ToolSafety, audit_tool_registry
 from .orchestrator import FallbackStrategy, Orchestrator, ProviderStrategy, RunContext
@@ -78,13 +93,18 @@ __all__ = [
     "command_error",
     "Composer",
     "ConfigHelpers",
+    "check_plugin_project",
     "Conversation",
     "ConversationMemory",
     "ConversationTurn",
     "Context",
     "ContextBuilder",
     "ContextHelpers",
+    "create_in_project_plugin",
+    "create_package_plugin",
+    "create_plugin_scaffold",
     "describe",
+    "discover_plugins",
     "Duration",
     "EmbedBuilder",
     "EmbedCard",
@@ -115,9 +135,16 @@ __all__ = [
     "modal",
     "MemoryDatabase",
     "LocalizationManager",
+    "load_entrypoint_plugins",
+    "load_plugin_manifest",
     "Orchestrator",
     "Plugin",
+    "PluginCheck",
+    "PluginCheckReport",
+    "PluginManifest",
     "Paginator",
+    "PluginScaffoldOptions",
+    "PluginScaffoldResult",
     "ProviderStrategy",
     "premium_required",
     "RateLimit",
@@ -149,5 +176,6 @@ __all__ = [
     "ServerConfig",
     "ServerConfigStore",
     "URL",
+    "validate_plugin_manifest",
     "ValidationError",
 ]

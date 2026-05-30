@@ -20,6 +20,12 @@ from .formatters import (
     format_sync_plan,
     format_tool_audit,
 )
+from .plugin_creator import (
+    PluginScaffoldOptions,
+    check_plugin_project,
+    create_plugin_scaffold,
+    discover_plugins,
+)
 from .tools import audit_tool_registry
 
 ProjectTemplate = Literal["minimal", "plugin", "ai", "database"]
@@ -107,7 +113,7 @@ def _minimal_project_files(name: str) -> dict[str, str]:
             from easycord import Bot
 
 
-            bot = Bot(auto_sync=False, db_backend="memory")
+            bot = Bot(auto_sync=False)
 
 
             @bot.slash(description="Ping the bot")
@@ -143,7 +149,7 @@ def _plugin_project_files(name: str) -> dict[str, str]:
             from plugins.{plugin_module} import {plugin_class}
 
 
-            bot = Bot(auto_sync=False, db_backend="memory")
+            bot = Bot(auto_sync=False)
             bot.add_plugin({plugin_class}())
 
 
@@ -185,7 +191,7 @@ def _ai_project_files(name: str) -> dict[str, str]:
             from plugins.{plugin_module} import {plugin_class}
 
 
-            bot = Bot(auto_sync=False, db_backend="memory")
+            bot = Bot(auto_sync=False)
             bot.add_plugin({plugin_class}())
 
 
@@ -509,6 +515,59 @@ def cmd_test_template(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_plugin_create(args: argparse.Namespace) -> int:
+    result = create_plugin_scaffold(
+        PluginScaffoldOptions(
+            name=args.name,
+            target=Path(args.target),
+            mode=args.mode,
+            author=args.author,
+            description=args.description,
+            overwrite=args.force,
+        )
+    )
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2))
+        return 0
+    print(f"Created EasyCord plugin {result.manifest.name} at {result.target}")
+    print(f"  mode: {result.mode}")
+    print(f"  entry point: {result.manifest.class_target}")
+    for path in result.written:
+        try:
+            shown = path.relative_to(result.target)
+        except ValueError:
+            shown = path
+        print(f"  {shown}")
+    return 0
+
+
+def cmd_plugin_check(args: argparse.Namespace) -> int:
+    report = check_plugin_project(args.path)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print("EasyCord plugin check")
+        for check in report.checks:
+            state = "ok" if check.ok else check.severity
+            print(f"{state}: {check.code} - {check.message}")
+        print("All checks passed." if report.ok else f"{report.failed} check(s) failed.")
+    return 0 if report.ok else 1
+
+
+def cmd_plugin_discover(args: argparse.Namespace) -> int:
+    plugins = discover_plugins()
+    if args.json:
+        print(json.dumps(plugins, indent=2))
+    else:
+        print("EasyCord plugin entry points")
+        if not plugins:
+            print("  none found")
+        for item in plugins:
+            dist = f" ({item['distribution']})" if item.get("distribution") else ""
+            print(f"  {item['name']}: {item['value']}{dist}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="easycord", description="EasyCord developer toolkit")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -561,6 +620,44 @@ def build_parser() -> argparse.ArgumentParser:
     template.add_argument("plugin_name")
     template.add_argument("-o", "--output", help="Write the template to a file")
     template.set_defaults(func=cmd_test_template)
+
+    plugin = subcommands.add_parser("plugin", help="Create and inspect EasyCord plugins")
+    plugin_commands = plugin.add_subparsers(dest="plugin_command", required=True)
+
+    plugin_create = plugin_commands.add_parser("create", help="Create a plugin scaffold")
+    plugin_create.add_argument("name")
+    plugin_create.add_argument(
+        "--mode",
+        choices=("in-project", "package"),
+        default="in-project",
+        help="Scaffold mode (default: in-project)",
+    )
+    plugin_create.add_argument(
+        "--target",
+        default=".",
+        help="Directory to write into (default: current directory)",
+    )
+    plugin_create.add_argument("--author", default="Unknown")
+    plugin_create.add_argument("--description")
+    plugin_create.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing scaffold files",
+    )
+    plugin_create.add_argument("--json", action="store_true", help="Print raw JSON")
+    plugin_create.set_defaults(func=cmd_plugin_create)
+
+    plugin_check = plugin_commands.add_parser("check", help="Validate a plugin project")
+    plugin_check.add_argument("path")
+    plugin_check.add_argument("--json", action="store_true", help="Print raw JSON")
+    plugin_check.set_defaults(func=cmd_plugin_check)
+
+    plugin_discover = plugin_commands.add_parser(
+        "discover",
+        help="List installed easycord.plugins entry points",
+    )
+    plugin_discover.add_argument("--json", action="store_true", help="Print raw JSON")
+    plugin_discover.set_defaults(func=cmd_plugin_discover)
 
     return parser
 
