@@ -136,7 +136,7 @@ class AIModeratorPlugin(Plugin):
         return None, 0.0, "Analysis failed"
 
     async def _execute_action(
-        self, ctx: Context, action: ModerationAction, user: discord.User, reason: str, message: discord.Message | None = None
+        self, guild: discord.Guild, action: ModerationAction, user: discord.User, reason: str, message: discord.Message | None = None
     ) -> bool:
         """Execute moderation action. Return True if successful."""
         try:
@@ -151,7 +151,6 @@ class AIModeratorPlugin(Plugin):
                 if not allowed:
                     logger.warning("Warn rate limit exceeded for %s", user)
                     return False
-                await ctx.send(f"⚠️ {user.mention} warned: {reason}")
                 logger.info("Warned user %s: %s", user, reason)
                 return True
 
@@ -161,7 +160,7 @@ class AIModeratorPlugin(Plugin):
                 if not allowed:
                     logger.warning("Timeout rate limit exceeded for %s", user)
                     return False
-                member = ctx.guild.get_member(user.id)
+                member = guild.get_member(user.id)
                 if member:
                     await member.timeout(discord.utils.utcnow() + timedelta(minutes=5), reason=reason)
                     logger.info("Timed out user %s: %s", user, reason)
@@ -169,15 +168,15 @@ class AIModeratorPlugin(Plugin):
 
             elif action == "mute":
                 # Find or create mute role
-                mute_role = discord.utils.get(ctx.guild.roles, name="Muted")
+                mute_role = discord.utils.get(guild.roles, name="Muted")
                 if not mute_role:
                     try:
-                        mute_role = await ctx.guild.create_role(name="Muted", reason="AIModeratorPlugin auto-created")
+                        mute_role = await guild.create_role(name="Muted", reason="AIModeratorPlugin auto-created")
                     except discord.Forbidden:
                         logger.error("Cannot create mute role")
                         return False
 
-                member = ctx.guild.get_member(user.id)
+                member = guild.get_member(user.id)
                 if member and mute_role:
                     await member.add_roles(mute_role, reason=reason)
                     logger.info("Muted user %s: %s", user, reason)
@@ -209,8 +208,7 @@ class AIModeratorPlugin(Plugin):
         if action and confidence >= threshold:
             # Take action based on confidence
             if action_level == "auto_delete" and confidence >= 0.95:
-                await message.delete()
-                logger.info("Auto-deleted message from %s: %s (%.2f%%)", message.author, reason, confidence * 100)
+                await self._execute_action(message.guild, action, message.author, reason, message=message)
 
             elif action_level == "warn" or action_level == "auto_delete":
                 # Warn user

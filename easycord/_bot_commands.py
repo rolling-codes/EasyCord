@@ -74,6 +74,7 @@ class _CommandsMixin:
 
         def decorator(func: Callable) -> Callable:
             primary = name or func.__name__
+            merged_choices = {**(getattr(func, "_slash_choices", {}) or {}), **(choices or {})}
             self._register_slash(
                 func,
                 name=primary,
@@ -88,12 +89,13 @@ class _CommandsMixin:
                 cooldown_bucket=getattr(func, "_slash_cooldown_bucket", cooldown_bucket),
                 premium_required=getattr(func, "_slash_premium_required", premium_required),
                 autocomplete=autocomplete,
-                choices=choices,
+                choices=merged_choices or None,
                 nsfw=nsfw,
                 allowed_contexts=allowed_contexts or getattr(func, "_slash_allowed_contexts", None),
                 allowed_installs=allowed_installs or getattr(func, "_slash_allowed_installs", None),
             )
-            for alias in (aliases or []):
+            all_aliases = list(aliases or []) + list(getattr(func, "_slash_aliases", []) or [])
+            for alias in all_aliases:
                 self._register_slash(
                     func,
                     name=alias,
@@ -108,7 +110,7 @@ class _CommandsMixin:
                     cooldown_bucket=getattr(func, "_slash_cooldown_bucket", cooldown_bucket),
                     premium_required=getattr(func, "_slash_premium_required", premium_required),
                     autocomplete=autocomplete,
-                    choices=choices,
+                    choices=merged_choices or None,
                     nsfw=nsfw,
                     allowed_contexts=allowed_contexts or getattr(func, "_slash_allowed_contexts", None),
                     allowed_installs=allowed_installs or getattr(func, "_slash_allowed_installs", None),

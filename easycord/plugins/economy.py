@@ -255,11 +255,22 @@ class EconomyPlugin(Plugin):
             await self._add_balance(ctx.guild.id, ctx.user.id, -price)
             cfg = await self._get_config(ctx.guild.id)
             currency = cfg.get("currency_name", "Credits")
+
+            # Grant role if configured
+            role_id = items[item].get("role_id")
+            if role_id:
+                role = ctx.guild.get_role(role_id)
+                if role and isinstance(ctx.user, discord.Member):
+                    try:
+                        await ctx.user.add_roles(role, reason=f"Purchased shop item: {item}")
+                    except discord.Forbidden:
+                        logger.warning("Cannot grant role %s to %s", role_id, ctx.user.id)
+
             await ctx.respond(f"✅ Purchased `{item}` for {price} {currency}!")
 
     @slash(description="Add an item to the shop", guild_only=True, permissions=["manage_guild"])
-    async def shop_add(self, ctx: Context, name: str, price: int, description: str = None) -> None:
-        """Add a new item to the shop."""
+    async def shop_add(self, ctx: Context, name: str, price: int, description: str = None, role: discord.Role = None) -> None:
+        """Add a new item to the shop, optionally with a role reward."""
         if price <= 0:
             await ctx.respond("❌ Price must be positive", ephemeral=True)
             return
@@ -269,8 +280,11 @@ class EconomyPlugin(Plugin):
             "price": price,
             "description": description or "",
         }
+        if role:
+            items[name]["role_id"] = role.id
         await self._set_shop_items(ctx.guild.id, items)
-        await ctx.respond(f"✅ Added `{name}` to shop for {price} credits", ephemeral=True)
+        role_msg = f" (grants {role.mention})" if role else ""
+        await ctx.respond(f"✅ Added `{name}` to shop for {price} credits{role_msg}", ephemeral=True)
 
     @slash(description="Remove an item from the shop", guild_only=True, permissions=["manage_guild"])
     async def shop_remove(self, ctx: Context, name: str) -> None:
