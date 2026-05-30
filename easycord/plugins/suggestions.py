@@ -64,6 +64,20 @@ class SuggestionsPlugin(Plugin):
         await self.config.store.save(cfg_obj)
         return next_id
 
+    async def _update_config(self, guild_id: int, **kwargs) -> None:
+        """Update suggestions config for guild."""
+        cfg_obj = await self.config.store.load(guild_id)
+        config = cfg_obj.get_other("suggestions", _DEFAULTS.copy())
+        config.update(kwargs)
+        cfg_obj.set_other("suggestions", config)
+        await self.config.store.save(cfg_obj)
+
+    @slash(description="Set the suggestions channel", guild_only=True, permissions=["manage_guild"])
+    async def set_suggestions_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
+        """Configure the suggestions channel."""
+        await self._update_config(ctx.guild.id, suggestions_channel=channel.id)
+        await ctx.respond(f"✅ Suggestions channel set to {channel.mention}", ephemeral=True)
+
     @slash(description="Submit a server suggestion", guild_only=True)
     async def suggest(self, ctx: Context, idea: str) -> None:
         """Submit a suggestion."""
@@ -155,6 +169,24 @@ class SuggestionsPlugin(Plugin):
         cfg_obj.set_other("suggestions", suggestions)
         await self.config.store.save(cfg_obj)
 
+        # Update the Discord embed
+        config = await self._get_config(ctx.guild.id)
+        channel_id = config.get("suggestions_channel")
+        if channel_id:
+            channel = ctx.guild.get_channel(channel_id)
+            if channel and isinstance(channel, discord.TextChannel):
+                try:
+                    message = await channel.fetch_message(suggestion.get("message_id"))
+                    embed = discord.Embed(
+                        title=f"Suggestion #{suggestion_id} ✅",
+                        description=suggestion.get("idea"),
+                        color=discord.Color.green(),
+                    )
+                    embed.set_footer(text=f"Approved by {ctx.user.name} • ID: {suggestion_id}")
+                    await message.edit(embed=embed)
+                except (discord.NotFound, discord.Forbidden):
+                    pass
+
         await ctx.respond(f"✅ Suggestion #{suggestion_id} approved")
 
     @slash(description="Reject a suggestion", guild_only=True)
@@ -175,5 +207,23 @@ class SuggestionsPlugin(Plugin):
         suggestion["status"] = "rejected"
         cfg_obj.set_other("suggestions", suggestions)
         await self.config.store.save(cfg_obj)
+
+        # Update the Discord embed
+        config = await self._get_config(ctx.guild.id)
+        channel_id = config.get("suggestions_channel")
+        if channel_id:
+            channel = ctx.guild.get_channel(channel_id)
+            if channel and isinstance(channel, discord.TextChannel):
+                try:
+                    message = await channel.fetch_message(suggestion.get("message_id"))
+                    embed = discord.Embed(
+                        title=f"Suggestion #{suggestion_id} ❌",
+                        description=suggestion.get("idea"),
+                        color=discord.Color.red(),
+                    )
+                    embed.set_footer(text=f"Rejected by {ctx.user.name} • ID: {suggestion_id}")
+                    await message.edit(embed=embed)
+                except (discord.NotFound, discord.Forbidden):
+                    pass
 
         await ctx.respond(f"✅ Suggestion #{suggestion_id} rejected")
