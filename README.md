@@ -1,8 +1,10 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.42.0-blue)
+![Version](https://img.shields.io/badge/v-5.43.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
+
+**[→ Release v5.43.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.43.0)**
 
 > A modern Discord bot framework for production bots. **No AI required.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add bundled plugins for features (moderation, roles, logging, leveling). Optionally add intelligent agents with multi-provider LLM support and permission-gated tool calling.
 
@@ -258,7 +260,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.42.0/easycord-5.42.0-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.43.0/easycord-5.43.0-py3-none-any.whl"
 ```
 
 ### Clone and install locally
@@ -494,6 +496,79 @@ The orchestrator:
 - **Executes safely:** checks permissions, enforces timeouts, handles exceptions
 - **Loops:** feeds tool results back to AI, continues until final response
 - **Respects constraints:** admin-only, role-gated, and user-allowlisted tools
+
+### RunContext Parameters
+
+`RunContext` configures the orchestration loop. Construct it with:
+
+```python
+RunContext(
+    messages=[{"role": "user", "content": "Your prompt"}],  # Chat history (required)
+    ctx=ctx,                                                  # Discord context for permissions (required)
+    max_steps=5,                                             # Max provider queries (default 5)
+    timeout_ms=30000,                                        # Orchestrator timeout in ms (default 30000)
+    system_prompt="You are helpful.",                        # Optional AI system prompt
+    conversation_memory=memory,                              # Optional multi-turn memory
+)
+```
+
+**messages:** List of dicts with `{"role": "user"|"assistant"|"tool", "content": "..."}`. The orchestrator appends tool results to this list.
+
+**ctx:** Discord context. Used for permission checks (tool execution requires guild/admin/role validation). Pass `None` if no permission checks needed, but tool execution will be blocked.
+
+**max_steps:** Maximum provider queries before returning "Max steps reached". Each provider call counts as one step; tool execution within a step does NOT increment the counter.
+
+**timeout_ms:** Timeout for entire orchestration loop in milliseconds. If exceeded, returns `FinalResponse(text="Orchestration timeout")`. Default 30000ms (30 seconds).
+
+**system_prompt:** Optional system instruction prepended to messages. Useful for role-playing or behavior guidance.
+
+**conversation_memory:** Optional `ConversationMemory` instance for multi-turn conversations. Updated ONLY on final response (not on errors or timeouts).
+
+### FinalResponse Return Type
+
+`orchestrator.run()` returns `FinalResponse` with three fields:
+
+```python
+response = await orchestrator.run(run_ctx)
+response.text              # str: final response text or error message
+response.provider          # AIProvider instance that produced the response
+response.steps             # int: number of provider queries executed
+```
+
+**text:** Contains the final response from the AI, OR an error message if orchestration failed:
+- Normal response: "Here's your answer..."
+- Max steps reached: "Max steps reached"
+- All providers failed: "All providers exhausted"
+- Timeout: "Orchestration timeout"
+
+**Tool Execution Success/Failure Semantics:**
+
+When a tool is called:
+- **Success:** Tool executes, result returned in message history, loop continues
+- **Not found:** Tool name doesn't exist in registry → error message appended, same provider retried
+- **Permission denied:** User lacks required role, admin status, or guild → error message appended, same provider retried
+- **Timeout:** Tool exceeds timeout_ms → error message appended, loop continues
+- **Execution error:** Tool raises exception → error message appended, loop continues
+
+All tool failures result in an error message added to the message history, allowing the provider to see the failure and try a different tool or provide a final response.
+
+**Provider Fallback Behavior:**
+
+When a provider fails:
+- **Exception:** Provider.query() raises exception → logged as warning, advance to next provider in chain
+- **Invalid output:** Provider returns neither tool call nor text → advance to next provider
+- **All exhausted:** No more providers in chain → return "All providers exhausted"
+
+Permission denials and tool errors do NOT trigger fallback; they're added to history and the same provider is retried with full context.
+
+**Memory Update Timing:**
+
+`conversation_memory.add_assistant_message()` is called ONLY when returning a final `FinalResponse` with valid text. NOT called on:
+- Timeout ("Orchestration timeout")
+- Max steps reached ("Max steps reached")
+- All providers exhausted ("All providers exhausted")
+
+This ensures only meaningful responses are stored in multi-turn conversation history.
 
 ## Features at a glance
 
