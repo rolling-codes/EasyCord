@@ -58,6 +58,16 @@ class TagsPlugin(Plugin):
 
     @slash(description="Create or update a tag.", guild_only=True)
     async def set(self, ctx, name: str, text: str) -> None:
+        entry = self._store.get(ctx.guild_id, name)
+        if entry is not None:
+            member = ctx.guild.get_member(ctx.user.id)
+            is_admin = member is not None and member.guild_permissions.administrator
+            if ctx.user.id != entry["author_id"] and not is_admin:
+                await ctx.respond(
+                    ctx.t("tags.cannot_overwrite", default="You can only overwrite your own tags (or be an admin)."),
+                    ephemeral=True,
+                )
+                return
         self._store.set(ctx.guild_id, name, text, author_id=ctx.user.id)
         await ctx.respond(ctx.t("tags.saved", default="Tag `{name}` saved.", name=name), ephemeral=True)
 

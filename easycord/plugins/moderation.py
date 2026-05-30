@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import discord
@@ -184,7 +185,7 @@ class ModerationPlugin(Plugin):
             return
 
         try:
-            await member.timeout(discord.utils.utcnow() + discord.utils.timedelta(minutes=minutes), reason=reason)
+            await member.timeout(discord.utils.utcnow() + timedelta(minutes=minutes), reason=reason)
             duration = f"{minutes} minutes"
             await ctx.respond(f"✅ Timed out {user.mention} for {duration}")
             await self._log_moderation(ctx, "timeout", user, reason, duration)

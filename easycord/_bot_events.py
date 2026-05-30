@@ -312,4 +312,7 @@ class _EventsMixin:
         db = getattr(self, "db", None)
         if db is None or not getattr(db, "auto_sync_guilds", True):
             return
-        await db.ensure_guild(guild.id)
+        try:
+            await db.ensure_guild(guild.id)
+        except Exception as exc:
+            logger.exception("Failed to create database row for guild %s on join", guild.id, exc_info=exc)

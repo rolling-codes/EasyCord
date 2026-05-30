@@ -101,6 +101,15 @@ class WelcomePlugin(Plugin):
         if not channel_id:
             return
 
+        # Check if the member was banned (skip goodbye message for bans)
+        try:
+            await member.guild.fetch_ban(member)
+            return  # Member was banned, skip goodbye embed
+        except discord.NotFound:
+            pass  # Member was not banned, proceed with goodbye
+        except discord.Forbidden:
+            pass  # No permission to check bans, proceed anyway
+
         channel = member.guild.get_channel(channel_id)
         if not isinstance(channel, discord.TextChannel):
             return

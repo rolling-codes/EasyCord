@@ -193,13 +193,9 @@ class ToolRegistry:
         ctx: Context,
         call: ToolCall,
     ) -> ToolResult:
-        """Execute a tool call with safety checks."""
+        """Execute a tool call (assumes caller has already verified access via can_execute)."""
         if call.name not in self._tools:
             return ToolResult(False, "", f"Tool '{call.name}' not found")
-
-        allowed, reason = await self.can_execute(ctx, call.name)
-        if not allowed:
-            return ToolResult(False, "", reason)
 
         tool = self._tools[call.name]
 

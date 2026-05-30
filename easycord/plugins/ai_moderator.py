@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING, Literal
 
 import discord
@@ -162,7 +163,7 @@ class AIModeratorPlugin(Plugin):
                     return False
                 member = ctx.guild.get_member(user.id)
                 if member:
-                    await member.timeout(discord.utils.utcnow() + discord.utils.timedelta(minutes=5), reason=reason)
+                    await member.timeout(discord.utils.utcnow() + timedelta(minutes=5), reason=reason)
                     logger.info("Timed out user %s: %s", user, reason)
                     return True
 
