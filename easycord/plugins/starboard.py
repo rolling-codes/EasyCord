@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from easycord import Plugin, on
+from easycord import Plugin, on, slash
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
@@ -257,8 +257,6 @@ class StarboardPlugin(Plugin):
         await self._unarchive_message(message.guild.id, message.id)
 
     # ── Slash commands ────────────────────────────────────────
-
-    from easycord import slash, Context
 
     @slash(description="Set the channel for starboard messages.", permissions=["manage_guild"], guild_only=True)
     async def starboard_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
