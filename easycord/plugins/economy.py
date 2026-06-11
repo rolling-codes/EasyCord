@@ -1,6 +1,7 @@
 """Economy system — earn, spend, and trade in-game currency."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -39,7 +40,7 @@ class EconomyPlugin(Plugin):
 
         /balance              — Check your balance
         /daily                — Claim daily reward
-        /leaderboard          — Top earners
+        /economy_leaderboard  — Top earners
         /transfer <user> <amount>  — Send currency to user
         /shop                 — View shop items
         /buy <item>           — Purchase item
@@ -48,6 +49,7 @@ class EconomyPlugin(Plugin):
     def __init__(self):
         super().__init__()
         self.config = PluginConfigManager(".easycord/economy")
+        self._balance_locks: dict[int, asyncio.Lock] = {}
 
     async def on_load(self) -> None:
         """Initialize economy plugin."""
@@ -71,8 +73,27 @@ class EconomyPlugin(Plugin):
         cfg_obj.set_other("balances", balances)
         await self.config.store.save(cfg_obj)
 
+    def _balance_lock(self, guild_id: int) -> asyncio.Lock:
+        """Per-guild lock serializing compound balance mutations.
+
+        ``store.load``/``store.save`` are async, so a load → modify → save
+        sequence can interleave with another task's and lose updates. All
+        balance mutations must run under this lock.
+        """
+        locks = getattr(self, "_balance_locks", None)
+        if locks is None:
+            locks = self._balance_locks = {}
+        if guild_id not in locks:
+            locks[guild_id] = asyncio.Lock()
+        return locks[guild_id]
+
     async def _add_balance(self, guild_id: int, user_id: int, amount: int) -> int:
         """Add to user's balance. Return new balance."""
+        async with self._balance_lock(guild_id):
+            return await self._add_balance_unlocked(guild_id, user_id, amount)
+
+    async def _add_balance_unlocked(self, guild_id: int, user_id: int, amount: int) -> int:
+        """Add to user's balance without locking. Caller must hold _balance_lock."""
         current = await self._get_balance(guild_id, user_id)
         new_balance = current + amount
         await self._set_balance(guild_id, user_id, new_balance)
@@ -137,7 +158,7 @@ class EconomyPlugin(Plugin):
         await ctx.respond(f"{symbol} Claimed **{reward}** {currency}! New balance: **{new_balance}**")
 
     @slash(description="Top earners leaderboard", guild_only=True)
-    async def leaderboard(self, ctx: Context) -> None:
+    async def economy_leaderboard(self, ctx: Context) -> None:
         """Show top 10 richest members."""
         cfg_obj = await self.config.store.load(ctx.guild.id)
         balances = cfg_obj.get_other("balances", {})
@@ -181,13 +202,20 @@ class EconomyPlugin(Plugin):
             await ctx.respond("❌ Can't transfer to yourself", ephemeral=True)
             return
 
-        sender_balance = await self._get_balance(ctx.guild.id, ctx.user.id)
-        if sender_balance < amount:
+        # Check and apply both legs under one lock so concurrent transfers
+        # cannot overdraw the sender or lose currency between the legs.
+        async with self._balance_lock(ctx.guild.id):
+            sender_balance = await self._get_balance(ctx.guild.id, ctx.user.id)
+            if sender_balance >= amount:
+                await self._add_balance_unlocked(ctx.guild.id, ctx.user.id, -amount)
+                await self._add_balance_unlocked(ctx.guild.id, user.id, amount)
+                transferred = True
+            else:
+                transferred = False
+
+        if not transferred:
             await ctx.respond(f"❌ Insufficient balance (you have {sender_balance})", ephemeral=True)
             return
-
-        await self._add_balance(ctx.guild.id, ctx.user.id, -amount)
-        await self._add_balance(ctx.guild.id, user.id, amount)
 
         cfg = await self._get_config(ctx.guild.id)
         currency = cfg.get("currency_name", "Credits")

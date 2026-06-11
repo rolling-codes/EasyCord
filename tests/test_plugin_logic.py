@@ -155,6 +155,102 @@ class TestEconomyPlugin:
 
 
 # ---------------------------------------------------------------------------
+# EconomyPlugin concurrency — balance mutations must not lose updates
+#
+# ServerConfigStore.load/save are async; callers must stay correct when those
+# awaits actually suspend (any async backend: aiofiles, DB, executor). Today's
+# store happens to do synchronous file I/O, which masks the read-modify-write
+# race in economy. The fixture wraps load/save with a single cooperative yield
+# to exercise the async contract the way a real async backend would.
+# ---------------------------------------------------------------------------
+
+class TestEconomyConcurrency:
+    @pytest.fixture
+    def plugin(self, tmp_path):
+        import asyncio
+        p = EconomyPlugin.__new__(EconomyPlugin)
+        from easycord.plugins._config_manager import PluginConfigManager
+        p.config = PluginConfigManager(str(tmp_path / "economy"))
+
+        # Simulate an async store backend: each load/save yields to the loop.
+        orig_load, orig_save = p.config.store.load, p.config.store.save
+
+        async def yielding_load(guild_id):
+            await asyncio.sleep(0)
+            return await orig_load(guild_id)
+
+        async def yielding_save(cfg):
+            await asyncio.sleep(0)
+            return await orig_save(cfg)
+
+        p.config.store.load = yielding_load
+        p.config.store.save = yielding_save
+        return p
+
+    @pytest.mark.asyncio
+    async def test_concurrent_add_balance_loses_no_increments(self, plugin) -> None:
+        """N concurrent +1 rewards must end at exactly N (no lost updates)."""
+        import asyncio
+        n = 25
+        await asyncio.gather(*(plugin._add_balance(100, 1, 1) for _ in range(n)))
+        assert await plugin._get_balance(100, 1) == n
+
+    @pytest.mark.asyncio
+    async def test_concurrent_adds_multiple_users_same_guild(self, plugin) -> None:
+        """Concurrent rewards for different users in one guild must all persist."""
+        import asyncio
+        n = 10
+        await asyncio.gather(
+            *(plugin._add_balance(100, 1, 1) for _ in range(n)),
+            *(plugin._add_balance(100, 2, 1) for _ in range(n)),
+        )
+        assert await plugin._get_balance(100, 1) == n
+        assert await plugin._get_balance(100, 2) == n
+
+    @pytest.mark.asyncio
+    async def test_concurrent_transfers_conserve_total(self, plugin) -> None:
+        """Concurrent transfers must conserve the total currency supply."""
+        import asyncio
+        await plugin._set_balance(100, 1, 50)
+        await plugin._set_balance(100, 2, 50)
+
+        ctx1 = _make_ctx(user_id=1, guild_id=100)
+        ctx2 = _make_ctx(user_id=2, guild_id=100)
+        user2 = MagicMock()
+        user2.id = 2
+        user1 = MagicMock()
+        user1.id = 1
+
+        await asyncio.gather(
+            *(plugin.transfer(ctx1, user2, 5) for _ in range(5)),
+            *(plugin.transfer(ctx2, user1, 5) for _ in range(5)),
+        )
+
+        b1 = await plugin._get_balance(100, 1)
+        b2 = await plugin._get_balance(100, 2)
+        assert b1 + b2 == 100, f"currency not conserved: {b1} + {b2} != 100"
+
+    @pytest.mark.asyncio
+    async def test_transfer_cannot_overdraw_concurrently(self, plugin) -> None:
+        """Two concurrent transfers of the full balance must not both succeed."""
+        import asyncio
+        await plugin._set_balance(100, 1, 10)
+
+        ctx = _make_ctx(user_id=1, guild_id=100)
+        recipient = MagicMock()
+        recipient.id = 2
+
+        await asyncio.gather(
+            plugin.transfer(ctx, recipient, 10),
+            plugin.transfer(ctx, recipient, 10),
+        )
+
+        b1 = await plugin._get_balance(100, 1)
+        b2 = await plugin._get_balance(100, 2)
+        assert b1 + b2 == 10, f"overdraw created currency: {b1} + {b2} != 10"
+
+
+# ---------------------------------------------------------------------------
 # AutoResponderPlugin
 # ---------------------------------------------------------------------------
 

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from easycord import Plugin, on
+from easycord import Plugin, on, slash
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
@@ -59,27 +59,6 @@ class StarboardPlugin(Plugin):
     async def _update_config(self, guild_id: int, **kwargs) -> dict:
         """Update starboard config atomically."""
         return await self.config.update(guild_id, "starboard", **kwargs)
-
-    async def _get_archived(self, guild_id: int) -> dict[str, int]:
-        """Get archived messages map for guild."""
-        cfg_obj = await self.config.store.load(guild_id)
-        return cfg_obj.get_other("archived_messages", {})
-
-    async def _set_archived(self, guild_id: int, message_id: int, post_id: int) -> None:
-        """Store archived message mapping."""
-        cfg_obj = await self.config.store.load(guild_id)
-        archived = cfg_obj.get_other("archived_messages", {})
-        archived[str(message_id)] = post_id
-        cfg_obj.set_other("archived_messages", archived)
-        await self.config.store.save(cfg_obj)
-
-    async def _remove_archived(self, guild_id: int, message_id: int) -> None:
-        """Remove archived message mapping."""
-        cfg_obj = await self.config.store.load(guild_id)
-        archived = cfg_obj.get_other("archived_messages", {})
-        archived.pop(str(message_id), None)
-        cfg_obj.set_other("archived_messages", archived)
-        await self.config.store.save(cfg_obj)
 
     async def _get_archived(self, guild_id: int) -> dict[str, int]:
         """Get archived messages map for guild."""
@@ -270,8 +249,6 @@ class StarboardPlugin(Plugin):
             pass
 
     # ── Slash commands ────────────────────────────────────────
-
-    from easycord import slash, Context
 
     @slash(description="Set the channel for starboard messages.", permissions=["manage_guild"], guild_only=True)
     async def starboard_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
