@@ -49,9 +49,11 @@ def _make_message(
 def _make_economy_plugin(tmp_path):
     """Construct an EconomyPlugin with a temp store, using only the public API."""
     p = EconomyPlugin.__new__(EconomyPlugin)
-    # Initialise _balance_locks the same way __init__ does.
+    # Initialise _balance_locks and _lock_created the same way __init__ does.
     import asyncio
     p._balance_locks: dict[int, asyncio.Lock] = {}
+    from datetime import datetime, timezone
+    p._lock_created: dict[int, datetime] = {}
     # Use the public ServerConfigStore so we don't reach into private internals.
     from easycord.plugins._config_manager import PluginConfigManager  # noqa: PLC0415 – used only here inside the package tests
     p.config = PluginConfigManager(str(tmp_path / "economy"))
@@ -269,20 +271,26 @@ class TestEconomyConcurrency:
         assert receiver_bal <= 100
 
         # --- User-facing response assertions ------------------------------------
+        # Collect all calls from both contexts
         all_calls = ctx1.respond.call_args_list + ctx2.respond.call_args_list
 
-        def _text(call):
+        # Extract text content from each call
+        def _text_from_call(call):
             return (call.args[0] if call.args else "").lower()
 
-        insufficient_msgs = [c for c in all_calls if "insufficient" in _text(c)]
-        success_msgs = [c for c in all_calls if "transferred" in _text(c)]
+        messages = [_text_from_call(c) for c in all_calls]
 
+        # Verify at least one insufficient-balance error message
+        insufficient_msgs = [m for m in messages if "insufficient" in m]
         assert insufficient_msgs, (
             "Expected at least one user-facing insufficient-balance response "
             "when concurrent transfers attempt to overdraw."
         )
+
+        # Verify at most one successful transfer message
+        success_msgs = [m for m in messages if "transferred" in m]
         assert len(success_msgs) <= 1, (
-            f"Expected at most one successful transfer message; got {len(success_msgs)}."
+            f"Expected at most one successful transfer message; got {len(success_msgs)}: {success_msgs}"
         )
 
     @pytest.mark.asyncio
