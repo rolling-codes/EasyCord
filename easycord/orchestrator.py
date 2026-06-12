@@ -88,6 +88,9 @@ class Orchestrator:
                 },
             )
 
+        # Cache provider schema and formatted messages (avoid repeated generation)
+        tools_schema = self.tools.to_provider_schema(run_ctx.ctx) if run_ctx.ctx else []
+
         while steps < max_steps:
             try:
                 provider = self.strategy.select(run_ctx, attempt)
@@ -99,9 +102,6 @@ class Orchestrator:
                 )
 
             try:
-                # Build tool schema for provider
-                tools_schema = self.tools.to_provider_schema(run_ctx.ctx) if run_ctx.ctx else []
-
                 # Query provider
                 prompt = self._format_messages(messages)
                 output = await self._query_provider(
@@ -133,7 +133,6 @@ class Orchestrator:
                                 "content": f"Tool '{tool_call.name}' not available: no Discord context",
                             }
                         )
-                        steps += 1
                         continue
 
                     allowed, reason = await self.tools.can_execute(run_ctx.ctx, tool_call.name)
@@ -144,7 +143,6 @@ class Orchestrator:
                                 "content": f"Tool '{tool_call.name}' not available: {reason}",
                             }
                         )
-                        steps += 1
                         continue
 
                     result = await self.tools.execute(run_ctx.ctx, tool_call)
@@ -202,15 +200,19 @@ class Orchestrator:
         tools_schema: list[dict] | None,
     ):
         """Call providers with tools only when their query signature supports it."""
-        query = provider.query
-        signature = inspect.signature(query)
-        supports_tools = any(
-            p.kind is inspect.Parameter.VAR_KEYWORD or name == "tools"
-            for name, p in signature.parameters.items()
-        )
-        if supports_tools:
-            return await query(prompt=prompt, tools=tools_schema)
-        return await query(prompt)
+        # Cache signature support in provider instance to avoid repeated inspection
+        if not hasattr(provider, "_cached_supports_tools"):
+            query = provider.query
+            signature = inspect.signature(query)
+            supports_tools = any(
+                p.kind is inspect.Parameter.VAR_KEYWORD or name == "tools"
+                for name, p in signature.parameters.items()
+            )
+            provider._cached_supports_tools = supports_tools  # type: ignore
+
+        if provider._cached_supports_tools:  # type: ignore
+            return await provider.query(prompt=prompt, tools=tools_schema)
+        return await provider.query(prompt)
 
     @staticmethod
     def _format_messages(messages: list[dict]) -> str:

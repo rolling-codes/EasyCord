@@ -11,6 +11,9 @@ if TYPE_CHECKING:
     from easycord.context import Context
     from easycord.tool_limits import RateLimit
 
+# Maximum tool output size to prevent message overflow (Discord: 2000 chars per message)
+MAX_TOOL_OUTPUT_SIZE = 1900
+
 
 class ToolSafety(Enum):
     """Tool safety classification."""
@@ -122,6 +125,7 @@ class ToolRegistry:
         """Enable a tool."""
         if name in self._tools:
             self._allowlist.add(name)
+            self._denylist.discard(name)
 
     def disable(self, name: str) -> None:
         """Disable a tool."""
@@ -208,7 +212,11 @@ class ToolRegistry:
                 self._call_func(tool.func, ctx, call.args),
                 timeout=tool.timeout_ms / 1000.0,
             )
-            return ToolResult(True, str(result))
+            output = str(result)
+            # Truncate large outputs to prevent message overflow
+            if len(output) > MAX_TOOL_OUTPUT_SIZE:
+                output = output[:MAX_TOOL_OUTPUT_SIZE] + "\n... (output truncated)"
+            return ToolResult(True, output)
         except asyncio.TimeoutError:
             return ToolResult(False, "", "Tool execution timeout")
         except Exception as e:

@@ -9,6 +9,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     pass
 
+# Maximum entries to track before cleanup (prevents unbounded memory growth)
+MAX_TRACKED_ENTRIES = 10000
+
 
 @dataclass
 class RateLimit:
@@ -43,7 +46,6 @@ class ToolLimiter:
         async with self._lock:
             key = (user_id, tool_name)
             entry = self._usage.get(key, RateLimitEntry())
-            self._usage[key] = entry
 
             # Remove old timestamps outside window
             cutoff = datetime.now(timezone.utc) - timedelta(
@@ -62,7 +64,31 @@ class ToolLimiter:
 
             # Record this call
             entry.timestamps.append(datetime.now(timezone.utc))
+            self._usage[key] = entry
+
+            # Cleanup: prune empty entries and enforce max tracking size
+            self._cleanup_usage()
+
             return True, None
+
+    def _cleanup_usage(self) -> None:
+        """Remove expired entries and enforce maximum tracking size."""
+        # Remove entries with no timestamps (avoid memory leak)
+        keys_to_remove = [
+            key for key, entry in self._usage.items() if not entry.timestamps
+        ]
+        for key in keys_to_remove:
+            del self._usage[key]
+
+        # If tracking too many entries, remove oldest ones
+        if len(self._usage) > MAX_TRACKED_ENTRIES:
+            # Sort by oldest timestamp and remove oldest half
+            sorted_keys = sorted(
+                self._usage.items(),
+                key=lambda item: min(item[1].timestamps) if item[1].timestamps else datetime.now(timezone.utc),
+            )
+            for key, _ in sorted_keys[: len(sorted_keys) // 2]:
+                del self._usage[key[0]]  # type: ignore
 
     async def reset_user(self, user_id: int) -> None:
         """Clear all rate limit entries for a user."""
