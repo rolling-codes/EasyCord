@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import discord
@@ -22,6 +23,9 @@ _DEFAULTS = {
     "daily_reward": 100,
     "message_reward": 1,
 }
+
+# Maximum guild locks to track before cleanup (prevents unbounded memory growth)
+MAX_TRACKED_GUILDS = 5000
 
 
 class EconomyPlugin(Plugin):
@@ -50,6 +54,7 @@ class EconomyPlugin(Plugin):
         super().__init__()
         self.config = PluginConfigManager(".easycord/economy")
         self._balance_locks: dict[int, asyncio.Lock] = {}
+        self._lock_created: dict[int, datetime] = {}  # Track creation time for cleanup
 
     def _balance_lock(self, guild_id: int) -> asyncio.Lock:
         """Per-guild lock serializing all economy state mutations.
@@ -59,10 +64,43 @@ class EconomyPlugin(Plugin):
         config object, an unlocked save based on a stale load can silently
         overwrite balances or claim state written by a concurrent locked path.
         """
-        lock = self._balance_locks.get(guild_id)
-        if lock is None:
-            lock = self._balance_locks[guild_id] = asyncio.Lock()
-        return lock
+        if guild_id not in self._balance_locks:
+            self._balance_locks[guild_id] = asyncio.Lock()
+            self._lock_created[guild_id] = datetime.now(timezone.utc)
+            self._cleanup_old_locks()
+        return self._balance_locks[guild_id]
+
+    def _cleanup_old_locks(self) -> None:
+        """Remove old, unused locks to prevent unbounded memory growth.
+        
+        Cleans up locks older than 7 days and enforces a maximum number of
+        tracked guilds. This prevents memory leaks in large/busy bots with
+        many transient guilds.
+        """
+        now = datetime.now(timezone.utc)
+        max_age = timedelta(days=7)
+        
+        # Remove locks older than 7 days
+        keys_to_remove = [
+            guild_id
+            for guild_id, created_at in self._lock_created.items()
+            if now - created_at > max_age
+        ]
+        for guild_id in keys_to_remove:
+            del self._balance_locks[guild_id]
+            del self._lock_created[guild_id]
+        
+        # If still over limit, remove oldest locks
+        if len(self._balance_locks) > MAX_TRACKED_GUILDS:
+            sorted_guilds = sorted(
+                self._lock_created.items(),
+                key=lambda x: x[1],
+            )
+            # Remove oldest 25% to make room
+            remove_count = len(sorted_guilds) // 4
+            for guild_id, _ in sorted_guilds[:remove_count]:
+                del self._balance_locks[guild_id]
+                del self._lock_created[guild_id]
 
     async def on_load(self) -> None:
         """Initialize economy plugin."""
@@ -92,7 +130,8 @@ class EconomyPlugin(Plugin):
     async def _add_balance(self, guild_id: int, user_id: int, amount: int) -> int:
         """Add *amount* to user's balance under the per-guild lock.
 
-        Returns the new balance.
+        Returns the new balance. The operation is atomic: balance is read,
+        modified, and saved under a single lock acquisition.
         """
         async with self._balance_lock(guild_id):
             current = await self._get_balance(guild_id, user_id)
@@ -143,7 +182,6 @@ class EconomyPlugin(Plugin):
         """Check if user claimed today's reward (read-only; no lock needed)."""
         cfg_obj = await self.config.store.load(guild_id)
         daily_claims = cfg_obj.get_other("daily_claims", {})
-        from datetime import datetime, timezone
         today = datetime.now(timezone.utc).date().isoformat()
         claimed_date = daily_claims.get(str(user_id))
         return claimed_date == today
@@ -155,7 +193,6 @@ class EconomyPlugin(Plugin):
         """
         cfg_obj = await self.config.store.load(guild_id)
         daily_claims = cfg_obj.get_other("daily_claims", {})
-        from datetime import datetime, timezone
         today = datetime.now(timezone.utc).date().isoformat()
         daily_claims[str(user_id)] = today
         cfg_obj.set_other("daily_claims", daily_claims)
@@ -195,7 +232,6 @@ class EconomyPlugin(Plugin):
             cfg_obj = await self.config.store.load(ctx.guild.id)
             
             daily_claims = cfg_obj.get_other("daily_claims", {})
-            from datetime import datetime, timezone
             today = datetime.now(timezone.utc).date().isoformat()
             
             if daily_claims.get(str(ctx.user.id)) == today:
