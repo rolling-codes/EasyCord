@@ -77,7 +77,9 @@ class ReactionRolesPlugin(Plugin):
     @on("raw_reaction_add")
     async def _on_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
         """Handle member adding reaction."""
-        if payload.guild_id is None or payload.user_id == self.bot.user.id:
+        if payload.guild_id is None or (
+            self.bot.user is not None and payload.user_id == self.bot.user.id
+        ):
             return
 
         guild = self.bot.get_guild(payload.guild_id)
@@ -113,7 +115,9 @@ class ReactionRolesPlugin(Plugin):
     @on("raw_reaction_remove")
     async def _on_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
         """Handle member removing reaction."""
-        if payload.guild_id is None or payload.user_id == self.bot.user.id:
+        if payload.guild_id is None or (
+            self.bot.user is not None and payload.user_id == self.bot.user.id
+        ):
             return
 
         guild = self.bot.get_guild(payload.guild_id)
