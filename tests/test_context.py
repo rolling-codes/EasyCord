@@ -279,7 +279,7 @@ class TestContext:
         channel.send = AsyncMock()
         ctx = Context(_mock_interaction())
 
-        await ctx.forward(LegacyMessage(), channel=channel)
+        await ctx.forward(LegacyMessage(), channel=channel)  # type: ignore[arg-type]
 
         channel.send.assert_not_called()
 
