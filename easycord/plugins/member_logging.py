@@ -60,7 +60,7 @@ class MemberLoggingPlugin(Plugin):
             return
 
         channel = guild.get_channel(channel_id)
-        if not channel:
+        if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
             logger.warning("Member log channel %s not found in guild %s", channel_id, guild.id)
             return
 

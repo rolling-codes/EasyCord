@@ -63,7 +63,7 @@ class InviteTrackerPlugin(Plugin):
 
         try:
             invites = await guild.invites()
-            cache = {invite.code: invite.uses for invite in invites}
+            cache = {invite.code: (invite.uses or 0) for invite in invites}
             self._invite_cache[guild_id] = cache
         except discord.Forbidden:
             logger.warning("No permission to view invites in guild %s", guild_id)
@@ -77,7 +77,7 @@ class InviteTrackerPlugin(Plugin):
             return
 
         channel = member.guild.get_channel(channel_id)
-        if not channel:
+        if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
             logger.warning("Invite log channel %s not found", channel_id)
             return
 
@@ -131,7 +131,7 @@ class InviteTrackerPlugin(Plugin):
         if invite.guild.id not in self._invite_cache:
             self._invite_cache[invite.guild.id] = {}
 
-        self._invite_cache[invite.guild.id][invite.code] = invite.uses
+        self._invite_cache[invite.guild.id][invite.code] = invite.uses or 0
 
     @on("invite_delete")
     async def _on_invite_delete(self, invite: discord.Invite) -> None:
