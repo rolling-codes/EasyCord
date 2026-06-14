@@ -172,7 +172,7 @@ class TestBaseContextRespond:
         ctx = BaseContext(interaction)
         await ctx.respond("Hello")
         interaction.response.send_message.assert_called_once_with(
-            "Hello", ephemeral=False, embed=None
+            ephemeral=False, content="Hello"
         )
 
     @pytest.mark.asyncio
@@ -182,7 +182,7 @@ class TestBaseContextRespond:
         await ctx.respond("First")
         await ctx.respond("Second")
         interaction.followup.send.assert_called_once_with(
-            "Second", ephemeral=False, embed=None
+            ephemeral=False, content="Second"
         )
 
     @pytest.mark.asyncio
@@ -191,7 +191,7 @@ class TestBaseContextRespond:
         ctx = BaseContext(interaction)
         await ctx.respond("Secret", ephemeral=True)
         interaction.response.send_message.assert_called_once_with(
-            "Secret", ephemeral=True, embed=None
+            ephemeral=True, content="Secret"
         )
 
     @pytest.mark.asyncio
@@ -200,11 +200,10 @@ class TestBaseContextRespond:
         ctx = BaseContext(interaction)
         await ctx.respond("Quiet", silent=True, suppress_embeds=True)
         interaction.response.send_message.assert_called_once_with(
-            "Quiet",
             ephemeral=False,
-            embed=None,
             silent=True,
             suppress_embeds=True,
+            content="Quiet",
         )
 
     @pytest.mark.asyncio
@@ -214,11 +213,10 @@ class TestBaseContextRespond:
         await ctx.respond("First")
         await ctx.respond("Quiet", silent=True, suppress_embeds=True)
         interaction.followup.send.assert_called_once_with(
-            "Quiet",
             ephemeral=False,
-            embed=None,
             silent=True,
             suppress_embeds=True,
+            content="Quiet",
         )
 
     @pytest.mark.asyncio
@@ -228,10 +226,10 @@ class TestBaseContextRespond:
         await ctx.send("First")
         await ctx.send("Second")
         interaction.response.send_message.assert_called_once_with(
-            "First", ephemeral=False, embed=None
+            ephemeral=False, content="First"
         )
         interaction.followup.send.assert_called_once_with(
-            "Second", ephemeral=False, embed=None
+            ephemeral=False, content="Second"
         )
 
     @pytest.mark.asyncio
