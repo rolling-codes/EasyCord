@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import discord
 import pytest
 
+from easycord.plugins import PluginConfigManager
 from easycord.plugins.economy import EconomyPlugin, _DEFAULTS as ECONOMY_DEFAULTS
 from easycord.plugins.auto_responder import AutoResponderPlugin
 from easycord.plugins.role_persistence import RolePersistencePlugin
@@ -46,6 +47,17 @@ def _make_message(
     return msg
 
 
+def _make_economy_plugin(tmp_path):
+    """Construct an EconomyPlugin with a temp store, using only the public API."""
+    p = EconomyPlugin.__new__(EconomyPlugin)
+    # Initialise _balance_locks and _lock_created the same way __init__ does.
+    # (Plain assignments — annotations aren't valid on attribute targets.)
+    p._balance_locks = {}
+    p._lock_created = {}
+    p.config = PluginConfigManager(str(tmp_path / "economy"))
+    return p
+
+
 # ---------------------------------------------------------------------------
 # EconomyPlugin internal helpers
 # ---------------------------------------------------------------------------
@@ -53,10 +65,7 @@ def _make_message(
 class TestEconomyPlugin:
     @pytest.fixture
     def plugin(self, tmp_path):
-        p = EconomyPlugin.__new__(EconomyPlugin)
-        from easycord.plugins._config_manager import PluginConfigManager
-        p.config = PluginConfigManager(str(tmp_path / "economy"))
-        return p
+        return _make_economy_plugin(tmp_path)
 
     @pytest.mark.asyncio
     async def test_get_balance_defaults_zero(self, plugin) -> None:
@@ -155,6 +164,181 @@ class TestEconomyPlugin:
 
 
 # ---------------------------------------------------------------------------
+# EconomyPlugin concurrency — balance mutations must not lose updates
+#
+# ServerConfigStore.load/save are async; callers must stay correct when those
+# awaits actually suspend (any async backend: aiofiles, DB, executor). Today's
+# store happens to do synchronous file I/O, which masks the read-modify-write
+# race in economy. The fixture wraps load/save with a single cooperative yield
+# to exercise the async contract the way a real async backend would.
+# ---------------------------------------------------------------------------
+
+class TestEconomyConcurrency:
+    @pytest.fixture
+    def plugin(self, tmp_path):
+        import asyncio
+        p = _make_economy_plugin(tmp_path)
+
+        # Simulate an async store backend: each load/save yields to the loop.
+        orig_load, orig_save = p.config.store.load, p.config.store.save
+
+        async def yielding_load(guild_id):
+            await asyncio.sleep(0)
+            return await orig_load(guild_id)
+
+        async def yielding_save(config):
+            await asyncio.sleep(0)
+            return await orig_save(config)
+
+        p.config.store.load = yielding_load
+        p.config.store.save = yielding_save
+        return p
+
+    @pytest.mark.asyncio
+    async def test_concurrent_add_balance_loses_no_increments(self, plugin) -> None:
+        """N concurrent +1 rewards must end at exactly N (no lost updates)."""
+        import asyncio
+        n = 25
+        await asyncio.gather(*(plugin._add_balance(100, 1, 1) for _ in range(n)))
+        assert await plugin._get_balance(100, 1) == n
+
+    @pytest.mark.asyncio
+    async def test_concurrent_adds_multiple_users_same_guild(self, plugin) -> None:
+        """Concurrent adds for two users in the same guild must both be correct."""
+        import asyncio
+        n = 20
+        await asyncio.gather(
+            *(plugin._add_balance(100, 1, 1) for _ in range(n)),
+            *(plugin._add_balance(100, 2, 2) for _ in range(n)),
+        )
+        assert await plugin._get_balance(100, 1) == n
+        assert await plugin._get_balance(100, 2) == n * 2
+
+    @pytest.mark.asyncio
+    async def test_concurrent_transfers_conserve_total_balance(self, plugin) -> None:
+        """Concurrent transfers must not create or destroy currency."""
+        import asyncio
+        # Give user 1 a starting balance
+        await plugin._set_balance(100, 1, 100)
+        await plugin._set_balance(100, 2, 100)
+
+        n = 10
+        await asyncio.gather(
+            *(plugin._transfer(100, 1, 2, 1) for _ in range(n)),
+            *(plugin._transfer(100, 2, 1, 1) for _ in range(n)),
+        )
+        total = (
+            await plugin._get_balance(100, 1)
+            + await plugin._get_balance(100, 2)
+        )
+        assert total == 200
+
+    @pytest.mark.asyncio
+    async def test_transfer_cannot_overdraw_concurrently(self, plugin) -> None:
+        """Two concurrent transfers of the full balance must not both succeed.
+
+        Asserts both balance conservation and user-facing responses: at least one
+        call must return an insufficient-balance response, and at most one
+        successful transfer message may be sent.
+        """
+        import asyncio
+
+        # Give sender exactly 100 to transfer
+        await plugin._set_balance(100, 1, 100)
+        await plugin._set_balance(100, 2, 0)
+
+        ctx1 = _make_ctx(user_id=1, guild_id=100)
+        ctx2 = _make_ctx(user_id=1, guild_id=100)
+
+        receiver = MagicMock()
+        receiver.id = 2
+        receiver.mention = "<@2>"
+
+        await asyncio.gather(
+            plugin.transfer(ctx1, receiver, 100),
+            plugin.transfer(ctx2, receiver, 100),
+        )
+
+        # --- Balance conservation -----------------------------------------------
+        sender_bal = await plugin._get_balance(100, 1)
+        receiver_bal = await plugin._get_balance(100, 2)
+        assert sender_bal + receiver_bal == 100, (
+            f"Currency was created or destroyed: sender={sender_bal}, receiver={receiver_bal}"
+        )
+        assert sender_bal >= 0
+        assert receiver_bal <= 100
+
+        # --- User-facing response assertions ------------------------------------
+        # Collect all calls from both contexts
+        all_calls = ctx1.respond.call_args_list + ctx2.respond.call_args_list
+
+        # Extract text content from each call
+        def _text_from_call(call):
+            return (call.args[0] if call.args else "").lower()
+
+        messages = [_text_from_call(c) for c in all_calls]
+
+        # Verify at least one insufficient-balance error message
+        insufficient_msgs = [m for m in messages if "insufficient" in m]
+        assert insufficient_msgs, (
+            "Expected at least one user-facing insufficient-balance response "
+            "when concurrent transfers attempt to overdraw."
+        )
+
+        # Verify at most one successful transfer message
+        success_msgs = [m for m in messages if "transferred" in m]
+        assert len(success_msgs) <= 1, (
+            f"Expected at most one successful transfer message; got {len(success_msgs)}: {success_msgs}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_transfer_atomic_on_save_failure(self, plugin) -> None:
+        """A failed persist must not partially apply the transfer.
+
+        With a single load + single save, the transfer is all-or-nothing: if
+        the save raises, neither the sender's debit nor the receiver's credit
+        is persisted, so currency can never be lost to a half-applied write.
+        """
+        await plugin._set_balance(100, 1, 100)
+        await plugin._set_balance(100, 2, 50)
+
+        failing_save = AsyncMock(side_effect=RuntimeError("Artificial save failure"))
+        with patch.object(plugin.config.store, "save", new=failing_save):
+            with pytest.raises(RuntimeError, match="Artificial save failure"):
+                await plugin._transfer(100, 1, 2, 50)
+
+        # Neither balance was persisted (the single save failed).
+        assert await plugin._get_balance(100, 1) == 100
+        assert await plugin._get_balance(100, 2) == 50
+
+    @pytest.mark.asyncio
+    async def test_concurrent_transfers_deadlock_prevention(self, plugin) -> None:
+        """Simultaneous transfers A->B and B->A must not deadlock."""
+        import asyncio
+        await plugin._set_balance(100, 1, 100)
+        await plugin._set_balance(100, 2, 100)
+
+        # Transfer A -> B and B -> A concurrently
+        # Because we use a single per-guild lock, these serialize gracefully.
+        # The timeout keeps a lock-cycle regression local to this test instead
+        # of hanging the whole async run.
+        await asyncio.wait_for(
+            asyncio.gather(
+                plugin._transfer(100, 1, 2, 50),
+                plugin._transfer(100, 2, 1, 50),
+            ),
+            timeout=5.0,
+        )
+
+        sender_bal = await plugin._get_balance(100, 1)
+        receiver_bal = await plugin._get_balance(100, 2)
+        
+        # Balances should be exactly what they started with
+        assert sender_bal == 100
+        assert receiver_bal == 100
+
+
+# ---------------------------------------------------------------------------
 # AutoResponderPlugin
 # ---------------------------------------------------------------------------
 
@@ -162,7 +346,6 @@ class TestAutoResponderPlugin:
     @pytest.fixture
     def plugin(self, tmp_path):
         p = AutoResponderPlugin.__new__(AutoResponderPlugin)
-        from easycord.plugins._config_manager import PluginConfigManager
         p.config = PluginConfigManager(str(tmp_path / "autoresponder"))
         return p
 
@@ -245,7 +428,6 @@ class TestRolePersistencePlugin:
     @pytest.fixture
     def plugin(self, tmp_path):
         p = RolePersistencePlugin.__new__(RolePersistencePlugin)
-        from easycord.plugins._config_manager import PluginConfigManager
         p.config = PluginConfigManager(str(tmp_path / "role_persist"))
         return p
 
