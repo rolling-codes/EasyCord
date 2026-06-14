@@ -7,15 +7,14 @@ under concurrent load.
 from __future__ import annotations
 
 import asyncio
-import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from easycord.middleware import build_chain, rate_limit
-from easycord.registry import InteractionEntry, InteractionRegistry
+from easycord.registry import InteractionRegistry
 from easycord.server_config import ServerConfig, ServerConfigStore
 from easycord.tool_limits import MAX_TRACKED_ENTRIES, RateLimit, ToolLimiter
 
@@ -166,7 +165,6 @@ class TestToolLimiterStress:
 
         # Expire the timestamps manually.
         key = (1, "op")
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=61)
         entry = limiter._usage[key]
         entry.timestamps = [t.replace(year=t.year - 1) for t in entry.timestamps]
 
@@ -707,3 +705,389 @@ class TestEconomyPluginHighLoad:
         assert ephemeral_count == n - 1, (
             f"Expected {n - 1} 'already claimed' ephemeral responses, got {ephemeral_count}"
         )
+
+
+# ---------------------------------------------------------------------------
+# XP / levels math — pure-function invariants
+# ---------------------------------------------------------------------------
+
+class TestLevelsMath:
+    def test_xp_for_level_zero_is_zero(self) -> None:
+        from easycord.plugins._levels_data import xp_for_level
+        assert xp_for_level(0) == 0
+
+    def test_xp_for_level_one_is_100(self) -> None:
+        from easycord.plugins._levels_data import xp_for_level
+        assert xp_for_level(1) == 100
+
+    def test_xp_for_level_strictly_increasing(self) -> None:
+        from easycord.plugins._levels_data import xp_for_level
+        for n in range(50):
+            assert xp_for_level(n) < xp_for_level(n + 1), (
+                f"xp_for_level({n}) >= xp_for_level({n + 1})"
+            )
+
+    def test_level_from_xp_roundtrip(self) -> None:
+        """level_from_xp(xp_for_level(n)) must return n for all n in [0, 100]."""
+        from easycord.plugins._levels_data import level_from_xp, xp_for_level
+        for n in range(101):
+            assert level_from_xp(xp_for_level(n)) == n, (
+                f"level_from_xp(xp_for_level({n})) != {n}"
+            )
+
+    def test_level_from_xp_one_below_threshold(self) -> None:
+        """xp_for_level(n) - 1 must map to level n-1."""
+        from easycord.plugins._levels_data import level_from_xp, xp_for_level
+        for n in range(1, 50):
+            xp = xp_for_level(n) - 1
+            assert level_from_xp(xp) == n - 1, (
+                f"level_from_xp(xp_for_level({n}) - 1) != {n - 1}"
+            )
+
+    def test_progress_bar_length_always_equals_width(self) -> None:
+        """BUG: progress_bar returned more than `width` characters when XP
+        exceeded the current level band (no upper-bound clamp on `filled`).
+
+        ``filled = int((xp - floor) / span * width)`` can exceed ``width`` if
+        ``xp > next_ceil``.  The bar then contains ``filled`` filled glyphs and
+        ``width - filled`` (negative!) empty glyphs, so ``"░" * negative == ""``,
+        producing a string longer than ``width``.
+
+        Fixed: ``filled`` is now clamped to ``[0, width]``.
+        """
+        from easycord.plugins._levels_data import progress_bar, xp_for_level
+        width = 10
+        # At each level, test at the floor, midpoint, and one XP ABOVE the ceiling.
+        for level in range(0, 20):
+            floor = xp_for_level(level)
+            ceil_ = xp_for_level(level + 1)
+
+            for xp in (floor, (floor + ceil_) // 2, ceil_ + 50):
+                bar = progress_bar(xp, level, width=width)
+                assert len(bar) == width, (
+                    f"progress_bar(xp={xp}, level={level}) returned {len(bar)!r} "
+                    f"chars (expected {width}): {bar!r}"
+                )
+
+    def test_progress_bar_full_at_or_above_ceiling(self) -> None:
+        """When XP meets or exceeds the level ceiling the bar should be full (all filled)."""
+        from easycord.plugins._levels_data import progress_bar, xp_for_level
+        level = 5
+        bar = progress_bar(xp_for_level(level + 1), level, width=10)
+        assert bar == "█" * 10, f"Expected full bar, got {bar!r}"
+
+    def test_progress_bar_empty_at_floor(self) -> None:
+        """When XP is exactly at the level floor the bar should be empty."""
+        from easycord.plugins._levels_data import progress_bar, xp_for_level
+        level = 3
+        bar = progress_bar(xp_for_level(level), level, width=10)
+        assert bar == "░" * 10, f"Expected empty bar, got {bar!r}"
+
+    @pytest.mark.asyncio
+    async def test_levels_store_concurrent_xp_no_lost_updates(self, tmp_path) -> None:
+        """50 concurrent +10 XP additions must sum to exactly 500."""
+        from easycord.plugins._levels_data import LevelsStore
+        store = LevelsStore(str(tmp_path / "lvls"))
+        n = 50
+        await asyncio.gather(*(store.add_xp(1, 1, 10) for _ in range(n)))
+        entry = store.get_entry(1, 1)
+        assert entry["xp"] == n * 10, (
+            f"Expected {n * 10} XP after {n} concurrent adds; got {entry['xp']}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_levels_store_concurrent_multi_user(self, tmp_path) -> None:
+        """Concurrent XP adds for 10 users in the same guild must all be correct."""
+        from easycord.plugins._levels_data import LevelsStore
+        store = LevelsStore(str(tmp_path / "lvls"))
+        n = 20
+        n_users = 10
+        tasks = [
+            store.add_xp(1, uid, 5)
+            for uid in range(n_users)
+            for _ in range(n)
+        ]
+        await asyncio.gather(*tasks)
+        for uid in range(n_users):
+            entry = store.get_entry(1, uid)
+            assert entry["xp"] == n * 5, (
+                f"User {uid}: expected {n * 5} XP, got {entry['xp']}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Validators — edge cases and correctness
+# ---------------------------------------------------------------------------
+
+class TestValidators:
+    def test_duration_seconds(self) -> None:
+        from easycord.validators import Duration
+        assert Duration()("30s") == 30.0
+
+    def test_duration_minutes(self) -> None:
+        from easycord.validators import Duration
+        assert Duration()("5m") == 300.0
+
+    def test_duration_hours(self) -> None:
+        from easycord.validators import Duration
+        assert Duration()("2h") == 7200.0
+
+    def test_duration_days(self) -> None:
+        from easycord.validators import Duration
+        assert Duration()("1d") == 86400.0
+
+    def test_duration_case_insensitive(self) -> None:
+        from easycord.validators import Duration
+        assert Duration()("10M") == Duration()("10m")
+
+    def test_duration_decimal(self) -> None:
+        from easycord.validators import Duration
+        assert Duration()("0.5h") == pytest.approx(1800.0)
+
+    def test_duration_numeric_positive(self) -> None:
+        from easycord.validators import Duration
+        assert Duration()(60) == 60.0
+
+    def test_duration_numeric_negative_raises(self) -> None:
+        from easycord.validators import Duration, ValidationError
+        with pytest.raises(ValidationError, match="positive"):
+            Duration()(-1)
+
+    def test_duration_invalid_unit_raises(self) -> None:
+        from easycord.validators import Duration, ValidationError
+        with pytest.raises(ValidationError):
+            Duration()("10x")
+
+    def test_duration_empty_string_raises(self) -> None:
+        from easycord.validators import Duration, ValidationError
+        with pytest.raises(ValidationError):
+            Duration()("")
+
+    def test_url_valid_http(self) -> None:
+        from easycord.validators import URL
+        assert URL()("http://example.com") == "http://example.com"
+
+    def test_url_valid_https(self) -> None:
+        from easycord.validators import URL
+        assert URL()("https://example.com/path?q=1") == "https://example.com/path?q=1"
+
+    def test_url_no_scheme_raises(self) -> None:
+        from easycord.validators import URL, ValidationError
+        with pytest.raises(ValidationError):
+            URL()("example.com")
+
+    def test_url_ftp_raises(self) -> None:
+        from easycord.validators import URL, ValidationError
+        with pytest.raises(ValidationError):
+            URL()("ftp://files.example.com")
+
+    def test_snowflake_15_digits(self) -> None:
+        from easycord.validators import Snowflake
+        assert Snowflake()("123456789012345") == 123456789012345
+
+    def test_snowflake_22_digits(self) -> None:
+        from easycord.validators import Snowflake
+        assert Snowflake()("1234567890123456789012") == 1234567890123456789012
+
+    def test_snowflake_14_digits_raises(self) -> None:
+        from easycord.validators import Snowflake, ValidationError
+        with pytest.raises(ValidationError):
+            Snowflake()("12345678901234")  # 14 digits
+
+    def test_snowflake_23_digits_raises(self) -> None:
+        from easycord.validators import Snowflake, ValidationError
+        with pytest.raises(ValidationError):
+            Snowflake()("12345678901234567890123")  # 23 digits
+
+    def test_snowflake_non_digits_raises(self) -> None:
+        from easycord.validators import Snowflake, ValidationError
+        with pytest.raises(ValidationError):
+            Snowflake()("12345678901234X")
+
+    def test_range_min_only(self) -> None:
+        from easycord.validators import Range
+        assert Range(min=5)(10) == 10
+
+    def test_range_max_only(self) -> None:
+        from easycord.validators import Range
+        assert Range(max=10)(5) == 5
+
+    def test_range_both_bounds(self) -> None:
+        from easycord.validators import Range
+        assert Range(min=1, max=10)(5) == 5
+
+    def test_range_at_min_boundary(self) -> None:
+        from easycord.validators import Range
+        assert Range(min=5)(5) == 5
+
+    def test_range_at_max_boundary(self) -> None:
+        from easycord.validators import Range
+        assert Range(max=10)(10) == 10
+
+    def test_range_below_min_raises(self) -> None:
+        from easycord.validators import Range, ValidationError
+        with pytest.raises(ValidationError, match="at least"):
+            Range(min=5)(4)
+
+    def test_range_above_max_raises(self) -> None:
+        from easycord.validators import Range, ValidationError
+        with pytest.raises(ValidationError, match="at most"):
+            Range(max=10)(11)
+
+    def test_range_inverted_bounds_raises(self) -> None:
+        """BUG: Range(min=5, max=3) silently accepted contradictory bounds —
+        the constructor performed no validation of min <= max.  A validator
+        with inverted bounds always raises on every input, so any misconfigured
+        command would silently reject ALL values instead of the expected range.
+        Fixed: __post_init__ now raises ValueError when min > max.
+        """
+        from easycord.validators import Range
+        with pytest.raises(ValueError, match="min.*max|max.*min"):
+            Range(min=5, max=3)
+
+    def test_regex_valid_match(self) -> None:
+        from easycord.validators import Regex
+        assert Regex(r"\d{4}")(value="1234") == "1234"
+
+    def test_regex_no_match_raises(self) -> None:
+        from easycord.validators import Regex, ValidationError
+        with pytest.raises(ValidationError, match="invalid format"):
+            Regex(r"\d{4}")("abcd")
+
+    def test_regex_min_length_enforced(self) -> None:
+        from easycord.validators import Regex, ValidationError
+        with pytest.raises(ValidationError, match="at least 3"):
+            Regex(r".*", min_length=3)("ab")
+
+    def test_regex_max_length_enforced(self) -> None:
+        from easycord.validators import Regex, ValidationError
+        with pytest.raises(ValidationError, match="at most 5"):
+            Regex(r".*", max_length=5)("toolong")
+
+    def test_choice_set_valid(self) -> None:
+        from easycord.validators import ChoiceSet
+        assert ChoiceSet("a", "b", "c")("b") == "b"
+
+    def test_choice_set_invalid_raises(self) -> None:
+        from easycord.validators import ChoiceSet, ValidationError
+        with pytest.raises(ValidationError, match="Choose one of"):
+            ChoiceSet("a", "b")("c")
+
+    def test_choice_set_empty_raises(self) -> None:
+        from easycord.validators import ChoiceSet
+        with pytest.raises(ValueError, match="at least one choice"):
+            ChoiceSet()
+
+    def test_choice_set_numeric(self) -> None:
+        from easycord.validators import ChoiceSet
+        assert ChoiceSet(1, 2, 3)(2) == 2
+
+    def test_validation_error_user_message(self) -> None:
+        from easycord.validators import ValidationError
+        err = ValidationError("Too short.", key="errors.min_len")
+        ctx = MagicMock()
+        ctx.t = lambda _key, default="", **_kw: default
+        assert err.user_message(ctx) == "Too short."
+
+
+# ---------------------------------------------------------------------------
+# ConversationMemory — correctness and eviction
+# ---------------------------------------------------------------------------
+
+class TestConversationMemory:
+    def test_max_cap_enforced_on_add(self) -> None:
+        """Adding more conversations than max_conversations must evict the oldest."""
+        from easycord.conversation_memory import ConversationMemory
+        mem = ConversationMemory(max_conversations=3)
+        for uid in range(5):
+            mem.add_user_message(uid, "hello")
+        assert mem.get_stats()["total_conversations"] <= 3
+
+    def test_eviction_removes_least_recently_updated(self) -> None:
+        """The oldest-updated conversation must be evicted first when over cap."""
+        from easycord.conversation_memory import ConversationMemory
+        from datetime import datetime, timedelta, timezone
+        mem = ConversationMemory(max_conversations=2)
+        mem.add_user_message(1, "first")
+        mem.add_user_message(2, "second")
+        # Manually backdate user 1 so they are the oldest.
+        mem._conversations[(1, None)].last_updated = (
+            datetime.now(timezone.utc) - timedelta(hours=1)
+        )
+        # Adding a third user must evict user 1.
+        mem.add_user_message(3, "third")
+        stats = mem.get_stats()
+        assert stats["total_conversations"] == 2
+        # User 1 (oldest) should be gone; users 2 and 3 should remain.
+        assert mem.get_messages(2) != []
+        assert mem.get_messages(3) != []
+
+    def test_expired_conversation_cleared_on_next_access(self) -> None:
+        """Accessing an expired conversation must return empty messages (fresh state)."""
+        from easycord.conversation_memory import ConversationMemory
+        from datetime import datetime, timedelta, timezone
+        mem = ConversationMemory(max_conversations=10, default_max_age_minutes=60)
+        mem.add_user_message(1, "original message")
+        # Expire the conversation manually.
+        mem._conversations[(1, None)].last_updated = (
+            datetime.now(timezone.utc) - timedelta(hours=2)
+        )
+        messages = mem.get_messages(1)
+        assert messages == [], (
+            "Expected empty messages after expiry; got stale history"
+        )
+
+    def test_clear_removes_history(self) -> None:
+        from easycord.conversation_memory import ConversationMemory
+        mem = ConversationMemory(max_conversations=10)
+        mem.add_user_message(1, "msg")
+        mem.clear(1)
+        assert mem.get_messages(1) == []
+
+    def test_turn_count_limit_enforced(self) -> None:
+        """Conversation must not retain more than max_turns turns."""
+        from easycord.conversation_memory import ConversationMemory
+        mem = ConversationMemory(max_conversations=10, default_max_turns=5)
+        for i in range(10):
+            mem.add_user_message(1, f"msg {i}")
+        msgs = mem.get_messages(1)
+        assert len(msgs) <= 5, f"Expected <=5 turns, got {len(msgs)}"
+
+    def test_guild_isolation(self) -> None:
+        """Same user in different guilds must have independent conversations."""
+        from easycord.conversation_memory import ConversationMemory
+        mem = ConversationMemory(max_conversations=10)
+        mem.add_user_message(1, "guild A message", guild_id=100)
+        mem.add_user_message(1, "guild B message", guild_id=200)
+        msgs_a = mem.get_messages(1, guild_id=100)
+        msgs_b = mem.get_messages(1, guild_id=200)
+        assert len(msgs_a) == 1
+        assert len(msgs_b) == 1
+        assert msgs_a[0]["content"] == "guild A message"
+        assert msgs_b[0]["content"] == "guild B message"
+
+    def test_cleanup_expired_returns_count(self) -> None:
+        from easycord.conversation_memory import ConversationMemory
+        from datetime import datetime, timedelta, timezone
+        mem = ConversationMemory(max_conversations=10, default_max_age_minutes=1)
+        mem.add_user_message(1, "old")
+        mem.add_user_message(2, "also old")
+        mem.add_user_message(3, "fresh")
+        # Expire two.
+        for uid in (1, 2):
+            mem._conversations[(uid, None)].last_updated = (
+                datetime.now(timezone.utc) - timedelta(minutes=5)
+            )
+        removed = mem.cleanup_expired()
+        assert removed == 2
+        assert mem.get_stats()["total_conversations"] == 1
+
+    def test_stats_accurate(self) -> None:
+        from easycord.conversation_memory import ConversationMemory
+        mem = ConversationMemory(max_conversations=10)
+        mem.add_user_message(1, "a")
+        mem.add_user_message(1, "b")
+        mem.add_user_message(2, "x")
+        stats = mem.get_stats()
+        assert stats["total_conversations"] == 2
+        assert stats["total_turns"] == 3

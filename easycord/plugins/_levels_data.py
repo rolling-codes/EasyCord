@@ -38,7 +38,7 @@ def progress_bar(xp: int, level: int, width: int = 10) -> str:
     current_floor = xp_for_level(level)
     next_ceil = xp_for_level(level + 1)
     span = next_ceil - current_floor
-    filled = int((xp - current_floor) / span * width) if span else width
+    filled = min(width, max(0, int((xp - current_floor) / span * width))) if span else width
     return "█" * filled + "░" * (width - filled)
 
 

@@ -63,6 +63,10 @@ class Range:
     min: float | None = None
     max: float | None = None
 
+    def __post_init__(self) -> None:
+        if self.min is not None and self.max is not None and self.min > self.max:
+            raise ValueError(f"Range min ({self.min}) must be <= max ({self.max})")
+
     def __call__(self, value: int | float) -> int | float:
         if self.min is not None and value < self.min:
             raise ValidationError(f"Value must be at least {self.min}.")
