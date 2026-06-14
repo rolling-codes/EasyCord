@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.44.1-blue)
+![Version](https://img.shields.io/badge/v-5.44.2-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -102,20 +102,21 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.44.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.44.1) · [Changelog](CHANGELOG.md)
+Release links: [v5.44.2 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.44.2) · [Changelog](CHANGELOG.md)
 
-## New in v5.44.1 (Current Release)
+## New in v5.44.2 (Current Release)
 
 **Patch fixes:**
-- Economy: transfers now persist with a single save under the per-guild lock (no half-applied transfers / lost currency); `/daily` releases the lock before replying; `_get_config` is a pure read that can't clobber concurrent balance updates.
-- Plugin type-safety: `guild_only` handlers assert `ctx.guild`/`ctx.user`, `suggestions` narrows the target channel before sending, and `reaction_roles` guards `self.bot.user` before reading its id.
-- Starboard: removed duplicate archived-message helpers and fixed a misplaced slash import.
-- Public API: `PluginConfigManager` is now exported from `easycord.plugins`.
-- Realigned in-repo version metadata with the published release line.
+- `ToolLimiter`: fixed `KeyError` when the 10 000-entry tracking ceiling was hit (deleted `key[0]` int instead of the `(user_id, tool_name)` tuple key).
+- `EconomyPlugin`: fixed lock eviction race — active guild locks were aged out and replaced while still held, silently bypassing per-guild write serialization. Locks now refresh their last-used timestamp on every access and are never removed while acquired.
+- `progress_bar()`: clamped filled-block count so the bar never exceeds `width` chars when XP overshoots the level ceiling.
+- `Range`: added `__post_init__` validation — `Range(min=5, max=3)` now raises `ValueError` at construction instead of silently succeeding.
+- `BaseContext`: resolved all Pylance type errors in `respond`, `dm`, `send_embed`, and `forward`.
+- `LevelsPlugin`: replaced `hasattr(author, "add_roles")` with `isinstance(author, discord.Member)` for proper type narrowing.
 
 **Verification:**
 - `python scripts/check_release_metadata.py`
-- `pytest` - 540 passed.
+- `pytest` - 634 passed.
 - `ruff check easycord tests --select E9,F63,F7,F82`
 
 ## Previous: v5.43.0
@@ -297,7 +298,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.44.1/easycord-5.44.1-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.44.2/easycord-5.44.2-py3-none-any.whl"
 ```
 
 ### Clone and install locally

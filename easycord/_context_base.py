@@ -151,15 +151,16 @@ class BaseContext:
             kwargs["silent"] = True
         if suppress_embeds:
             kwargs["suppress_embeds"] = True
+        msg_kwargs: dict = dict(ephemeral=ephemeral, **kwargs)
+        if content is not None:
+            msg_kwargs["content"] = content
+        if embed is not None:
+            msg_kwargs["embed"] = embed
         if not self._responded:
             self._responded = True
-            await self.interaction.response.send_message(
-                content, ephemeral=ephemeral, embed=embed, **kwargs
-            )
+            await self.interaction.response.send_message(**msg_kwargs)
         else:
-            await self.interaction.followup.send(
-                content, ephemeral=ephemeral, embed=embed, **kwargs
-            )
+            await self.interaction.followup.send(**msg_kwargs)
 
     async def send(
         self,
@@ -290,7 +291,7 @@ class BaseContext:
 
         embed = discord.Embed(
             title=title, description=description, color=color,
-            **({"timestamp": ts} if ts is not None else {}),
+            timestamp=ts,
         )
         for field in (fields or []):
             name, value, *rest = field
@@ -317,7 +318,12 @@ class BaseContext:
     ) -> None:
         """Send a direct message to the user who invoked the command."""
         try:
-            await self.user.send(content, embed=embed, **kwargs)
+            dm_kwargs: dict = dict(**kwargs)
+            if content is not None:
+                dm_kwargs["content"] = content
+            if embed is not None:
+                dm_kwargs["embed"] = embed
+            await self.user.send(**dm_kwargs)
         except discord.Forbidden:
             raise RuntimeError(
                 f"Cannot send a DM to {self.user} — they have DMs disabled or have blocked the bot."
@@ -455,7 +461,7 @@ class BaseContext:
         if target is None:
             raise RuntimeError("No channel available to forward to.")
         if hasattr(message, "forward"):
-            await message.forward(target)
+            await message.forward(target)  # type: ignore[arg-type]
         else:
             # Fallback: copy text content and up to 10 embeds
             kwargs: dict = {}
