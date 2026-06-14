@@ -66,39 +66,45 @@ class EconomyPlugin(Plugin):
         """
         if guild_id not in self._balance_locks:
             self._balance_locks[guild_id] = asyncio.Lock()
-            self._lock_created[guild_id] = datetime.now(timezone.utc)
             self._cleanup_old_locks()
+        # Refresh last-used time on every access so active guilds are never evicted.
+        self._lock_created[guild_id] = datetime.now(timezone.utc)
         return self._balance_locks[guild_id]
 
     def _cleanup_old_locks(self) -> None:
-        """Remove old, unused locks to prevent unbounded memory growth.
-        
-        Cleans up locks older than 7 days and enforces a maximum number of
-        tracked guilds. This prevents memory leaks in large/busy bots with
-        many transient guilds.
+        """Remove idle locks to prevent unbounded memory growth.
+
+        A lock is a candidate for removal only when it has been idle for more
+        than 7 days AND is not currently acquired. Skipping acquired locks
+        prevents the race where a new caller receives a fresh unacquired lock
+        while an existing holder still considers itself the sole writer.
         """
         now = datetime.now(timezone.utc)
         max_age = timedelta(days=7)
-        
-        # Remove locks older than 7 days
+
+        # Remove locks idle for more than 7 days, but never remove an acquired lock.
         keys_to_remove = [
             guild_id
-            for guild_id, created_at in self._lock_created.items()
-            if now - created_at > max_age
+            for guild_id, last_used in self._lock_created.items()
+            if now - last_used > max_age
+            and not self._balance_locks[guild_id].locked()
         ]
         for guild_id in keys_to_remove:
             del self._balance_locks[guild_id]
             del self._lock_created[guild_id]
-        
-        # If still over limit, remove oldest locks
+
+        # If still over the limit, evict the longest-idle unlocked entries.
         if len(self._balance_locks) > MAX_TRACKED_GUILDS:
-            sorted_guilds = sorted(
-                self._lock_created.items(),
+            candidates = sorted(
+                (
+                    (guild_id, ts)
+                    for guild_id, ts in self._lock_created.items()
+                    if not self._balance_locks[guild_id].locked()
+                ),
                 key=lambda x: x[1],
             )
-            # Remove oldest 25% to make room
-            remove_count = len(sorted_guilds) // 4
-            for guild_id, _ in sorted_guilds[:remove_count]:
+            remove_count = max(1, len(candidates) // 4)
+            for guild_id, _ in candidates[:remove_count]:
                 del self._balance_locks[guild_id]
                 del self._lock_created[guild_id]
 

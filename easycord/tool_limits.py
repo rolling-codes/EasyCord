@@ -88,7 +88,7 @@ class ToolLimiter:
                 key=lambda item: min(item[1].timestamps) if item[1].timestamps else datetime.now(timezone.utc),
             )
             for key, _ in sorted_keys[: len(sorted_keys) // 2]:
-                del self._usage[key[0]]  # type: ignore
+                del self._usage[key]
 
     async def reset_user(self, user_id: int) -> None:
         """Clear all rate limit entries for a user."""
