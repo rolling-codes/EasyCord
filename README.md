@@ -104,18 +104,27 @@ Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
 Release links: [v5.44.1 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.44.1) · [Changelog](CHANGELOG.md)
 
-## New in v5.43.0 (Current Release)
+## New in v5.44.1 (Current Release)
+
+**Patch fixes:**
+- Economy: transfers now persist with a single save under the per-guild lock (no half-applied transfers / lost currency); `/daily` releases the lock before replying; `_get_config` is a pure read that can't clobber concurrent balance updates.
+- Plugin type-safety: `guild_only` handlers assert `ctx.guild`/`ctx.user`, `suggestions` narrows the target channel before sending, and `reaction_roles` guards `self.bot.user` before reading its id.
+- Starboard: removed duplicate archived-message helpers and fixed a misplaced slash import.
+- Public API: `PluginConfigManager` is now exported from `easycord.plugins`.
+- Realigned in-repo version metadata with the published release line.
+
+**Verification:**
+- `python scripts/check_release_metadata.py`
+- `pytest` - 540 passed.
+- `ruff check easycord tests --select E9,F63,F7,F82`
+
+## Previous: v5.43.0
 
 **Plugin authoring:**
 - Added Python-first plugin creator helpers for in-project plugins and reusable package plugins.
 - Added required plugin manifests, project validation, and entry-point discovery through the `easycord.plugins` group.
 - Added thin CLI wrappers: `easycord plugin create`, `easycord plugin check`, and `easycord plugin discover`.
 - Documented local-safe scaffold defaults: generated bot code disables command sync and uses local storage by default, while generated tests use memory storage.
-
-**Verification:**
-- `python scripts/check_release_metadata.py`
-- `pytest -o cache_dir=.pytest_cache_codex tests/` - 534 passed.
-- `python -m compileall -q easycord tests scripts`
 
 ## Previous: v5.40.2
 
