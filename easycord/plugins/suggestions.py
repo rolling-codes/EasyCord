@@ -67,6 +67,7 @@ class SuggestionsPlugin(Plugin):
     @slash(description="Submit a server suggestion", guild_only=True)
     async def suggest(self, ctx: Context, idea: str) -> None:
         """Submit a suggestion."""
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         cfg = await self._get_config(ctx.guild.id)
         channel_id = cfg.get("suggestions_channel")
 
@@ -75,7 +76,7 @@ class SuggestionsPlugin(Plugin):
             return
 
         channel = ctx.guild.get_channel(channel_id)
-        if not channel:
+        if not isinstance(channel, (discord.TextChannel, discord.Thread)):
             await ctx.respond("❌ Suggestions channel not found", ephemeral=True)
             return
 
@@ -115,6 +116,7 @@ class SuggestionsPlugin(Plugin):
     @slash(description="View pending suggestions", guild_only=True)
     async def suggestions(self, ctx: Context) -> None:
         """Show all pending suggestions."""
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         cfg_obj = await self.config.store.load(ctx.guild.id)
         suggestions = cfg_obj.get_other("suggestions", {})
 
@@ -139,6 +141,8 @@ class SuggestionsPlugin(Plugin):
     @slash(description="Approve a suggestion", guild_only=True)
     async def suggestion_approve(self, ctx: Context, suggestion_id: int) -> None:
         """Approve a suggestion (admin only)."""
+        assert ctx.guild is not None  # guaranteed by guild_only=True
+        assert isinstance(ctx.user, discord.Member)  # guild_only ⇒ invoker is a Member
         if not ctx.user.guild_permissions.manage_guild:
             await ctx.respond("❌ You lack `manage_guild` permission", ephemeral=True)
             return
@@ -160,6 +164,8 @@ class SuggestionsPlugin(Plugin):
     @slash(description="Reject a suggestion", guild_only=True)
     async def suggestion_reject(self, ctx: Context, suggestion_id: int) -> None:
         """Reject a suggestion (admin only)."""
+        assert ctx.guild is not None  # guaranteed by guild_only=True
+        assert isinstance(ctx.user, discord.Member)  # guild_only ⇒ invoker is a Member
         if not ctx.user.guild_permissions.manage_guild:
             await ctx.respond("❌ You lack `manage_guild` permission", ephemeral=True)
             return

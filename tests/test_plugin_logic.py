@@ -1,8 +1,6 @@
 """Tests for plugin internal logic — economy, auto-responder, invite tracker, role persistence."""
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
@@ -53,8 +51,9 @@ def _make_economy_plugin(tmp_path):
     """Construct an EconomyPlugin with a temp store, using only the public API."""
     p = EconomyPlugin.__new__(EconomyPlugin)
     # Initialise _balance_locks and _lock_created the same way __init__ does.
-    p._balance_locks: dict[int, asyncio.Lock] = {}
-    p._lock_created: dict[int, datetime] = {}
+    # (Plain assignments — annotations aren't valid on attribute targets.)
+    p._balance_locks = {}
+    p._lock_created = {}
     p.config = PluginConfigManager(str(tmp_path / "economy"))
     return p
 
@@ -187,9 +186,9 @@ class TestEconomyConcurrency:
             await asyncio.sleep(0)
             return await orig_load(guild_id)
 
-        async def yielding_save(cfg):
+        async def yielding_save(config):
             await asyncio.sleep(0)
-            return await orig_save(cfg)
+            return await orig_save(config)
 
         p.config.store.load = yielding_load
         p.config.store.save = yielding_save
