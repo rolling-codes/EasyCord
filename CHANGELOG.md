@@ -1,5 +1,24 @@
 # Changelog
 
+## EasyCord v5.44.2 - 2026-06-14
+
+### Fixed
+- `ToolLimiter._cleanup_usage` raised `KeyError` whenever `MAX_TRACKED_ENTRIES` (10 000) was exceeded: the cleanup path deleted `self._usage[key[0]]` (an `int`) instead of `self._usage[key]` (a `(user_id, tool_name)` tuple). Now deletes the correct key.
+- `EconomyPlugin._cleanup_old_locks` could evict a lock while it was still acquired: the 7-day age threshold was measured from creation time, never refreshed on subsequent calls, so an active guild's lock could be removed and replaced with a fresh unacquired one — silently bypassing per-guild write serialization. Fixed by refreshing the last-used timestamp on every `_balance_lock()` access and guarding removal candidates with `not lock.locked()`.
+- `progress_bar()` in `LevelsPlugin` returned a string longer than `width` when the supplied XP exceeded the next-level ceiling. Added `min(width, max(0, …))` clamp on the `filled` count.
+- `Range(min=5, max=3)` constructed silently and only raised a confusing `ValidationError` at call time. Added `__post_init__` to `Range` that raises `ValueError` immediately when `min > max`.
+- `BaseContext.respond()` and `BaseContext.dm()` passed `embed=None` and `content` as a positional argument to discord.py overloaded functions, causing Pylance `reportArgumentType` errors. Both methods now build a `msg_kwargs` dict and skip `content`/`embed` keys when `None`.
+- `BaseContext.send_embed()` used `**({"timestamp": ts} if ts is not None else {})` which confused Pylance's narrowing. Replaced with `timestamp=ts` directly (`discord.Embed.__init__` accepts `Optional[datetime]`).
+- `BaseContext.forward()` passed `discord.abc.Messageable` where discord.py's stub expects `MessageableChannel`. Added `# type: ignore[arg-type]` — the runtime guard already narrows `None` before the call.
+- `LevelsPlugin` role-reward path used `hasattr(message.author, "add_roles")` which Pylance cannot narrow. Replaced with `isinstance(message.author, discord.Member)`.
+
+### Tests
+- Added 94 new tests in `tests/test_stress.py` covering the four fixed bugs (regression guards), levels-XP math invariants, all validators, and `ConversationMemory` edge cases. Total test count: 634.
+
+### Assets
+- https://github.com/rolling-codes/EasyCord/releases/download/v5.44.2/easycord-5.44.2-py3-none-any.whl
+- https://github.com/rolling-codes/EasyCord/releases/download/v5.44.2/easycord-5.44.2.tar.gz
+
 ## EasyCord v5.44.1 - 2026-06-14
 
 ### Fixed
