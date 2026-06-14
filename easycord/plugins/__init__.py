@@ -1,4 +1,5 @@
 """Optional first-party plugins."""
+from ._config_manager import PluginConfigManager
 from ._ai_providers import (
     AIProvider,
     AnthropicProvider,
@@ -30,6 +31,7 @@ from .welcome import WelcomePlugin
 
 __all__ = [
     "AIModeratorPlugin",
+    "PluginConfigManager",
     "AIPlugin",
     "AIProvider",
     "AnthropicProvider",

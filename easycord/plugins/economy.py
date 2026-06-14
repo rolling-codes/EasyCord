@@ -107,8 +107,15 @@ class EconomyPlugin(Plugin):
         logger.info("EconomyPlugin loaded")
 
     async def _get_config(self, guild_id: int) -> dict:
-        """Get economy config for guild."""
-        return await self.config.get(guild_id, "economy", _DEFAULTS)
+        """Get economy config for guild (read-only).
+
+        Returns a copy of the stored ``economy`` section, or a copy of the
+        defaults when none is stored yet. This path never writes, so it can
+        never clobber a concurrent balance update with a stale save. Defaults
+        are persisted lazily the first time an admin changes a setting.
+        """
+        cfg_obj = await self.config.store.load(guild_id)
+        return dict(cfg_obj.get_other("economy") or _DEFAULTS)
 
     async def _get_balance(self, guild_id: int, user_id: int) -> int:
         """Get user's balance (read-only; does not require the lock)."""
@@ -148,33 +155,27 @@ class EconomyPlugin(Plugin):
     ) -> tuple[bool, int]:
         """Atomically transfer *amount* from sender to receiver.
 
-        Both legs happen under a single lock acquisition so no concurrent
-        path can interleave. If an exception occurs after debiting the sender
-        but before crediting the receiver, the debit is rolled back to avoid
-        losing currency.
+        Both balances are mutated in memory and persisted with a single
+        ``save()`` under one lock acquisition. Because there is only one write,
+        the transfer is all-or-nothing: an interruption either leaves the
+        config untouched or applies both legs, so currency can never be lost
+        to a half-applied transfer.
 
         Returns ``(success, sender_balance_after)``.
         """
         async with self._balance_lock(guild_id):
-            sender_balance = await self._get_balance(guild_id, sender_id)
+            cfg_obj = await self.config.store.load(guild_id)
+            balances = cfg_obj.get_other("balances", {})
+
+            sender_balance = balances.get(str(sender_id), 0)
             if sender_balance < amount:
                 return False, sender_balance
 
-            # Debit sender first
-            await self._set_balance(guild_id, sender_id, sender_balance - amount)
-            try:
-                # Credit receiver
-                receiver_balance = await self._get_balance(guild_id, receiver_id)
-                await self._set_balance(guild_id, receiver_id, receiver_balance + amount)
-            except Exception:
-                # Roll back the debit to avoid losing currency
-                logger.exception(
-                    "Failed to credit receiver %s in guild %s; rolling back debit",
-                    receiver_id,
-                    guild_id,
-                )
-                await self._set_balance(guild_id, sender_id, sender_balance)
-                raise
+            balances[str(sender_id)] = sender_balance - amount
+            balances[str(receiver_id)] = balances.get(str(receiver_id), 0) + amount
+
+            cfg_obj.set_other("balances", balances)
+            await self.config.store.save(cfg_obj)
 
             return True, sender_balance - amount
 
@@ -187,16 +188,20 @@ class EconomyPlugin(Plugin):
         return claimed_date == today
 
     async def _mark_daily_claimed(self, guild_id: int, user_id: int) -> None:
-        """Mark daily reward as claimed.
+        """Mark daily reward as claimed, acquiring the per-guild lock.
 
-        Must only be called while the caller holds ``_balance_lock(guild_id)``.
+        Self-contained: takes ``_balance_lock`` itself so the load→modify→save
+        cannot interleave with a concurrent balance update and clobber it. The
+        ``/daily`` command does its own claim-marking inline under the lock, so
+        this helper is only used where the lock is not already held.
         """
-        cfg_obj = await self.config.store.load(guild_id)
-        daily_claims = cfg_obj.get_other("daily_claims", {})
-        today = datetime.now(timezone.utc).date().isoformat()
-        daily_claims[str(user_id)] = today
-        cfg_obj.set_other("daily_claims", daily_claims)
-        await self.config.store.save(cfg_obj)
+        async with self._balance_lock(guild_id):
+            cfg_obj = await self.config.store.load(guild_id)
+            daily_claims = cfg_obj.get_other("daily_claims", {})
+            today = datetime.now(timezone.utc).date().isoformat()
+            daily_claims[str(user_id)] = today
+            cfg_obj.set_other("daily_claims", daily_claims)
+            await self.config.store.save(cfg_obj)
 
     @on("message")
     async def _on_message(self, message: discord.Message) -> None:
@@ -215,6 +220,7 @@ class EconomyPlugin(Plugin):
     @slash(description="Check your balance", guild_only=True)
     async def balance(self, ctx: Context) -> None:
         """Show user's balance."""
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         cfg = await self._get_config(ctx.guild.id)
         balance = await self._get_balance(ctx.guild.id, ctx.user.id)
         currency = cfg.get("currency_name", "Credits")
@@ -228,40 +234,44 @@ class EconomyPlugin(Plugin):
         The claimed-check, balance award, and claim-mark all happen under a
         single lock and a single config save operation to prevent partial persistence.
         """
+        assert ctx.guild is not None  # guaranteed by guild_only=True
+        # Decide and persist the outcome under the lock; do all Discord I/O
+        # after releasing it so response latency never stalls the guild.
         async with self._balance_lock(ctx.guild.id):
             cfg_obj = await self.config.store.load(ctx.guild.id)
-            
+
             daily_claims = cfg_obj.get_other("daily_claims", {})
             today = datetime.now(timezone.utc).date().isoformat()
-            
-            if daily_claims.get(str(ctx.user.id)) == today:
-                await ctx.respond(
-                    "⏰ You already claimed today's reward. Try again tomorrow!",
-                    ephemeral=True,
-                )
-                return
+            already_claimed = daily_claims.get(str(ctx.user.id)) == today
 
-            cfg = cfg_obj.get_other("economy") or _DEFAULTS
-            reward = cfg.get("daily_reward", 100)
-            currency = cfg.get("currency_name", "Credits")
-            symbol = cfg.get("currency_symbol", "💰")
+            if not already_claimed:
+                cfg = cfg_obj.get_other("economy") or _DEFAULTS
+                reward = cfg.get("daily_reward", 100)
+                currency = cfg.get("currency_name", "Credits")
+                symbol = cfg.get("currency_symbol", "💰")
 
-            balances = cfg_obj.get_other("balances", {})
-            current = balances.get(str(ctx.user.id), 0)
-            new_balance = current + reward
-            balances[str(ctx.user.id)] = new_balance
-            
-            daily_claims[str(ctx.user.id)] = today
-            
-            cfg_obj.set_other("balances", balances)
-            cfg_obj.set_other("daily_claims", daily_claims)
-            await self.config.store.save(cfg_obj)
+                balances = cfg_obj.get_other("balances", {})
+                new_balance = balances.get(str(ctx.user.id), 0) + reward
+                balances[str(ctx.user.id)] = new_balance
+                daily_claims[str(ctx.user.id)] = today
+
+                cfg_obj.set_other("balances", balances)
+                cfg_obj.set_other("daily_claims", daily_claims)
+                await self.config.store.save(cfg_obj)
+
+        if already_claimed:
+            await ctx.respond(
+                "⏰ You already claimed today's reward. Try again tomorrow!",
+                ephemeral=True,
+            )
+            return
 
         await ctx.respond(f"{symbol} Claimed **{reward}** {currency}! New balance: **{new_balance}**")
 
     @slash(description="Top earners leaderboard", guild_only=True)
     async def economy_leaderboard(self, ctx: Context) -> None:
         """Show top 10 richest members."""
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         cfg_obj = await self.config.store.load(ctx.guild.id)
         balances = cfg_obj.get_other("balances", {})
 
@@ -296,6 +306,7 @@ class EconomyPlugin(Plugin):
     @slash(description="Transfer currency to another user", guild_only=True)
     async def transfer(self, ctx: Context, user: discord.User, amount: int) -> None:
         """Send currency to another user."""
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         if amount <= 0:
             await ctx.respond("❌ Amount must be positive", ephemeral=True)
             return

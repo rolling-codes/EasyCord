@@ -1,11 +1,14 @@
 """Tests for plugin internal logic — economy, auto-responder, invite tracker, role persistence."""
 from __future__ import annotations
 
+import asyncio
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 import pytest
 
+from easycord.plugins import PluginConfigManager
 from easycord.plugins.economy import EconomyPlugin, _DEFAULTS as ECONOMY_DEFAULTS
 from easycord.plugins.auto_responder import AutoResponderPlugin
 from easycord.plugins.role_persistence import RolePersistencePlugin
@@ -50,12 +53,8 @@ def _make_economy_plugin(tmp_path):
     """Construct an EconomyPlugin with a temp store, using only the public API."""
     p = EconomyPlugin.__new__(EconomyPlugin)
     # Initialise _balance_locks and _lock_created the same way __init__ does.
-    import asyncio
     p._balance_locks: dict[int, asyncio.Lock] = {}
-    from datetime import datetime, timezone
     p._lock_created: dict[int, datetime] = {}
-    # Use the public ServerConfigStore so we don't reach into private internals.
-    from easycord.plugins._config_manager import PluginConfigManager  # noqa: PLC0415 – used only here inside the package tests
     p.config = PluginConfigManager(str(tmp_path / "economy"))
     return p
 
@@ -294,29 +293,24 @@ class TestEconomyConcurrency:
         )
 
     @pytest.mark.asyncio
-    async def test_transfer_rollback_on_credit_failure(self, plugin) -> None:
-        """If crediting the receiver fails, the sender's debit must be rolled back."""
-        # Give sender exactly 100 to transfer
+    async def test_transfer_atomic_on_save_failure(self, plugin) -> None:
+        """A failed persist must not partially apply the transfer.
+
+        With a single load + single save, the transfer is all-or-nothing: if
+        the save raises, neither the sender's debit nor the receiver's credit
+        is persisted, so currency can never be lost to a half-applied write.
+        """
         await plugin._set_balance(100, 1, 100)
         await plugin._set_balance(100, 2, 50)
 
-        # Force a failure during the second (credit) leg.
-        # We patch _get_balance specifically for the receiver's fetch.
-        orig_get_balance = plugin._get_balance
-        async def failing_get_balance(guild_id, user_id):
-            if user_id == 2:
-                raise RuntimeError("Artificial config store failure")
-            return await orig_get_balance(guild_id, user_id)
-
-        with patch.object(plugin, "_get_balance", side_effect=failing_get_balance):
-            with pytest.raises(RuntimeError, match="Artificial config store failure"):
+        failing_save = AsyncMock(side_effect=RuntimeError("Artificial save failure"))
+        with patch.object(plugin.config.store, "save", new=failing_save):
+            with pytest.raises(RuntimeError, match="Artificial save failure"):
                 await plugin._transfer(100, 1, 2, 50)
 
-        # Verify rollback
-        sender_bal = await plugin._get_balance(100, 1)
-        receiver_bal = await plugin._get_balance(100, 2)
-        assert sender_bal == 100, "Sender balance was not rolled back after credit failure."
-        assert receiver_bal == 50, "Receiver balance changed unexpectedly."
+        # Neither balance was persisted (the single save failed).
+        assert await plugin._get_balance(100, 1) == 100
+        assert await plugin._get_balance(100, 2) == 50
 
     @pytest.mark.asyncio
     async def test_concurrent_transfers_deadlock_prevention(self, plugin) -> None:
@@ -327,9 +321,14 @@ class TestEconomyConcurrency:
 
         # Transfer A -> B and B -> A concurrently
         # Because we use a single per-guild lock, these serialize gracefully.
-        await asyncio.gather(
-            plugin._transfer(100, 1, 2, 50),
-            plugin._transfer(100, 2, 1, 50),
+        # The timeout keeps a lock-cycle regression local to this test instead
+        # of hanging the whole async run.
+        await asyncio.wait_for(
+            asyncio.gather(
+                plugin._transfer(100, 1, 2, 50),
+                plugin._transfer(100, 2, 1, 50),
+            ),
+            timeout=5.0,
         )
 
         sender_bal = await plugin._get_balance(100, 1)
@@ -348,7 +347,6 @@ class TestAutoResponderPlugin:
     @pytest.fixture
     def plugin(self, tmp_path):
         p = AutoResponderPlugin.__new__(AutoResponderPlugin)
-        from easycord.plugins._config_manager import PluginConfigManager
         p.config = PluginConfigManager(str(tmp_path / "autoresponder"))
         return p
 
@@ -431,7 +429,6 @@ class TestRolePersistencePlugin:
     @pytest.fixture
     def plugin(self, tmp_path):
         p = RolePersistencePlugin.__new__(RolePersistencePlugin)
-        from easycord.plugins._config_manager import PluginConfigManager
         p.config = PluginConfigManager(str(tmp_path / "role_persist"))
         return p
 
