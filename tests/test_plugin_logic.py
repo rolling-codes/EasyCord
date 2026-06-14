@@ -294,29 +294,24 @@ class TestEconomyConcurrency:
         )
 
     @pytest.mark.asyncio
-    async def test_transfer_rollback_on_credit_failure(self, plugin) -> None:
-        """If crediting the receiver fails, the sender's debit must be rolled back."""
-        # Give sender exactly 100 to transfer
+    async def test_transfer_atomic_on_save_failure(self, plugin) -> None:
+        """If the config save fails mid-transfer, neither balance changes."""
         await plugin._set_balance(100, 1, 100)
         await plugin._set_balance(100, 2, 50)
 
-        # Force a failure during the second (credit) leg.
-        # We patch _get_balance specifically for the receiver's fetch.
-        orig_get_balance = plugin._get_balance
-        async def failing_get_balance(guild_id, user_id):
-            if user_id == 2:
-                raise RuntimeError("Artificial config store failure")
-            return await orig_get_balance(guild_id, user_id)
+        # _transfer now does a single load+compute+save; patch the save to fail.
+        async def failing_save(cfg_obj):
+            raise RuntimeError("Artificial config store failure")
 
-        with patch.object(plugin, "_get_balance", side_effect=failing_get_balance):
+        with patch.object(plugin.config.store, "save", side_effect=failing_save):
             with pytest.raises(RuntimeError, match="Artificial config store failure"):
                 await plugin._transfer(100, 1, 2, 50)
 
-        # Verify rollback
+        # No save succeeded, so neither balance should have changed.
         sender_bal = await plugin._get_balance(100, 1)
         receiver_bal = await plugin._get_balance(100, 2)
-        assert sender_bal == 100, "Sender balance was not rolled back after credit failure."
-        assert receiver_bal == 50, "Receiver balance changed unexpectedly."
+        assert sender_bal == 100, "Sender balance should not change when save fails."
+        assert receiver_bal == 50, "Receiver balance should not change when save fails."
 
     @pytest.mark.asyncio
     async def test_concurrent_transfers_deadlock_prevention(self, plugin) -> None:
@@ -325,16 +320,20 @@ class TestEconomyConcurrency:
         await plugin._set_balance(100, 1, 100)
         await plugin._set_balance(100, 2, 100)
 
-        # Transfer A -> B and B -> A concurrently
+        # Transfer A -> B and B -> A concurrently.
         # Because we use a single per-guild lock, these serialize gracefully.
-        await asyncio.gather(
-            plugin._transfer(100, 1, 2, 50),
-            plugin._transfer(100, 2, 1, 50),
+        # The timeout ensures a real deadlock fails fast rather than hanging CI.
+        await asyncio.wait_for(
+            asyncio.gather(
+                plugin._transfer(100, 1, 2, 50),
+                plugin._transfer(100, 2, 1, 50),
+            ),
+            timeout=5,
         )
 
         sender_bal = await plugin._get_balance(100, 1)
         receiver_bal = await plugin._get_balance(100, 2)
-        
+
         # Balances should be exactly what they started with
         assert sender_bal == 100
         assert receiver_bal == 100

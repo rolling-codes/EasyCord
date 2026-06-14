@@ -148,33 +148,26 @@ class EconomyPlugin(Plugin):
     ) -> tuple[bool, int]:
         """Atomically transfer *amount* from sender to receiver.
 
-        Both legs happen under a single lock acquisition so no concurrent
-        path can interleave. If an exception occurs after debiting the sender
-        but before crediting the receiver, the debit is rolled back to avoid
-        losing currency.
+        Reads the config once, computes both new balances in memory, and
+        persists them in a single save under the per-guild lock.  No
+        half-applied state is possible on disk: if the save raises, neither
+        balance has changed.
 
         Returns ``(success, sender_balance_after)``.
         """
         async with self._balance_lock(guild_id):
-            sender_balance = await self._get_balance(guild_id, sender_id)
+            cfg_obj = await self.config.store.load(guild_id)
+            balances = cfg_obj.get_other("balances", {})
+
+            sender_balance = balances.get(str(sender_id), 0)
             if sender_balance < amount:
                 return False, sender_balance
 
-            # Debit sender first
-            await self._set_balance(guild_id, sender_id, sender_balance - amount)
-            try:
-                # Credit receiver
-                receiver_balance = await self._get_balance(guild_id, receiver_id)
-                await self._set_balance(guild_id, receiver_id, receiver_balance + amount)
-            except Exception:
-                # Roll back the debit to avoid losing currency
-                logger.exception(
-                    "Failed to credit receiver %s in guild %s; rolling back debit",
-                    receiver_id,
-                    guild_id,
-                )
-                await self._set_balance(guild_id, sender_id, sender_balance)
-                raise
+            receiver_balance = balances.get(str(receiver_id), 0)
+            balances[str(sender_id)] = max(0, sender_balance - amount)
+            balances[str(receiver_id)] = max(0, receiver_balance + amount)
+            cfg_obj.set_other("balances", balances)
+            await self.config.store.save(cfg_obj)
 
             return True, sender_balance - amount
 
@@ -227,35 +220,42 @@ class EconomyPlugin(Plugin):
 
         The claimed-check, balance award, and claim-mark all happen under a
         single lock and a single config save operation to prevent partial persistence.
+        All I/O to Discord (ctx.respond) happens after releasing the lock.
         """
+        already_claimed = False
+        reward = symbol = currency = new_balance = None
+
         async with self._balance_lock(ctx.guild.id):
             cfg_obj = await self.config.store.load(ctx.guild.id)
-            
+
             daily_claims = cfg_obj.get_other("daily_claims", {})
             today = datetime.now(timezone.utc).date().isoformat()
-            
+
             if daily_claims.get(str(ctx.user.id)) == today:
-                await ctx.respond(
-                    "⏰ You already claimed today's reward. Try again tomorrow!",
-                    ephemeral=True,
-                )
-                return
+                already_claimed = True
+            else:
+                cfg = cfg_obj.get_other("economy") or _DEFAULTS
+                reward = cfg.get("daily_reward", 100)
+                currency = cfg.get("currency_name", "Credits")
+                symbol = cfg.get("currency_symbol", "💰")
 
-            cfg = cfg_obj.get_other("economy") or _DEFAULTS
-            reward = cfg.get("daily_reward", 100)
-            currency = cfg.get("currency_name", "Credits")
-            symbol = cfg.get("currency_symbol", "💰")
+                balances = cfg_obj.get_other("balances", {})
+                current = balances.get(str(ctx.user.id), 0)
+                new_balance = current + reward
+                balances[str(ctx.user.id)] = new_balance
 
-            balances = cfg_obj.get_other("balances", {})
-            current = balances.get(str(ctx.user.id), 0)
-            new_balance = current + reward
-            balances[str(ctx.user.id)] = new_balance
-            
-            daily_claims[str(ctx.user.id)] = today
-            
-            cfg_obj.set_other("balances", balances)
-            cfg_obj.set_other("daily_claims", daily_claims)
-            await self.config.store.save(cfg_obj)
+                daily_claims[str(ctx.user.id)] = today
+
+                cfg_obj.set_other("balances", balances)
+                cfg_obj.set_other("daily_claims", daily_claims)
+                await self.config.store.save(cfg_obj)
+
+        if already_claimed:
+            await ctx.respond(
+                "⏰ You already claimed today's reward. Try again tomorrow!",
+                ephemeral=True,
+            )
+            return
 
         await ctx.respond(f"{symbol} Claimed **{reward}** {currency}! New balance: **{new_balance}**")
 
