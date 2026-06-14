@@ -1,5 +1,14 @@
 # Changelog
 
+## EasyCord v5.44.1 - 2026-06-14
+
+### Fixed
+- Realigned in-repo version metadata (`pyproject.toml`, `easycord.__version__`, README badge/links, and `docs/getting-started.md`) with the published release line, which had drifted while still reporting `5.43.0`.
+
+### Assets
+- https://github.com/rolling-codes/EasyCord/releases/download/v5.44.1/easycord-5.44.1-py3-none-any.whl
+- https://github.com/rolling-codes/EasyCord/releases/download/v5.44.1/easycord-5.44.1.tar.gz
+
 ## EasyCord v5.43.0 - 2026-05-30
 
 ### Added
