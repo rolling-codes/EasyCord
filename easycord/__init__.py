@@ -18,22 +18,6 @@ Quick start::
 
 __version__ = "5.46.0"
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .plugins._ai_providers import (
-        AIProvider,
-        AnthropicProvider,
-        GeminiProvider,
-        GroqProvider,
-        HuggingFaceProvider,
-        LiteLLMProvider,
-        MistralProvider,
-        OllamaProvider,
-        OpenAIProvider,
-        TogetherAIProvider,
-    )
-
 from .audit import AuditLog
 from .bot import Bot
 from .embed_cards import EmbedCard, ErrorEmbed, InfoEmbed, SuccessEmbed, WarningEmbed
@@ -96,8 +80,6 @@ def __getattr__(name: str):
 
 __all__ = [
     "__version__",
-    "AIProvider",
-    "AnthropicProvider",
     "AuditLog",
     "audit_tool_registry",
     "ai_tool",
@@ -131,13 +113,6 @@ __all__ = [
     "format_interaction_inventory",
     "format_sync_plan",
     "format_tool_audit",
-    "GeminiProvider",
-    "GroqProvider",
-    "HuggingFaceProvider",
-    "LiteLLMProvider",
-    "MistralProvider",
-    "OllamaProvider",
-    "OpenAIProvider",
     "component",
     "cooldown",
     "ErrorEmbed",
@@ -180,7 +155,6 @@ __all__ = [
     "ToolRegistry",
     "ToolResult",
     "ToolSafety",
-    "TogetherAIProvider",
     "slash",
     "slash_command",
     "Snowflake",
