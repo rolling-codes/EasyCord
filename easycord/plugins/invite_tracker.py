@@ -8,6 +8,7 @@ import discord
 
 from easycord import Plugin, on
 from easycord.plugins._config_manager import PluginConfigManager
+from easycord.plugins._utils import SENDABLE_CHANNEL_TYPES
 
 if TYPE_CHECKING:
     pass
@@ -77,7 +78,7 @@ class InviteTrackerPlugin(Plugin):
             return
 
         channel = member.guild.get_channel(channel_id)
-        if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+        if not isinstance(channel, SENDABLE_CHANNEL_TYPES):
             logger.warning("Invite log channel %s not found", channel_id)
             return
 

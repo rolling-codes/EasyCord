@@ -352,7 +352,7 @@ class TestAuditLog:
         ctx.guild = MagicMock()
         ctx.guild.id = 200
         ctx.user = MagicMock()
-        ctx.user.__str__ = lambda self: "TestUser#0001"
+        ctx.user.__str__.return_value = "TestUser#0001"
         ctx.interaction = MagicMock()
         ctx.interaction.client = client
 

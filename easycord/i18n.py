@@ -249,7 +249,7 @@ class LocalizationManager:
             "auto_translated": 0,
             "locale_frequency": {},
         } if track_metrics else {}
-        self._chain_cache: dict[tuple, list[str]] = {}
+        self._chain_cache: dict[tuple[str | None, str | None, bool], list[str]] = {}
         self._reporting = False
         if auto_detect_system_locale:
             self._system_locale = detect_os_locale()

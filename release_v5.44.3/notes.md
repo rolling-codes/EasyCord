@@ -32,8 +32,8 @@ Patch release resolving all outstanding Pylance type errors surfaced after v5.44
 
 ## Assets
 
-- `dist/easycord-5.44.3-py3-none-any.whl`
-- `dist/easycord-5.44.3.tar.gz`
+- https://github.com/rolling-codes/EasyCord/releases/download/v5.44.3/easycord-5.44.3-py3-none-any.whl
+- https://github.com/rolling-codes/EasyCord/releases/download/v5.44.3/easycord-5.44.3.tar.gz
 
 ## Install
 
