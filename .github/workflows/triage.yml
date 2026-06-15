@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Triage issue
         if: github.event_name == 'issues'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const issue = context.payload.issue;
@@ -51,7 +51,7 @@ jobs:
 
       - name: Label PR by title prefix
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
