@@ -1,0 +1,6 @@
+# All files — request review from the repo owner
+* @tee
+
+# Plugins are the most change-sensitive area
+easycord/plugins/ @tee
+tests/ @tee
