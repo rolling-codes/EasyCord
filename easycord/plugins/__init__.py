@@ -27,14 +27,30 @@ from .role_persistence import RolePersistencePlugin
 from .starboard import StarboardPlugin
 from .suggestions import SuggestionsPlugin
 from .tags import TagsPlugin
+from .auto_role import AutoRolePlugin
+from .birthday import BirthdayPlugin
 from .giveaway import GiveawayPlugin
+from .reminder import ReminderPlugin
+from .reputation import ReputationPlugin
+from .scheduled_announcements import ScheduledAnnouncementsPlugin
+from .server_stats import ServerStatsPlugin
 from .tickets import TicketsPlugin
+from .verification import VerificationPlugin
 from .welcome import WelcomePlugin
+from .word_filter import WordFilterPlugin
 
 __all__ = [
     "AIModeratorPlugin",
+    "AutoRolePlugin",
+    "BirthdayPlugin",
     "GiveawayPlugin",
+    "ReminderPlugin",
+    "ReputationPlugin",
+    "ScheduledAnnouncementsPlugin",
+    "ServerStatsPlugin",
     "TicketsPlugin",
+    "VerificationPlugin",
+    "WordFilterPlugin",
     "PluginConfigManager",
     "AIPlugin",
     "AIProvider",

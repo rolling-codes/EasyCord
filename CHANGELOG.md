@@ -1,5 +1,20 @@
 # Changelog
 
+## EasyCord v5.46.0 - 2026-06-15
+
+### Added
+
+8 new community plugins:
+
+- **BirthdayPlugin** — per-user birthday registry with daily midnight announcements and optional birthday role assignment
+- **ReminderPlugin** — personal reminders with flexible duration syntax (`30m`, `2h`) and pending-reminder list
+- **VerificationPlugin** — button-based or modal-question member verification that grants a configured role on success
+- **ServerStatsPlugin** — live stat voice channels (`📊 Members`, `🟢 Online`, `💎 Boosts`) updated every 10 minutes
+- **ScheduledAnnouncementsPlugin** — recurring scheduled announcements posted to any text channel on a configurable interval
+- **ReputationPlugin** — community reputation points with 24-hour per-giver cooldown, leaderboard, and admin reset
+- **WordFilterPlugin** — configurable word blocklist with delete/warn/both action modes and per-role exemptions
+- **AutoRolePlugin** — automatic role assignment on member join with optional delay for bot-verification windows
+
 ## EasyCord v5.44.3 - 2026-06-14
 
 ### Fixed

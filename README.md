@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.44.3-blue)
+![Version](https://img.shields.io/badge/v-5.46.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -114,9 +114,9 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.44.3 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.44.3) · [Changelog](CHANGELOG.md)
+Release links: [v5.46.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.46.0) · [Changelog](CHANGELOG.md)
 
-## New in v5.44.3 (Current Release)
+## New in v5.46.0 (Current Release)
 
 **Pylance type fixes:**
 - `context_builder.py`: safe `getattr` for `ContextMenu.description` — ContextMenu commands don't have a `description` attribute.
@@ -313,7 +313,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.44.3/easycord-5.44.3-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.46.0/easycord-5.46.0-py3-none-any.whl"
 ```
 
 ### Clone and install locally
