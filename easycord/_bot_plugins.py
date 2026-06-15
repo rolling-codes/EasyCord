@@ -239,19 +239,19 @@ class _PluginsMixin:
                 try:
                     self._event_handlers[method._event_name].remove(method)
                 except (KeyError, ValueError):
-                    pass
+                    pass  # Handler not registered or already removed
             if getattr(method, "_is_user_command", False):
                 guild = discord.Object(id=method._context_menu_guild) if method._context_menu_guild else None
                 try:
                     self.tree.remove_command(method._context_menu_name, type=discord.AppCommandType.user, guild=guild)
                 except Exception:
-                    pass
+                    pass  # Command not registered or already removed
             if getattr(method, "_is_message_command", False):
                 guild = discord.Object(id=method._context_menu_guild) if method._context_menu_guild else None
                 try:
                     self.tree.remove_command(method._context_menu_name, type=discord.AppCommandType.message, guild=guild)
                 except Exception:
-                    pass
+                    pass  # Command not registered or already removed
             if getattr(method, "_is_component", False):
                 custom_id = method._component_id
                 if getattr(method, "_component_scoped", True):
@@ -268,7 +268,7 @@ class _PluginsMixin:
             try:
                 await handle
             except asyncio.CancelledError:
-                pass
+                pass  # Task was cancelled as expected
         for key, status in getattr(self, "_task_statuses", {}).items():
             if key.startswith(f"{getattr(plugin, '_instance_id', str(id(plugin)))}."):
                 status["state"] = "stopped"
