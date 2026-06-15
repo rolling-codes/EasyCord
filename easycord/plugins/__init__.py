@@ -27,10 +27,14 @@ from .role_persistence import RolePersistencePlugin
 from .starboard import StarboardPlugin
 from .suggestions import SuggestionsPlugin
 from .tags import TagsPlugin
+from .giveaway import GiveawayPlugin
+from .tickets import TicketsPlugin
 from .welcome import WelcomePlugin
 
 __all__ = [
     "AIModeratorPlugin",
+    "GiveawayPlugin",
+    "TicketsPlugin",
     "PluginConfigManager",
     "AIPlugin",
     "AIProvider",

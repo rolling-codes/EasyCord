@@ -255,10 +255,12 @@ class TestPollView:
         from easycord.plugins.polls import _PollView
         view = _PollView("Who wins?", ["Alice", "Bob"], 60)
         embed = view.build_embed()
+        assert embed.title is not None
         assert "Who wins?" in embed.title
 
     def test_build_embed_closed(self) -> None:
         from easycord.plugins.polls import _PollView
         view = _PollView("Q?", ["A", "B"], 60)
         embed = view.build_embed(closed=True)
+        assert embed.footer.text is not None
         assert "closed" in embed.footer.text.lower()

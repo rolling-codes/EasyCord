@@ -7,21 +7,30 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from easycord.orchestrator import FallbackStrategy, Orchestrator
+from easycord.plugins._ai_providers import AIProvider
 from easycord.plugins.openclaw import OpenClawPlugin
 from easycord.tools import ToolRegistry, ToolSafety
 
 
-class StringProvider:
+class StringProvider(AIProvider):
     def __init__(self, text: str = "done") -> None:
+        super().__init__(None, "test")
         self.text = text
+
+    def _init_client(self) -> None:
+        pass
 
     async def query(self, prompt: str) -> str:
         return self.text
 
 
-class SlowProvider:
+class SlowProvider(AIProvider):
     def __init__(self) -> None:
+        super().__init__(None, "test")
         self.started = asyncio.Event()
+
+    def _init_client(self) -> None:
+        pass
 
     async def query(self, prompt: str) -> str:
         self.started.set()

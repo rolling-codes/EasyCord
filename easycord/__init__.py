@@ -16,7 +16,7 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
-__version__ = "5.44.3"
+__version__ = "5.45.0"
 
 from .audit import AuditLog
 from .bot import Bot
