@@ -65,7 +65,7 @@ Respect permission boundaries: don't attempt to call tools you don't have permis
 
         lines = []
         for cmd in commands:
-            lines.append(f"- **/{cmd.name}** — {cmd.description or 'No description'}")
+            lines.append(f"- **/{cmd.name}** — {getattr(cmd, 'description', None) or 'No description'}")
 
         return "\n".join(lines)
 

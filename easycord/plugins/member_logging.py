@@ -9,6 +9,7 @@ import discord
 
 from easycord import Plugin, on
 from easycord.plugins._config_manager import PluginConfigManager
+from easycord.plugins._utils import SENDABLE_CHANNEL_TYPES
 
 if TYPE_CHECKING:
     pass
@@ -60,7 +61,7 @@ class MemberLoggingPlugin(Plugin):
             return
 
         channel = guild.get_channel(channel_id)
-        if not channel:
+        if not isinstance(channel, SENDABLE_CHANNEL_TYPES):
             logger.warning("Member log channel %s not found in guild %s", channel_id, guild.id)
             return
 

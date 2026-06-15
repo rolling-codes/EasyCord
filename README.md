@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.44.2-blue)
+![Version](https://img.shields.io/badge/v-5.44.3-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -102,21 +102,24 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.44.2 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.44.2) · [Changelog](CHANGELOG.md)
+Release links: [v5.44.3 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.44.3) · [Changelog](CHANGELOG.md)
 
-## New in v5.44.2 (Current Release)
+## New in v5.44.3 (Current Release)
 
-**Patch fixes:**
-- `ToolLimiter`: fixed `KeyError` when the 10 000-entry tracking ceiling was hit (deleted `key[0]` int instead of the `(user_id, tool_name)` tuple key).
-- `EconomyPlugin`: fixed lock eviction race — active guild locks were aged out and replaced while still held, silently bypassing per-guild write serialization. Locks now refresh their last-used timestamp on every access and are never removed while acquired.
-- `progress_bar()`: clamped filled-block count so the bar never exceeds `width` chars when XP overshoots the level ceiling.
-- `Range`: added `__post_init__` validation — `Range(min=5, max=3)` now raises `ValueError` at construction instead of silently succeeding.
-- `BaseContext`: resolved all Pylance type errors in `respond`, `dm`, `send_embed`, and `forward`.
-- `LevelsPlugin`: replaced `hasattr(author, "add_roles")` with `isinstance(author, discord.Member)` for proper type narrowing.
+**Pylance type fixes:**
+- `context_builder.py`: safe `getattr` for `ContextMenu.description` — ContextMenu commands don't have a `description` attribute.
+- `i18n.py`: corrected `_metrics` annotation to `dict[str, Any]` and `_chain_cache` key type to `tuple`.
+- `plugins/invite_tracker.py`: `invite.uses or 0` (was `int | None`); `isinstance` narrowing before `channel.send`.
+- `plugins/member_logging.py`: `isinstance` narrowing before `channel.send`.
+
+**Test expansion (+110 tests, total 744):**
+- Stress/concurrency tests for `rate_limit`, `ConversationMemory`, `LocalizationManager`.
+- Unit tests for 8 previously-untested plugins: starboard, suggestions, reaction_roles, moderation, polls, tags, invite_tracker, member_logging.
+- Unit tests for zero-coverage core modules: `EmbedCard`, formatters, `ContextBuilder`, `SlashGroup`, `SecurityManager`, `FrameworkManager`, `AuditLog`.
 
 **Verification:**
 - `python scripts/check_release_metadata.py`
-- `pytest` - 634 passed.
+- `pytest` - 744 passed.
 - `ruff check easycord tests --select E9,F63,F7,F82`
 
 ## Previous: v5.43.0
@@ -298,7 +301,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.44.2/easycord-5.44.2-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.44.3/easycord-5.44.3-py3-none-any.whl"
 ```
 
 ### Clone and install locally

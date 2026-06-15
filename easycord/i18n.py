@@ -241,7 +241,7 @@ class LocalizationManager:
         self._max_auto_translated = max_auto_translated_locales
         self._max_tracked_locales = max_tracked_locales
         self._auto_translated_count = 0
-        self._metrics: dict[str, int] = {
+        self._metrics: dict[str, Any] = {
             "cache_hits": 0,
             "cache_misses": 0,
             "fallback_resolution": 0,
@@ -249,7 +249,7 @@ class LocalizationManager:
             "auto_translated": 0,
             "locale_frequency": {},
         } if track_metrics else {}
-        self._chain_cache: dict[str, list[str]] = {}
+        self._chain_cache: dict[tuple[str | None, str | None, bool], list[str]] = {}
         self._reporting = False
         if auto_detect_system_locale:
             self._system_locale = detect_os_locale()
