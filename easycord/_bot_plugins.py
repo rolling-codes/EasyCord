@@ -269,6 +269,8 @@ class _PluginsMixin:
                 await handle
             except asyncio.CancelledError:
                 pass  # Task was cancelled as expected
+            except Exception as e:
+                logger.warning("Task raised during plugin unload: %r", e)
         for key, status in getattr(self, "_task_statuses", {}).items():
             if key.startswith(f"{getattr(plugin, '_instance_id', str(id(plugin)))}."):
                 status["state"] = "stopped"
