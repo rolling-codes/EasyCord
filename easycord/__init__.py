@@ -18,6 +18,22 @@ Quick start::
 
 __version__ = "5.46.0"
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .plugins._ai_providers import (
+        AIProvider,
+        AnthropicProvider,
+        GeminiProvider,
+        GroqProvider,
+        HuggingFaceProvider,
+        LiteLLMProvider,
+        MistralProvider,
+        OllamaProvider,
+        OpenAIProvider,
+        TogetherAIProvider,
+    )
+
 from .audit import AuditLog
 from .bot import Bot
 from .embed_cards import EmbedCard, ErrorEmbed, InfoEmbed, SuccessEmbed, WarningEmbed
