@@ -1,0 +1,86 @@
+name: Issue and PR Triage
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Triage issue
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+
+            // Ensure triage label exists
+            try {
+              await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: 'triage' });
+            } catch {
+              await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: 'triage', color: 'e4e669', description: 'Needs initial review' });
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: ['triage'],
+            });
+
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              assignees: ['tee'],
+            });
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: "Thanks for the report! This has been assigned for review. We'll follow up soon.",
+            });
+
+      - name: Label PR by title prefix
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const title = pr.title.toLowerCase();
+
+            const mapping = [
+              { prefix: 'feat',  label: 'enhancement' },
+              { prefix: 'fix',   label: 'bug' },
+              { prefix: 'docs',  label: 'documentation' },
+              { prefix: 'chore', label: 'ci' },
+              { prefix: 'ci',    label: 'ci' },
+              { prefix: 'test',  label: 'tests' },
+              { prefix: 'perf',  label: 'enhancement' },
+              { prefix: 'refactor', label: 'enhancement' },
+            ];
+
+            const matched = mapping.find(m => title.startsWith(m.prefix));
+            if (!matched) return;
+
+            // Ensure label exists
+            try {
+              await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: matched.label });
+            } catch {
+              await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: matched.label, color: '0075ca', description: 'Auto-applied from PR title prefix' });
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [matched.label],
+            });

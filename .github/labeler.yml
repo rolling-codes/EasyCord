@@ -1,0 +1,34 @@
+plugin:
+  - changed-files:
+    - any-glob-to-any-file: "easycord/plugins/**"
+
+tests:
+  - changed-files:
+    - any-glob-to-any-file: "tests/**"
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - "docs/**"
+      - "*.md"
+      - "CHANGELOG.md"
+      - "release_*/**"
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - "pyproject.toml"
+      - "requirements*.txt"
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - ".github/**"
+      - "scripts/**"
+
+security:
+  - changed-files:
+    - any-glob-to-any-file:
+      - "easycord/validators.py"
+      - "easycord/managers.py"
+      - "easycord/tool_limits.py"

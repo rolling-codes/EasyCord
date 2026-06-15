@@ -5,12 +5,12 @@ import json
 import statistics
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from easycord.i18n import DiagnosticMode, LocalizationManager
 
 
-def _time_ms(fn: Callable[[], None], *, rounds: int = 5) -> float:
+def _time_ms(fn: Callable[[], Any], *, rounds: int = 5) -> float:
     fn()
     samples: list[float] = []
     for _ in range(rounds):

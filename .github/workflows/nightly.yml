@@ -1,0 +1,114 @@
+name: Nightly Health Check
+
+on:
+  schedule:
+    - cron: "0 3 * * *"  # 3 AM UTC daily
+  workflow_dispatch:      # allow manual trigger for testing
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip ruff && python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check easycord tests --select E9,F63,F7,F82
+
+      - name: Test
+        id: pytest
+        run: pytest
+        continue-on-error: true
+
+      - name: Report failure or close resolved issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const passed = '${{ steps.pytest.outcome }}' === 'success';
+            const title = '[Nightly] Test suite broken on main';
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'ci-failure',
+              per_page: 50,
+            });
+            const existing = issues.find(i => i.title === title);
+
+            if (passed) {
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: '✅ Nightly tests are passing again. Closing this issue.',
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  state: 'closed',
+                });
+                console.log(`Closed issue #${existing.number} — tests are green.`);
+              } else {
+                console.log('Tests passed, no open issue to close.');
+              }
+              return;
+            }
+
+            // Tests failed
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const sha = context.sha.slice(0, 7);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `🔴 Still failing on \`main\` @ \`${sha}\`\n\n[View run](${runUrl})`,
+              });
+              console.log(`Updated existing issue #${existing.number}`);
+            } else {
+              // Ensure labels exist
+              for (const label of ['ci-failure', 'bug']) {
+                try {
+                  await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: label });
+                } catch {
+                  await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: label, color: 'd93f0b', description: 'CI failure' });
+                }
+              }
+
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                labels: ['bug', 'ci-failure'],
+                assignees: ['tee'],
+                body: [
+                  '## Nightly test run failed on `main`',
+                  '',
+                  `| Field | Value |`,
+                  `|-------|-------|`,
+                  `| Commit | \`${sha}\` |`,
+                  `| Run | [View logs](${runUrl}) |`,
+                  '',
+                  '_This issue was opened automatically by the nightly health check. It will be closed automatically once tests pass again._',
+                ].join('\n'),
+              });
+              console.log(`Opened issue #${issue.number}`);
+            }
+
+      - name: Fail job if tests failed
+        if: steps.pytest.outcome == 'failure'
+        run: exit 1
