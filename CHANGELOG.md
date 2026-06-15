@@ -1,5 +1,24 @@
 # Changelog
 
+## EasyCord v5.44.3 - 2026-06-14
+
+### Fixed
+- `context_builder.py`: `getattr(cmd, 'description', None)` guards `ContextMenu` commands that lack a `description` attribute, preventing `AttributeError` at runtime.
+- `i18n.py`: `_metrics` annotation updated from `dict[str, int]` to `dict[str, Any]` — `locale_frequency` value is a nested `dict`, not an `int`. `_chain_cache` key type corrected from `str` to `tuple` (keys are `(str|None, str|None, bool)` tuples).
+- `plugins/invite_tracker.py`: `invite.uses` narrowed with `or 0` in two places (`int | None` → `int`). `channel.send` guarded with `isinstance(channel, (TextChannel, Thread, VoiceChannel, StageChannel))` before calling `.send()` to prevent calls on non-sendable channel types.
+- `plugins/member_logging.py`: Same `isinstance` narrowing applied before `channel.send()`.
+
+### Tests
+- Added 110 new tests across three new test files:
+  - `tests/test_new_stress.py` (19 tests) — concurrency/load stress for `rate_limit`, `ConversationMemory`, and `LocalizationManager`.
+  - `tests/test_plugins_new.py` (54 tests) — unit tests for 8 previously-untested plugins: starboard, suggestions, reaction_roles, moderation, polls, tags, invite_tracker, member_logging.
+  - `tests/test_core_gaps.py` (38 tests) — unit tests for zero-coverage core modules: `EmbedCard`, formatters, `ContextBuilder`, `SlashGroup`, `SecurityManager`, `FrameworkManager`, `AuditLog`.
+- Total test count: 744.
+
+### Assets
+- https://github.com/rolling-codes/EasyCord/releases/download/v5.44.3/easycord-5.44.3-py3-none-any.whl
+- https://github.com/rolling-codes/EasyCord/releases/download/v5.44.3/easycord-5.44.3.tar.gz
+
 ## EasyCord v5.44.2 - 2026-06-14
 
 ### Fixed
