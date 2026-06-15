@@ -6,6 +6,18 @@
 
 > A modern Discord bot framework for production bots. **No AI required.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add bundled plugins for features (moderation, roles, logging, leveling). Optionally add intelligent agents with multi-provider LLM support and permission-gated tool calling.
 
+## Documentation
+
+| | |
+|---|---|
+| [Getting Started](docs/getting-started.md) | Install, write your first command, and add plugins |
+| [Interactions](docs/interactions.md) | Slash commands, context menus, components, and autocomplete |
+| [Command Sync](docs/command-sync.md) | Preview and debug Discord command registration |
+| [Dynamic Component Routing](docs/components-dynamic-routing.md) | Typed URL-style routes for buttons and selects |
+| [Plugin Authoring](docs/plugin-authoring.md) | Build reusable, distributable plugins |
+| [Developer Toolkit](docs/developer-toolkit.md) | CLI scaffolding, offline testing, and diagnostics |
+| [Examples](examples/) | Working bot code |
+
 ## Start here
 
 1. Install: `pip install easycord`
@@ -575,40 +587,6 @@ The orchestrator:
 - **Tool execution loop:** AI detects function calls, executes with timeout + exception handling, feeds results back
 - **Conversation memory:** maintain context across multi-turn interactions
 - **Smart truncation:** responses auto-fit Discord's 2000-char limit
-
-## Localization (multi-language support)
-
-Build bots that speak your server's language:
-
-```python
-# Define translations in a locale file (en.json)
-{
-  "commands": {
-    "ping": {
-      "response": "Pong!"
-    }
-  }
-}
-
-# Use in your command
-@bot.slash()
-async def ping(ctx):
-    await ctx.respond(ctx.t("commands.ping.response"))
-```
-
-Initialize the bot with localization:
-
-```python
-from easycord import Bot, LocalizationManager
-
-locales = LocalizationManager()
-locales.register("en", "locales/en.json")
-locales.register("es", "locales/es.json")
-
-bot = Bot(localization=locales, default_locale="en")
-```
-
-Translations fallback gracefully: user locale → guild locale → default locale → English.
 
 ## Why this exists
 
