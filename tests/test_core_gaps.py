@@ -17,7 +17,6 @@ from easycord import (
     SecurityManager,
     SlashGroup,
     SuccessEmbed,
-    WarningEmbed,
 )
 from easycord.composer import Composer
 from easycord.bot import Bot
@@ -237,6 +236,16 @@ class TestContextBuilder:
         result = ContextBuilder.build_system_prompt(bot, ctx, registry)
         assert isinstance(result, str)
         assert len(result) > 0
+
+    def test_format_commands_handles_context_menu_without_description(self):
+        """getattr fallback must not raise when a command has no description attr."""
+        bot = MagicMock()
+        cmd = MagicMock(spec=[])  # no attributes — simulates ContextMenu
+        cmd.name = "Right-click Action"
+        bot.tree.get_commands.return_value = [cmd]
+        result = ContextBuilder._format_commands(bot)
+        assert "Right-click Action" in result
+        assert "No description" in result
 
 
 # ---------------------------------------------------------------------------

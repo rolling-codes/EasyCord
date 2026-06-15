@@ -21,7 +21,7 @@ from easycord.plugins.starboard import StarboardPlugin
 from easycord.plugins.suggestions import SuggestionsPlugin
 from easycord.plugins.tags import TagsPlugin, TagsStore
 from easycord.server_config import ServerConfigStore
-from easycord.tool_limits import RateLimit, ToolLimiter
+from easycord.tool_limits import ToolLimiter
 
 
 # ---------------------------------------------------------------------------
@@ -583,6 +583,39 @@ class TestInviteTrackerPlugin:
 
         await p._on_invite_create(invite)
         assert p._invite_cache[100]["ABC123"] == 0
+
+    @pytest.mark.asyncio
+    async def test_invite_create_uses_none_treated_as_zero(self, tmp_path) -> None:
+        """invite.uses=None (int|None) must be stored as 0, not raise TypeError."""
+        p = self._make_plugin(tmp_path)
+
+        invite = MagicMock(spec=discord.Invite)
+        invite.code = "NULL_USES"
+        invite.uses = None
+        guild = MagicMock(spec=discord.Guild)
+        guild.id = 100
+        invite.guild = guild
+
+        await p._on_invite_create(invite)
+        assert p._invite_cache[100]["NULL_USES"] == 0
+
+    @pytest.mark.asyncio
+    async def test_log_invite_skips_non_sendable_channel(self, tmp_path) -> None:
+        """_log_invite must skip channels not in SENDABLE_CHANNEL_TYPES."""
+        p = self._make_plugin(tmp_path)
+
+        member = MagicMock(spec=discord.Member)
+        member.guild = MagicMock(spec=discord.Guild)
+        member.guild.id = 100
+        member.guild.get_channel.return_value = MagicMock(spec=discord.CategoryChannel)
+
+        config = {"enabled": True, "log_channel": 999}
+        p.config = MagicMock()
+        p.config.get = AsyncMock(return_value=config)
+
+        # Must return without raising even though channel is not sendable
+        await p._log_invite(member, "SOMECODE")
+        member.guild.get_channel.assert_called_once_with(999)
 
     @pytest.mark.asyncio
     async def test_invite_delete_removes_from_cache(self, tmp_path) -> None:

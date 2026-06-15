@@ -3,6 +3,7 @@
 ## EasyCord v5.44.3 - 2026-06-14
 
 ### Fixed
+
 - `context_builder.py`: `getattr(cmd, 'description', None)` guards `ContextMenu` commands that lack a `description` attribute, preventing `AttributeError` at runtime.
 - `i18n.py`: `_metrics` annotation updated from `dict[str, int]` to `dict[str, Any]` — `locale_frequency` value is a nested `dict`, not an `int`. `_chain_cache` key type corrected from `str` to `tuple` (keys are `(str|None, str|None, bool)` tuples).
 - `plugins/invite_tracker.py`: `invite.uses` narrowed with `or 0` in two places (`int | None` → `int`). `channel.send` guarded with `isinstance(channel, (TextChannel, Thread, VoiceChannel, StageChannel))` before calling `.send()` to prevent calls on non-sendable channel types.
