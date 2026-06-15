@@ -16,7 +16,7 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
-__version__ = "5.46.0"
+__version__ = "5.47.0"
 
 from .audit import AuditLog
 from .bot import Bot
@@ -56,6 +56,8 @@ from .managers import FrameworkManager, SecurityManager
 from .utils import EasyEmbed, Paginator
 from .validators import ChoiceSet, Duration, Range, Regex, Snowflake, URL, ValidationError
 from .formatters import format_doctor_report, format_interaction_inventory, format_sync_plan, format_tool_audit
+from .security import escape_mentions, safe_regex, strip_injection_prefixes, truncate
+from .plugins import SecurityLabPlugin
 
 _PROVIDER_NAMES = frozenset({
     "AIProvider",
@@ -147,7 +149,12 @@ __all__ = [
     "SelectMenuBuilder",
     "SlashGroup",
     "SuccessEmbed",
+    "SecurityLabPlugin",
     "SecurityManager",
+    "escape_mentions",
+    "safe_regex",
+    "strip_injection_prefixes",
+    "truncate",
     "ToolCall",
     "ToolDef",
     "ToolHelpers",

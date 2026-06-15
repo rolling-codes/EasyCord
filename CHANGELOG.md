@@ -1,5 +1,25 @@
 # Changelog
 
+## EasyCord v5.47.0 - 2026-06-15
+
+### Added
+
+**SecurityLabPlugin** — educational security demonstration tool for Discord bot developers:
+- 7 slash commands demonstrating real attack vectors: stored injection, input overflow, ReDoS, prompt injection, phantom permission gates, flood attacks
+- Each demo shows the attack in action, explains why it works, and provides a code-based defense
+- Requires `manage_guild` permission (admin-only) to prevent misuse
+
+**Security utilities** (`easycord.security`):
+- `escape_mentions()` — sanitizes `@everyone`/`@here` to prevent accidental pings
+- `truncate()` — hard-caps text length with ellipsis
+- `safe_regex()` — runs regex with timeout protection against ReDoS
+- `strip_injection_prefixes()` — removes common prompt-injection openers
+
+### Fixed
+
+- `easycord/plugins/tags.py`: Added `super().__init__()` call to `TagsPlugin.__init__` to properly invoke parent class initialization
+- `easycord/plugins/word_filter.py`: Added explanatory comments on bare `except` clauses for clarity
+
 ## EasyCord v5.46.0 - 2026-06-15
 
 ### Added

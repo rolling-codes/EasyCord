@@ -46,6 +46,7 @@ class TagsPlugin(Plugin):
     """Slash-command tag store. Adds ``/tag get``, ``/tag set``, ``/tag delete``, ``/tag list``."""
 
     def __init__(self, *, data_dir: str = "tags_data") -> None:
+        super().__init__()
         self._store = TagsStore(data_dir)
 
     @slash(description="Retrieve a tag by name.", guild_only=True)

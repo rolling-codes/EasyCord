@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easycord"
-version = "5.46.0"
+version = "5.47.0"
 description = "Production-grade Discord bot framework with AI orchestration, multi-provider LLMs, and permission-gated tool execution"
 readme = "README.md"
 license = "MIT"
@@ -44,8 +44,8 @@ Homepage       = "https://github.com/rolling-codes/EasyCord"
 Repository     = "https://github.com/rolling-codes/EasyCord"
 Issues         = "https://github.com/rolling-codes/EasyCord/issues"
 Documentation  = "https://github.com/rolling-codes/EasyCord"
-Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v5.46.0/easycord-5.46.0-py3-none-any.whl"
-Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v5.46.0"
+Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v5.47.0/easycord-5.47.0-py3-none-any.whl"
+Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v5.47.0"
 Changelog      = "https://github.com/rolling-codes/EasyCord/blob/main/CHANGELOG.md"
 
 [project.scripts]

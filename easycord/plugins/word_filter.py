@@ -82,14 +82,14 @@ class WordFilterPlugin(Plugin):
             try:
                 await message.delete()
             except discord.HTTPException:
-                pass
+                pass  # Message already deleted or insufficient permissions
         if action in ("warn", "both"):
             try:
                 await message.author.send(
                     f"⚠️ Your message in **{message.guild.name}** was removed for containing blocked content."
                 )
             except discord.Forbidden:
-                pass
+                pass  # User has DMs disabled
 
     # ── Slash commands ────────────────────────────────────────
 

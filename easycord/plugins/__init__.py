@@ -38,6 +38,7 @@ from .tickets import TicketsPlugin
 from .verification import VerificationPlugin
 from .welcome import WelcomePlugin
 from .word_filter import WordFilterPlugin
+from .security_lab import SecurityLabPlugin
 
 __all__ = [
     "AIModeratorPlugin",
@@ -47,6 +48,7 @@ __all__ = [
     "ReminderPlugin",
     "ReputationPlugin",
     "ScheduledAnnouncementsPlugin",
+    "SecurityLabPlugin",
     "ServerStatsPlugin",
     "TicketsPlugin",
     "VerificationPlugin",
