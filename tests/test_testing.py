@@ -46,6 +46,7 @@ def test_fake_context_builder_configures_context() -> None:
     assert ctx.guild.id == 987
     assert ctx.guild.name == "Builders"
     assert ctx.is_admin is True
+    assert ctx.member is not None
     assert ctx.member is ctx.user
     assert ctx.member.guild_permissions.manage_messages is True
     assert [role.id for role in ctx.member.roles] == [10, 20]
