@@ -93,6 +93,7 @@ class FakeInteraction:
         guild_locale: str | None = None,
         permissions: dict[str, bool] | None = None,
         roles: list[int] | None = None,
+        message_id: int = 900000000000000001,
     ) -> None:
         permission_values = dict(permissions or {})
         permission_values.setdefault("administrator", is_admin)
@@ -146,6 +147,9 @@ class FakeInteraction:
         self.response = _FakeResponder(self)
         self.followup = _FakeFollowup(self)
         self.edit_original_response = AsyncMock()
+
+        self._message = SimpleNamespace(id=message_id, edit=AsyncMock())
+        self.original_response = AsyncMock(return_value=self._message)
 
 
 class FakeContext(Context):

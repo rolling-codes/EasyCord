@@ -15,7 +15,16 @@ import pytest
 from easycord.plugins._config_manager import PluginConfigManager
 from easycord.plugins.member_logging import MemberLoggingPlugin
 from easycord.plugins.moderation import ModerationPlugin
-from easycord.plugins.polls import _PollView, _poll_options, _is_valid_duration
+from easycord.plugins.polls import (
+    PollsPlugin,
+    _bar,
+    _format_option_line,
+    _is_valid_duration,
+    _poll_options,
+    _PollView,
+    _tally,
+    build_poll_embed,
+)
 from easycord.plugins.reaction_roles import ReactionRolesPlugin
 from easycord.plugins.starboard import StarboardPlugin
 from easycord.plugins.suggestions import SuggestionsPlugin
@@ -419,51 +428,50 @@ class TestPollView:
         assert _is_valid_duration(4) is False
 
     def test_tally_zero_votes(self) -> None:
-        view = _PollView("Question?", ["A", "B", "C"], 60)
-        counts = view._tally()
+        counts = _tally(["A", "B", "C"], {})
         assert counts == [0, 0, 0]
 
     def test_tally_records_votes_correctly(self) -> None:
-        view = _PollView("Favourite?", ["X", "Y", "Z"], 60)
-        view.votes = {1: 0, 2: 0, 3: 1, 4: 2}  # 2 for X, 1 for Y, 1 for Z
-        counts = view._tally()
+        votes = {"1": 0, "2": 0, "3": 1, "4": 2}  # 2 for X, 1 for Y, 1 for Z
+        counts = _tally(["X", "Y", "Z"], votes)
         assert counts == [2, 1, 1]
 
     def test_single_vote_overwrites(self) -> None:
         """Assigning a new option to the same user replaces the old vote."""
-        view = _PollView("Pick one", ["Red", "Blue"], 60)
-        view.votes[1] = 0  # voted Red
-        view.votes[1] = 1  # changed to Blue
-        counts = view._tally()
+        votes: dict[str, int] = {}
+        votes["1"] = 0  # voted Red
+        votes["1"] = 1  # changed to Blue
+        counts = _tally(["Red", "Blue"], votes)
         assert counts == [0, 1]
 
     def test_format_option_line_100_percent(self) -> None:
-        view = _PollView("Test", ["Only"], 60)
-        line = view._format_option_line("Only", count=3, total=3)
+        line = _format_option_line("Only", count=3, total=3)
         assert "100%" in line
         assert "Only" in line
 
     def test_format_option_line_zero_votes(self) -> None:
-        view = _PollView("Test", ["A", "B"], 60)
-        line = view._format_option_line("A", count=0, total=1)
+        line = _format_option_line("A", count=0, total=1)
         assert "0%" in line
 
     def test_build_embed_open(self) -> None:
-        view = _PollView("Open poll", ["Yes", "No"], 30)
-        embed = view.build_embed(closed=False)
+        embed = build_poll_embed("Open poll", ["Yes", "No"], {}, closed=False, seconds_remaining=30)
         assert embed.title is not None and "Open poll" in embed.title
         assert embed.footer.text is not None and embed.footer.text.startswith("⏱️")
 
     def test_build_embed_closed(self) -> None:
-        view = _PollView("Closed poll", ["Yes", "No"], 30)
-        embed = view.build_embed(closed=True)
+        embed = build_poll_embed("Closed poll", ["Yes", "No"], {}, closed=True)
         assert embed.footer.text is not None and "closed" in embed.footer.text.lower()
 
     def test_bar_length_always_10(self) -> None:
-        view = _PollView("X", ["A", "B"], 60)
         for filled in range(11):
-            bar = view._bar(filled)
+            bar = _bar(filled)
             assert len(bar) == 10
+
+    def test_buttons_have_deterministic_custom_ids(self) -> None:
+        plugin = PollsPlugin()
+        view = _PollView(plugin, 100, 555, "X", ["A", "B"])
+        custom_ids = [child.custom_id for child in view.children]  # type: ignore[union-attr]
+        assert custom_ids == ["poll:vote:555:0", "poll:vote:555:1"]
 
 
 # ---------------------------------------------------------------------------

@@ -224,43 +224,61 @@ class TestPollHelpers:
 
 
 # ---------------------------------------------------------------------------
-# Poll view internals
+# Poll embed helpers (pure functions — vote state is no longer on the view)
 # ---------------------------------------------------------------------------
 
-class TestPollView:
+class TestPollEmbedHelpers:
     def test_tally_empty(self) -> None:
-        from easycord.plugins.polls import _PollView
-        view = _PollView("Q?", ["A", "B"], 60)
-        counts = view._tally()
-        assert counts == [0, 0]
+        from easycord.plugins.polls import _tally
+        assert _tally(["A", "B"], {}) == [0, 0]
 
     def test_tally_with_votes(self) -> None:
-        from easycord.plugins.polls import _PollView
-        view = _PollView("Q?", ["A", "B"], 60)
-        view.votes = {1: 0, 2: 0, 3: 1}
-        counts = view._tally()
-        assert counts == [2, 1]
+        from easycord.plugins.polls import _tally
+        votes = {"1": 0, "2": 0, "3": 1}
+        assert _tally(["A", "B"], votes) == [2, 1]
 
     def test_bar_full(self) -> None:
-        from easycord.plugins.polls import _PollView
-        view = _PollView("Q?", ["A"], 60)
-        assert view._bar(10) == "█" * 10
+        from easycord.plugins.polls import _bar
+        assert _bar(10) == "█" * 10
 
     def test_bar_empty(self) -> None:
-        from easycord.plugins.polls import _PollView
-        view = _PollView("Q?", ["A"], 60)
-        assert view._bar(0) == "░" * 10
+        from easycord.plugins.polls import _bar
+        assert _bar(0) == "░" * 10
 
     def test_build_embed(self) -> None:
-        from easycord.plugins.polls import _PollView
-        view = _PollView("Who wins?", ["Alice", "Bob"], 60)
-        embed = view.build_embed()
+        from easycord.plugins.polls import build_poll_embed
+        embed = build_poll_embed("Who wins?", ["Alice", "Bob"], {})
         assert embed.title is not None
         assert "Who wins?" in embed.title
 
     def test_build_embed_closed(self) -> None:
-        from easycord.plugins.polls import _PollView
-        view = _PollView("Q?", ["A", "B"], 60)
-        embed = view.build_embed(closed=True)
+        from easycord.plugins.polls import build_poll_embed
+        embed = build_poll_embed("Q?", ["A", "B"], {}, closed=True)
         assert embed.footer.text is not None
         assert "closed" in embed.footer.text.lower()
+
+
+# ---------------------------------------------------------------------------
+# Poll view internals
+# ---------------------------------------------------------------------------
+
+class TestPollView:
+    def test_buttons_have_deterministic_custom_ids(self) -> None:
+        from easycord.plugins.polls import PollsPlugin, _PollView
+        plugin = PollsPlugin()
+        view = _PollView(plugin, 100, 555, "Q?", ["A", "B"])
+        custom_ids = [child.custom_id for child in view.children]  # type: ignore[union-attr]
+        assert custom_ids == ["poll:vote:555:0", "poll:vote:555:1"]
+
+    def test_view_has_no_timeout(self) -> None:
+        from easycord.plugins.polls import PollsPlugin, _PollView
+        plugin = PollsPlugin()
+        view = _PollView(plugin, 100, 555, "Q?", ["A", "B"])
+        assert view.timeout is None
+
+    def test_disable_all(self) -> None:
+        from easycord.plugins.polls import PollsPlugin, _PollView
+        plugin = PollsPlugin()
+        view = _PollView(plugin, 100, 555, "Q?", ["A", "B"])
+        view.disable_all()
+        assert all(child.disabled for child in view.children)  # type: ignore[union-attr]
