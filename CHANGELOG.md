@@ -19,6 +19,12 @@
 
 - `easycord/plugins/tags.py`: Added `super().__init__()` call to `TagsPlugin.__init__` to properly invoke parent class initialization
 - `easycord/plugins/word_filter.py`: Added explanatory comments on bare `except` clauses for clarity
+- **`allowed_contexts`/`allowed_installs` raised `AttributeError` at runtime** — discord.py 2.7.1 defines two distinct classes named `AppCommandContext`/`AppInstallationType`: the slot-based ones under `discord.app_commands.*` (used by `Interaction.context` and command registration) and an unrelated ArrayFlags-based pair re-exported at top-level `discord.*`. `@slash`, `@user_command`, `@message_command`, `SlashGroup`, and `ctx.app_context` now use the `discord.app_commands` versions.
+- `easycord/_bot_guild.py`: `send_webhook` builds its forwarded kwargs explicitly instead of passing `None` into discord.py's MISSING-sentinel API.
+
+### Changed
+
+- Internal: `_bot_commands.py`/`_bot_events.py`/`_bot_guild.py`/`_bot_plugins.py` mixins now declare their composed `Bot` attribute surface via a `TYPE_CHECKING`-only `_bot_base.py` base, eliminating 12 `py/unsafe-cyclic-import` static-analysis false positives. No behavior change.
 
 ## EasyCord v5.46.0 - 2026-06-15
 
