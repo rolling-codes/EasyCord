@@ -178,7 +178,7 @@ class FakeContext(Context):
             permissions=permissions,
             roles=roles,
         )
-        return cls(interaction)
+        return cls(interaction)  # type: ignore[arg-type]
 
     @property
     def member(self) -> discord.Member | None:
@@ -186,7 +186,7 @@ class FakeContext(Context):
 
     @property
     def responses(self) -> list[_CapturedResponse]:
-        return self.interaction._responses
+        return self.interaction._responses  # type: ignore[attr-defined]
 
     @property
     def response_count(self) -> int:
@@ -319,7 +319,7 @@ class FakeContextBuilder:
         return interaction
 
     def build(self) -> FakeContext:
-        return FakeContext(self.build_interaction())
+        return FakeContext(self.build_interaction())  # type: ignore[arg-type]
 
 
 async def invoke(
@@ -350,7 +350,7 @@ async def invoke(
         permissions=permissions,
     )
     await command.callback(interaction, **kwargs)
-    return FakeContext(interaction)
+    return FakeContext(interaction)  # type: ignore[arg-type]
 
 
 async def invoke_autocomplete(
@@ -376,8 +376,8 @@ async def invoke_autocomplete(
                 user_id=user_id,
                 guild_id=guild_id,
             )
-            interaction.namespace = SimpleNamespace(**(options or {}))
-            ctx = FakeContext(interaction)
+            interaction.namespace = SimpleNamespace(**(options or {}))  # type: ignore[attr-defined]
+            ctx = FakeContext(interaction)  # type: ignore[arg-type]
             try:
                 return list(await entry.callback(ctx, current, options or {}))
             except TypeError:
@@ -413,7 +413,7 @@ async def invoke_component(
     )
     interaction.data = {"custom_id": custom_id, **data}
     await bot._dispatch_component(interaction)
-    return FakeContext(interaction)
+    return FakeContext(interaction)  # type: ignore[arg-type]
 
 
 async def invoke_modal(
@@ -446,7 +446,7 @@ async def invoke_modal(
         ],
     }
     await bot._dispatch_modal(interaction)
-    return FakeContext(interaction)
+    return FakeContext(interaction)  # type: ignore[arg-type]
 
 
 def _find_context_menu(bot: Any, name: str, menu_type: discord.AppCommandType) -> Any:
@@ -491,7 +491,7 @@ async def invoke_user_command(
         target.guild = interaction.guild
 
     await command.callback(interaction, target)
-    return FakeContext(interaction)
+    return FakeContext(interaction)  # type: ignore[arg-type]
 
 
 async def invoke_message_command(
@@ -526,7 +526,7 @@ async def invoke_message_command(
         target.channel = interaction.channel
 
     await command.callback(interaction, target)
-    return FakeContext(interaction)
+    return FakeContext(interaction)  # type: ignore[arg-type]
 
 
 __all__ = [
