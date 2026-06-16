@@ -1,10 +1,10 @@
 # Architecture
 
-EasyCord is a Discord bot framework (v5.1.2, Python 3.10+). Entry point: `easycord/__init__.py` is the stable public API — internal modules are prefixed `_`.
+EasyCord is a Discord bot framework (Python 3.10+, depends on `discord.py>=2.7.1,<3`). Entry point: `easycord/__init__.py` is the stable public API — internal modules are prefixed `_`. Current version lives in `pyproject.toml`/`easycord/__init__.py.__version__`, not here — don't hardcode it in this doc.
 
 ## Layers
 
-**Bot core** — `bot.py` composes `discord.Client` + four mixins: `_bot_commands.py`, `_bot_events.py`, `_bot_guild.py`, `_bot_plugins.py`. New bot-level behavior goes into the relevant mixin.
+**Bot core** — `bot.py` composes `discord.Client` + four mixins: `_bot_commands.py`, `_bot_events.py`, `_bot_guild.py`, `_bot_plugins.py`. New bot-level behavior goes into the relevant mixin. Each mixin inherits `_bot_base.py`'s `_BotBase` only under `TYPE_CHECKING` (via a per-module `_MixinBase` alias) so static checkers see the full composed `Bot` surface without creating a real runtime import cycle — `_BotBase` is never instantiated.
 
 **Context** — `context.py` + `_context_base.py`, `_context_channels.py`, `_context_moderation.py`, `_context_ui.py`. User-facing API inside handlers (`ctx.respond()`, `ctx.send()`, `ctx.send_embed()`, etc.). Use `ctx.user` and `ctx.member` — `ctx.author` does not exist.
 

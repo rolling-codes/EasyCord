@@ -9,10 +9,13 @@ pip install -e ".[dev]"
 pytest tests/
 pytest tests/test_middleware.py -v
 pytest tests/test_middleware.py::test_name -v
-python -m build
+python -m build --no-isolation   # plain `python -m build` needs a working venv module
+python scripts/check_release_metadata.py   # version consistency across pyproject/__init__/CHANGELOG
 ```
 
 `pytest-asyncio` with `asyncio_mode = "auto"` — no manual event loop setup needed.
+
+The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easycord new`, `easycord doctor`, `easycord inspect`, `easycord sync-plan`, `easycord plugin create|check|discover`, `easycord test-template`, `easycord audit-tools`.
 
 ## Context
 
