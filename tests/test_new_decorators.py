@@ -4,6 +4,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
+from discord import app_commands
 import pytest
 
 from easycord.decorators import slash, command_error, describe
@@ -556,8 +557,8 @@ class TestScannerMetadataPropagation:
         from easycord import Plugin
         from easycord._bot_plugins import _PluginsMixin
 
-        contexts = discord.AppCommandContext(guild=True, dm_channel=False, private_channel=False)
-        installs = discord.AppInstallationType(guild=True, user=False)
+        contexts = app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False)
+        installs = app_commands.AppInstallationType(guild=True, user=False)
 
         class MenuPlugin(Plugin):
             @user_command(

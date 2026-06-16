@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 
 import discord
+from discord import app_commands
 
 from .conversation_memory import ConversationTurn
 from .i18n import LocalizationManager
@@ -100,10 +101,10 @@ class BaseContext:
     # ── Responding ────────────────────────────────────────────
 
     @property
-    def app_context(self) -> discord.AppCommandContext | None:
+    def app_context(self) -> app_commands.AppCommandContext | None:
         """The Discord application context — guild, bot DM, or private channel.
 
-        Returns ``interaction.context`` (a ``discord.AppCommandContext`` value)
+        Returns ``interaction.context`` (a ``discord.app_commands.AppCommandContext`` value)
         when available, otherwise ``None``.
 
         Useful with ``@install_type`` to detect whether the command was invoked

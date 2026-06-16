@@ -4,6 +4,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
+from discord import app_commands
 import pytest
 
 from easycord.context import Context
@@ -27,7 +28,7 @@ def _mock_interaction(
     interaction.guild = guild
     interaction.locale = locale
     interaction.guild_locale = guild_locale
-    interaction.context = discord.AppCommandContext(
+    interaction.context = app_commands.AppCommandContext(
         guild=guild is not None,
         dm_channel=guild is None,
         private_channel=False,

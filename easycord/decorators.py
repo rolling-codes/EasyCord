@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-import discord
+from discord import app_commands
 
 from easycord.tools import ToolSafety
 
@@ -80,8 +80,8 @@ def install_type(
     """
 
     def decorator(func: Callable) -> Callable:
-        installs = discord.AppInstallationType(guild=guild, user=user)
-        contexts = discord.AppCommandContext(
+        installs = app_commands.AppInstallationType(guild=guild, user=user)
+        contexts = app_commands.AppCommandContext(
             guild=guild,
             dm_channel=user,
             private_channel=user,
@@ -386,8 +386,8 @@ def user_command(
     *,
     guild_id: int | None = None,
     nsfw: bool = False,
-    allowed_contexts: discord.AppCommandContext | None = None,
-    allowed_installs: discord.AppInstallationType | None = None,
+    allowed_contexts: app_commands.AppCommandContext | None = None,
+    allowed_installs: app_commands.AppInstallationType | None = None,
 ) -> Callable:
     """Mark a Plugin method as a right-click User context menu command."""
     def decorator(func: Callable) -> Callable:
@@ -406,8 +406,8 @@ def message_command(
     *,
     guild_id: int | None = None,
     nsfw: bool = False,
-    allowed_contexts: discord.AppCommandContext | None = None,
-    allowed_installs: discord.AppInstallationType | None = None,
+    allowed_contexts: app_commands.AppCommandContext | None = None,
+    allowed_installs: app_commands.AppInstallationType | None = None,
 ) -> Callable:
     """Mark a Plugin method as a right-click Message context menu command."""
     def decorator(func: Callable) -> Callable:

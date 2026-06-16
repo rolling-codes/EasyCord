@@ -43,8 +43,8 @@ class _CommandsMixin:
         choices: dict[str, list] | None = None,
         aliases: list[str] | None = None,
         nsfw: bool = False,
-        allowed_contexts: discord.AppCommandContext | None = None,
-        allowed_installs: discord.AppInstallationType | None = None,
+        allowed_contexts: app_commands.AppCommandContext | None = None,
+        allowed_installs: app_commands.AppInstallationType | None = None,
     ) -> Callable:
         """Decorator that registers a top-level slash command.
 
@@ -325,8 +325,8 @@ class _CommandsMixin:
         autocomplete: dict[str, Callable] | None = None,
         choices: dict[str, list] | None = None,
         nsfw: bool = False,
-        allowed_contexts: discord.AppCommandContext | None = None,
-        allowed_installs: discord.AppInstallationType | None = None,
+        allowed_contexts: app_commands.AppCommandContext | None = None,
+        allowed_installs: app_commands.AppInstallationType | None = None,
         parent: app_commands.Group | None = None,
         source_plugin: str | None = None,
     ) -> None:
@@ -491,8 +491,8 @@ class _CommandsMixin:
         *,
         guild_id: int | None = None,
         nsfw: bool = False,
-        allowed_contexts: discord.AppCommandContext | None = None,
-        allowed_installs: discord.AppInstallationType | None = None,
+        allowed_contexts: app_commands.AppCommandContext | None = None,
+        allowed_installs: app_commands.AppInstallationType | None = None,
     ) -> Callable:
         """Decorator that registers a right-click User context menu command.
 
@@ -518,8 +518,8 @@ class _CommandsMixin:
         *,
         guild_id: int | None = None,
         nsfw: bool = False,
-        allowed_contexts: discord.AppCommandContext | None = None,
-        allowed_installs: discord.AppInstallationType | None = None,
+        allowed_contexts: app_commands.AppCommandContext | None = None,
+        allowed_installs: app_commands.AppInstallationType | None = None,
     ) -> Callable:
         """Decorator that registers a right-click Message context menu command.
 
@@ -547,8 +547,8 @@ class _CommandsMixin:
         menu_type: discord.AppCommandType,
         guild_id: int | None,
         nsfw: bool = False,
-        allowed_contexts: discord.AppCommandContext | None = None,
-        allowed_installs: discord.AppInstallationType | None = None,
+        allowed_contexts: app_commands.AppCommandContext | None = None,
+        allowed_installs: app_commands.AppInstallationType | None = None,
         source_plugin: str | None = None,
     ) -> None:
         """Build and register an app_commands.ContextMenu from a user-provided handler."""

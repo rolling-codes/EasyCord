@@ -6,6 +6,7 @@ import asyncio
 import pytest
 
 import discord
+from discord import app_commands
 
 from easycord import Bot, Plugin, SlashGroup, autocomplete, component, slash, slash_command, task
 from easycord.registry import InteractionRegistry
@@ -37,12 +38,12 @@ async def test_registry_tracks_slash_and_context_menu_inventory() -> None:
 
 
 async def test_discord_271_metadata_reaches_slash_context_menu_and_group() -> None:
-    contexts = discord.AppCommandContext(
+    contexts = app_commands.AppCommandContext(
         guild=True,
         dm_channel=True,
         private_channel=True,
     )
-    installs = discord.AppInstallationType(guild=True, user=True)
+    installs = app_commands.AppInstallationType(guild=True, user=True)
 
     class UtilityGroup(
         SlashGroup,
@@ -110,7 +111,7 @@ async def test_dynamic_component_route_parses_typed_variables() -> None:
 
         interaction = FakeInteraction(client=bot)
         interaction.data = {"custom_id": "poll:vote:42:7"}
-        await bot._dispatch_component(interaction)
+        await bot._dispatch_component(interaction)  # type: ignore[arg-type]
 
         assert seen == [(42, 7)]
         assert interaction._responses[-1].content == "voted"
@@ -130,7 +131,7 @@ async def test_component_ttl_expiration_is_safe_noop() -> None:
         await asyncio.sleep(0.01)
         interaction = FakeInteraction(client=bot)
         interaction.data = {"custom_id": "expired:1"}
-        await bot._dispatch_component(interaction)
+        await bot._dispatch_component(interaction)  # type: ignore[arg-type]
 
         assert called is False
         assert interaction._responses == []
@@ -227,7 +228,7 @@ async def test_task_status_tracks_failure() -> None:
 
         status = bot.task_statuses()[f"{plugin._instance_id}.doomed"]
         assert status["state"] == "failed"
-        assert "boom" in status["last_error"]
+        assert "boom" in status["last_error"]  # type: ignore[operator]
     finally:
         await bot.close()
 
