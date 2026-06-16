@@ -198,7 +198,7 @@ def detect_os_locale() -> str | None:
                 return _normalize_locale(f"{lang}_{country}")
             return _normalize_locale(lang)
     except (AttributeError, ValueError):
-        pass
+        pass  # platform-specific locale detection failed; fall through to None
     return None
 
 

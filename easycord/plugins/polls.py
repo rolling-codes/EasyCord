@@ -199,7 +199,7 @@ class PollsPlugin(Plugin):
                     try:
                         self.bot.add_view(view, message_id=message_id)
                     except Exception:
-                        pass
+                        pass  # poll message may have been deleted; the timer still resumes
                     end_time = datetime.fromisoformat(data["end_time"])
                     remaining = (end_time - now).total_seconds()
                     if remaining > 0:
@@ -227,7 +227,7 @@ class PollsPlugin(Plugin):
             await asyncio.sleep(seconds)
             await self._close_poll(guild_id, message_id)
         except asyncio.CancelledError:
-            pass
+            pass  # timer was cancelled (plugin unload); nothing more to do
 
     async def _close_poll(self, guild_id: int, message_id: int) -> None:
         """Mark a poll closed in storage, then render the final results."""

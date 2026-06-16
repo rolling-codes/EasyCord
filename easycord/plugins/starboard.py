@@ -205,7 +205,7 @@ class StarboardPlugin(Plugin):
                 await self._archive_message(message, reaction.count)
 
         except discord.NotFound:
-            pass
+            pass  # message or channel was deleted before the reaction could be processed
         except discord.Forbidden:
             logger.warning("No permission to fetch message in %s", payload.guild_id)
         except discord.HTTPException as e:
@@ -246,7 +246,7 @@ class StarboardPlugin(Plugin):
                 await self._unarchive_message(guild.id, payload.message_id)
 
         except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-            pass
+            pass  # message/channel deleted or inaccessible; nothing to unarchive
 
     # ── Slash commands ────────────────────────────────────────
 

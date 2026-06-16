@@ -629,7 +629,7 @@ class _CommandsMixin(_MixinBase):
             try:
                 return dict(vars(namespace))
             except TypeError:
-                pass
+                pass  # namespace has no __dict__ (e.g. a slots-based fake); fall back to raw data
         data = getattr(interaction, "data", None) or {}
         options: dict[str, object] = {}
         for item in data.get("options", []):

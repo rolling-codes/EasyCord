@@ -251,4 +251,4 @@ class _PaginatorView(discord.ui.View):
             try:
                 await self.message.edit(view=self)
             except Exception:
-                pass
+                pass  # message may have been deleted; nothing to disable buttons on

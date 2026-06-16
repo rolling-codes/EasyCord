@@ -154,7 +154,7 @@ class BirthdayPlugin(Plugin):
                 await asyncio.sleep(sleep_secs)
                 await self._run_birthday_checks()
         except asyncio.CancelledError:
-            pass
+            pass  # plugin is unloading; stop the loop quietly
 
     async def _run_birthday_checks(self) -> None:
         """Check all guild configs and send birthday announcements for today."""
@@ -260,7 +260,7 @@ class BirthdayPlugin(Plugin):
                 return
             await member.remove_roles(role, reason="BirthdayPlugin birthday role expired")
         except asyncio.CancelledError:
-            pass
+            pass  # timer was cancelled (e.g. plugin unload); nothing to clean up
         except Exception:
             logger.exception(
                 "Failed to remove birthday role from user %d in guild %d",

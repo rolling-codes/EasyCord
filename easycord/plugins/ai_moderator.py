@@ -216,7 +216,7 @@ class AIModeratorPlugin(Plugin):
                 try:
                     await message.author.send(f"⚠️ Your message was flagged: {reason} ({confidence*100:.0f}% confidence)")
                 except discord.Forbidden:
-                    pass
+                    pass  # user has DMs disabled or has blocked the bot; nothing else to do
 
             elif action_level == "notify_only":
                 # Log to review channel

@@ -207,7 +207,7 @@ class LevelsPlugin(Plugin):
                     # Note: ctx not available in event handler; use bot's LocalizationManager if needed
                     embed.add_field(name="Role awarded", value=role.mention, inline=False)
                 except discord.HTTPException:
-                    pass
+                    pass  # bot may lack manage_roles or the role may be above its top role
 
         await message.channel.send(embed=embed)
 
