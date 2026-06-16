@@ -137,7 +137,6 @@ class TestWordFilterStore:
     async def test_guilds_isolated(self, tmp_path) -> None:
         plugin = _plugin(tmp_path)
         ctx1 = _ctx(guild_id=1)
-        ctx2 = _ctx(guild_id=2)
         await plugin.filter_add(ctx1, "guildone")
         store = ServerConfigStore(str(tmp_path / "word_filter"))
         cfg2 = await store.load(2)

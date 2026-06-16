@@ -248,7 +248,7 @@ class TestStatsSetupCommand:
             try:
                 await task
             except (asyncio.CancelledError, Exception):
-                pass
+                pass  # task is being torn down for test cleanup; outcome is irrelevant
 
         # Three channels should have been created
         assert ctx.guild.create_voice_channel.call_count == 3
