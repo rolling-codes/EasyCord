@@ -3,16 +3,24 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable, Literal
+from typing import TYPE_CHECKING, Callable, Literal
 
 import discord
 
 from .middleware import MiddlewareFn
 
+if TYPE_CHECKING:
+    from ._bot_base import _BotBase
+    from .context import Context
+
+    _MixinBase = _BotBase
+else:
+    _MixinBase = object
+
 logger = logging.getLogger("easycord")
 
 
-class _EventsMixin:
+class _EventsMixin(_MixinBase):
     """Mixin: event dispatch, middleware, presence, and lookup helpers."""
 
     # ── Events ────────────────────────────────────────────────
@@ -100,7 +108,7 @@ class _EventsMixin:
     async def _dispatch_framework_error(
         self,
         exc: Exception,
-        ctx=None,
+        ctx: "Context | None" = None,
         plugin_name: str | None = None,
         plugin_instance=None,
     ) -> None:
@@ -118,7 +126,9 @@ class _EventsMixin:
                 base_on_error = _Plugin.on_error
                 if plugin_on_error is not base_on_error:
                     try:
-                        await plugin_instance.on_error(ctx, exc)
+                        # ``ctx`` is ``None`` for task-originated errors; a plugin
+                        # that overrides ``on_error`` opts into handling that.
+                        await plugin_instance.on_error(ctx, exc)  # type: ignore[arg-type]
                     except Exception as handler_exc:
                         logger.exception("Error in plugin on_error handler", exc_info=handler_exc)
                     return

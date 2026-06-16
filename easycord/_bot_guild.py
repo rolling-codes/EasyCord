@@ -2,11 +2,19 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import discord
 
+if TYPE_CHECKING:
+    from ._bot_base import _BotBase
 
-class _GuildMixin:
+    _MixinBase = _BotBase
+else:
+    _MixinBase = object
+
+
+class _GuildMixin(_MixinBase):
     """Mixin: guild/channel/webhook/emoji management methods."""
 
     # ── Guild lookup ──────────────────────────────────────────
@@ -118,16 +126,28 @@ class _GuildMixin:
 
             await bot.send_webhook(CHANNEL_ID, "Hello from a webhook!")
         """
-        if channel_id not in self._webhooks:  # type: ignore[attr-defined]
+        if channel_id not in self._webhooks:
             channel = self.get_channel(channel_id) or await self.fetch_channel(channel_id)
             if not isinstance(channel, discord.TextChannel):
                 raise RuntimeError(
                     f"Channel {channel_id} is not a text channel"
                 )
-            self._webhooks[channel_id] = await channel.create_webhook(name="Webhook")  # type: ignore[attr-defined]
-        webhook = self._webhooks[channel_id]  # type: ignore[attr-defined]
+            self._webhooks[channel_id] = await channel.create_webhook(name="Webhook")
+        webhook = self._webhooks[channel_id]
+        # Only forward arguments that were actually supplied — discord.py uses a
+        # MISSING sentinel for these, so passing ``None`` is a type (and intent)
+        # mismatch.
+        send_kwargs: dict = dict(kwargs)
+        if content is not None:
+            send_kwargs["content"] = content
+        if username is not None:
+            send_kwargs["username"] = username
+        if avatar_url is not None:
+            send_kwargs["avatar_url"] = avatar_url
+        if embed is not None:
+            send_kwargs["embed"] = embed
         try:
-            await webhook.send(content, username=username, avatar_url=avatar_url, embed=embed, **kwargs)
+            await webhook.send(**send_kwargs)
         except discord.NotFound:
             # Recreate stale cached webhook once and retry.
             channel = self.get_channel(channel_id) or await self.fetch_channel(channel_id)
@@ -135,9 +155,9 @@ class _GuildMixin:
                 raise RuntimeError(
                     f"Channel {channel_id} is not a text channel"
                 ) from None
-            self._webhooks[channel_id] = await channel.create_webhook(name="Webhook")  # type: ignore[attr-defined]
-            webhook = self._webhooks[channel_id]  # type: ignore[attr-defined]
-            await webhook.send(content, username=username, avatar_url=avatar_url, embed=embed, **kwargs)
+            self._webhooks[channel_id] = await channel.create_webhook(name="Webhook")
+            webhook = self._webhooks[channel_id]
+            await webhook.send(**send_kwargs)
 
     # ── Emoji management ──────────────────────────────────────
 

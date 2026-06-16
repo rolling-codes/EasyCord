@@ -15,12 +15,17 @@ from .context import Context
 from .middleware import build_chain
 
 if TYPE_CHECKING:
+    from ._bot_base import _BotBase
     from .group import SlashGroup
+
+    _MixinBase = _BotBase
+else:
+    _MixinBase = object
 
 logger = logging.getLogger("easycord")
 
 
-class _CommandsMixin:
+class _CommandsMixin(_MixinBase):
     """Mixin: slash commands, context menus, and subcommand groups."""
 
     # ── Slash commands ────────────────────────────────────────
@@ -275,9 +280,11 @@ class _CommandsMixin:
                     await func(ctx, **kwargs)
                 except Exception as exc:
                     # Priority: per-command → plugin.on_error → global → raise
-                    per_cmd = command_name and getattr(
-                        self, "_command_error_handlers", {}
-                    ).get(command_name)
+                    per_cmd = (
+                        getattr(self, "_command_error_handlers", {}).get(command_name)
+                        if command_name
+                        else None
+                    )
                     if per_cmd is not None:
                         await per_cmd(ctx, exc)
                         return
@@ -457,7 +464,7 @@ class _CommandsMixin:
             raise ValueError(
                 f"{type(group).__name__} is already added to this bot."
             )
-        group._bot = self
+        group._bot = self  # type: ignore[assignment]  # ``self`` is the composed Bot at runtime
         self._plugins.append(group)
 
         discord_group = app_commands.Group(

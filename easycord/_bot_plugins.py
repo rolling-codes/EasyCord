@@ -4,18 +4,37 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-from typing import Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import discord
 
-from .plugin import Plugin
 from .tool_limits import RateLimit
 from .tools import ToolSafety
+
+if TYPE_CHECKING:
+    from ._bot_base import _BotBase
+    from .plugin import Plugin  # cyclic at type-check time only; never imported at runtime, and
+    # `from __future__ import annotations` keeps every reference to it a deferred string
+
+    _MixinBase = _BotBase
+else:
+    _MixinBase = object
 
 logger = logging.getLogger("easycord")
 
 
-class _PluginsMixin:
+def _iter_methods(plugin: object) -> list[tuple[str, Any]]:
+    """Return ``(name, method)`` pairs for *plugin*'s bound methods.
+
+    ``inspect.ismethod`` is typed as a ``TypeGuard[MethodType]``, so static
+    checkers forget the decorator-added attributes (``_slash_name`` etc.) that
+    the scanner reads.  Returning the pairs as ``Any`` keeps those dynamic
+    attribute accesses clean without a ``getattr`` call on every line.
+    """
+    return inspect.getmembers(plugin, predicate=inspect.ismethod)
+
+
+class _PluginsMixin(_MixinBase):
     """Mixin: plugin add/remove, background tasks, and method scanning."""
 
     # ── Shared scanner ────────────────────────────────────────
@@ -28,14 +47,14 @@ class _PluginsMixin:
         """
         plugin_name = getattr(plugin, "_instance_id", str(id(plugin)))
         standalone_autocomplete: dict[str, dict[str, Callable]] = {}
-        for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
+        for _, method in _iter_methods(plugin):
             if getattr(method, "_is_autocomplete", False):
                 standalone_autocomplete.setdefault(
                     method._autocomplete_command,
                     {},
                 )[method._autocomplete_option] = method
 
-        for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
+        for _, method in _iter_methods(plugin):
             if getattr(method, "_is_slash", False):
                 autocomplete_handlers = {
                     **getattr(method, "_slash_autocomplete", {}),
@@ -177,6 +196,8 @@ class _PluginsMixin:
         Raises ``TypeError`` if ``plugin`` is not a :class:`Plugin` instance.
         Raises ``ValueError`` if the same plugin instance has already been added.
         """
+        from .plugin import Plugin  # local import keeps the module-level graph acyclic
+
         if not isinstance(plugin, Plugin):
             raise TypeError(
                 f"expected a Plugin instance, got {type(plugin).__name__!r}"
@@ -186,7 +207,7 @@ class _PluginsMixin:
                 f"{type(plugin).__name__} is already added to this bot. "
                 "Create a new instance if you need a second copy."
             )
-        plugin._bot = self
+        plugin._bot = self  # type: ignore[assignment]  # ``self`` is the composed Bot at runtime
         self._plugins.append(plugin)
         self._scan_methods(plugin)
         if self.is_ready():
@@ -220,7 +241,7 @@ class _PluginsMixin:
                 "Call bot.add_plugin() before trying to remove it."
             )
         self._plugins.remove(plugin)
-        for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
+        for _, method in _iter_methods(plugin):
             if getattr(method, "_is_slash", False):
                 guild = (
                     discord.Object(id=method._slash_guild)
@@ -300,7 +321,7 @@ class _PluginsMixin:
             return
 
         handles = []
-        for _, method in inspect.getmembers(plugin, predicate=inspect.ismethod):
+        for _, method in _iter_methods(plugin):
             if getattr(method, "_is_task", False):
                 plugin_id = getattr(plugin, "_instance_id", str(id(plugin)))
                 key = f"{plugin_id}.{method.__name__}"
