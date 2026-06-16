@@ -9,6 +9,7 @@ import discord
 
 from easycord import Plugin, RateLimit, ToolLimiter, slash
 from easycord.plugins._config_manager import PluginConfigManager
+from easycord.plugins._utils import SENDABLE_CHANNEL_TYPES
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -69,7 +70,7 @@ class ModerationPlugin(Plugin):
         """Update moderation config atomically."""
         return await self.config.update(guild_id, "moderation", **kwargs)
 
-    async def _log_moderation(self, ctx: Context, action: str, target: discord.User, reason: str, duration: str = None) -> None:
+    async def _log_moderation(self, ctx: Context, action: str, target: discord.User, reason: str | None, duration: str | None = None) -> None:
         """Log moderation action to audit channel."""
         cfg = await self._get_config(ctx.guild.id)
         audit_channel_id = cfg.get("audit_channel")
@@ -78,7 +79,7 @@ class ModerationPlugin(Plugin):
             return
 
         audit_channel = ctx.guild.get_channel(audit_channel_id)
-        if not audit_channel:
+        if not isinstance(audit_channel, SENDABLE_CHANNEL_TYPES):
             return
 
         embed = discord.Embed(
@@ -110,7 +111,7 @@ class ModerationPlugin(Plugin):
         return mute_role
 
     @slash(description="Kick a user from the server", guild_only=True)
-    async def kick(self, ctx: Context, user: discord.User, reason: str = None) -> None:
+    async def kick(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Kick a user from the server."""
         if not ctx.user.guild_permissions.kick_members:
             await ctx.respond("❌ You lack `kick_members` permission")
@@ -131,7 +132,7 @@ class ModerationPlugin(Plugin):
             await ctx.respond(f"❌ Failed to kick user: {e}")
 
     @slash(description="Ban a user from the server", guild_only=True)
-    async def ban(self, ctx: Context, user: discord.User, reason: str = None, delete_days: int = 0) -> None:
+    async def ban(self, ctx: Context, user: discord.User, reason: str | None = None, delete_days: int = 0) -> None:
         """Ban a user from the server."""
         if not ctx.user.guild_permissions.ban_members:
             await ctx.respond("❌ You lack `ban_members` permission")
@@ -153,7 +154,7 @@ class ModerationPlugin(Plugin):
             await ctx.respond(f"❌ Failed to ban user: {e}")
 
     @slash(description="Unban a previously banned user", guild_only=True)
-    async def unban(self, ctx: Context, user: discord.User, reason: str = None) -> None:
+    async def unban(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Unban a user."""
         if not ctx.user.guild_permissions.ban_members:
             await ctx.respond("❌ You lack `ban_members` permission")
@@ -171,7 +172,7 @@ class ModerationPlugin(Plugin):
             await ctx.respond(f"❌ Failed to unban user: {e}")
 
     @slash(description="Timeout a user (temporary mute)", guild_only=True)
-    async def timeout(self, ctx: Context, user: discord.User, minutes: int, reason: str = None) -> None:
+    async def timeout(self, ctx: Context, user: discord.User, minutes: int, reason: str | None = None) -> None:
         """Timeout a user for specified minutes (1-40320 = up to 28 days)."""
         if not ctx.user.guild_permissions.moderate_members:
             await ctx.respond("❌ You lack `moderate_members` permission")
@@ -195,7 +196,7 @@ class ModerationPlugin(Plugin):
             await ctx.respond(f"❌ Failed to timeout user: {e}")
 
     @slash(description="Issue a formal warning to a user", guild_only=True)
-    async def warn(self, ctx: Context, user: discord.User, reason: str = None) -> None:
+    async def warn(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Warn a user and track warnings."""
         if not ctx.user.guild_permissions.moderate_members:
             await ctx.respond("❌ You lack `moderate_members` permission")
@@ -272,7 +273,7 @@ class ModerationPlugin(Plugin):
         await ctx.respond(embed=embed)
 
     @slash(description="Add mute role to a user", guild_only=True)
-    async def mute(self, ctx: Context, user: discord.User, reason: str = None) -> None:
+    async def mute(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Mute a user by adding mute role."""
         if not ctx.user.guild_permissions.manage_roles:
             await ctx.respond("❌ You lack `manage_roles` permission")
@@ -302,7 +303,7 @@ class ModerationPlugin(Plugin):
             await ctx.respond(f"❌ Failed to mute user: {e}")
 
     @slash(description="Remove mute role from a user", guild_only=True)
-    async def unmute(self, ctx: Context, user: discord.User, reason: str = None) -> None:
+    async def unmute(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Unmute a user by removing mute role."""
         if not ctx.user.guild_permissions.manage_roles:
             await ctx.respond("❌ You lack `manage_roles` permission")
