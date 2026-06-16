@@ -1,5 +1,12 @@
 # Changelog
 
+## EasyCord v5.47.1 - 2026-06-16
+
+### Fixed
+
+- `tests/test_server_stats.py`: explained the bare `except (asyncio.CancelledError, Exception)` around background-task teardown in `test_setup_creates_channels` — it's load-bearing (swallows the `CancelledError` raised by awaiting a just-cancelled task), not dead code.
+- `tests/test_word_filter.py`: removed an unused `ctx2` from `test_guilds_isolated` — the test only ever exercises `ctx1`; guild 2's isolation is verified by reading its config store directly.
+
 ## EasyCord v5.47.0 - 2026-06-15
 
 ### Added
