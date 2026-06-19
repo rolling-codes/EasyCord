@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import discord
 
-from .tool_limits import RateLimit
-from .tools import ToolSafety
+from ._plugin_scanner import scan_plugin_methods
 
 if TYPE_CHECKING:
     from ._bot_base import _BotBase
@@ -45,146 +44,7 @@ class _PluginsMixin(_MixinBase):
         parent: an ``app_commands.Group`` — when supplied, slash commands are
         added to the group instead of the command tree (used by add_group).
         """
-        plugin_name = getattr(plugin, "_instance_id", str(id(plugin)))
-        standalone_autocomplete: dict[str, dict[str, Callable]] = {}
-        for _, method in _iter_methods(plugin):
-            if getattr(method, "_is_autocomplete", False):
-                standalone_autocomplete.setdefault(
-                    method._autocomplete_command,
-                    {},
-                )[method._autocomplete_option] = method
-
-        for _, method in _iter_methods(plugin):
-            if getattr(method, "_is_slash", False):
-                autocomplete_handlers = {
-                    **getattr(method, "_slash_autocomplete", {}),
-                    **standalone_autocomplete.get(method._slash_name, {}),
-                }
-                self._register_slash(
-                    method,
-                    name=method._slash_name,
-                    description=method._slash_desc,
-                    guild_id=method._slash_guild,
-                    guild_only=getattr(method, "_slash_guild_only", False),
-                    require_admin=getattr(method, "_slash_require_admin", False),
-                    ephemeral=getattr(method, "_slash_ephemeral", False),
-                    permissions=getattr(method, "_slash_permissions", None),
-                    cooldown=getattr(method, "_slash_cooldown", None),
-                    cooldown_rate=getattr(method, "_slash_cooldown_rate", 1),
-                    cooldown_bucket=getattr(method, "_slash_cooldown_bucket", "user"),
-                    premium_required=getattr(method, "_slash_premium_required", False),
-                    autocomplete=autocomplete_handlers,
-                    choices=getattr(method, "_slash_choices", None),
-                    nsfw=getattr(method, "_slash_nsfw", False),
-                    allowed_contexts=getattr(method, "_slash_allowed_contexts", None),
-                    allowed_installs=getattr(method, "_slash_allowed_installs", None),
-                    parent=parent,
-                    source_plugin=plugin_name,
-                )
-                for alias in getattr(method, "_slash_aliases", []):
-                    self._register_slash(
-                        method,
-                        name=alias,
-                        description=method._slash_desc,
-                        guild_id=method._slash_guild,
-                        guild_only=getattr(method, "_slash_guild_only", False),
-                        require_admin=getattr(method, "_slash_require_admin", False),
-                        ephemeral=getattr(method, "_slash_ephemeral", False),
-                        permissions=getattr(method, "_slash_permissions", None),
-                        cooldown=getattr(method, "_slash_cooldown", None),
-                        cooldown_rate=getattr(method, "_slash_cooldown_rate", 1),
-                        cooldown_bucket=getattr(method, "_slash_cooldown_bucket", "user"),
-                        premium_required=getattr(method, "_slash_premium_required", False),
-                        autocomplete=autocomplete_handlers,
-                        choices=getattr(method, "_slash_choices", None),
-                        nsfw=getattr(method, "_slash_nsfw", False),
-                        allowed_contexts=getattr(method, "_slash_allowed_contexts", None),
-                        allowed_installs=getattr(method, "_slash_allowed_installs", None),
-                        parent=parent,
-                        source_plugin=plugin_name,
-                    )
-            if getattr(method, "_is_command_error", False):
-                self._command_error_handlers[method._command_error_for] = method
-            if getattr(method, "_is_event", False):
-                self._event_handlers.setdefault(
-                    method._event_name, []
-                ).append(method)
-            if getattr(method, "_is_user_command", False):
-                self._register_context_menu(
-                    method,
-                    name=method._context_menu_name,
-                    menu_type=discord.AppCommandType.user,
-                    guild_id=method._context_menu_guild,
-                    nsfw=getattr(method, "_context_menu_nsfw", False),
-                    allowed_contexts=getattr(method, "_context_menu_allowed_contexts", None),
-                    allowed_installs=getattr(method, "_context_menu_allowed_installs", None),
-                    source_plugin=plugin_name,
-                )
-            if getattr(method, "_is_message_command", False):
-                self._register_context_menu(
-                    method,
-                    name=method._context_menu_name,
-                    menu_type=discord.AppCommandType.message,
-                    guild_id=method._context_menu_guild,
-                    nsfw=getattr(method, "_context_menu_nsfw", False),
-                    allowed_contexts=getattr(method, "_context_menu_allowed_contexts", None),
-                    allowed_installs=getattr(method, "_context_menu_allowed_installs", None),
-                    source_plugin=plugin_name,
-                )
-            if getattr(method, "_is_component", False):
-                custom_id = method._component_id
-                if getattr(method, "_component_scoped", True):
-                    custom_id = plugin.id(custom_id)
-                self._register_component_handler(
-                    custom_id,
-                    method,
-                    source_plugin=plugin_name,
-                    ttl=getattr(method, "_component_ttl", None),
-                )
-            if getattr(method, "_is_modal", False):
-                custom_id = method._modal_id
-                if getattr(method, "_modal_scoped", True):
-                    custom_id = plugin.id(custom_id)
-                self._register_modal_handler(custom_id, method, source_plugin=plugin_name)
-            if getattr(method, "_is_ai_tool", False):
-                tool_name = method._ai_tool_name
-                rate_limit = getattr(method, "_ai_tool_rate_limit", None)
-                rate_limit_obj = (
-                    RateLimit(max_calls=rate_limit[0], window_minutes=rate_limit[1])
-                    if rate_limit
-                    else None
-                )
-                safety = getattr(method, "_ai_tool_safety", ToolSafety.SAFE)
-                self.ai_tools[tool_name] = {
-                    "name": tool_name,
-                    "description": method._ai_tool_description,
-                    "func": method,
-                    "parameters": method._ai_tool_parameters,
-                    "safety": safety,
-                    "require_guild": getattr(method, "_ai_tool_require_guild", True),
-                    "require_admin": getattr(method, "_ai_tool_require_admin", False),
-                    "allowed_roles": getattr(method, "_ai_tool_allowed_roles", []),
-                    "allowed_users": getattr(method, "_ai_tool_allowed_users", []),
-                    "timeout_ms": getattr(method, "_ai_tool_timeout_ms", 5000),
-                    "rate_limit": rate_limit_obj,
-                }
-                if tool_name not in self.tool_registry._tools:
-                    self.tool_registry.register(
-                        name=tool_name,
-                        func=method,
-                        description=method._ai_tool_description,
-                        safety=safety,
-                        parameters=method._ai_tool_parameters,
-                        require_guild=getattr(method, "_ai_tool_require_guild", True),
-                        require_admin=getattr(method, "_ai_tool_require_admin", False),
-                        allowed_roles=getattr(method, "_ai_tool_allowed_roles", []),
-                        allowed_users=getattr(method, "_ai_tool_allowed_users", []),
-                        permissions=getattr(method, "_ai_tool_permissions", []),
-                        timeout_ms=getattr(method, "_ai_tool_timeout_ms", 5000),
-                        rate_limit=rate_limit_obj,
-                    )
-                if safety is ToolSafety.RESTRICTED:
-                    self.tool_registry.disable(tool_name)
+        scan_plugin_methods(self, plugin, iter_methods=_iter_methods, parent=parent)
 
     # ── Plugins ───────────────────────────────────────────────
 

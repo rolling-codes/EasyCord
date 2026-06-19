@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import discord
 
@@ -23,6 +23,17 @@ _DEFAULTS = {
     "auto_warn_threshold": 3,
     "enable_warnings": True,
 }
+
+
+def _moderator_member(ctx: Context) -> discord.Member | None:
+    """Return the invoking member while preserving older ctx.user-based tests."""
+    member = ctx.member
+    if isinstance(member, discord.Member):
+        return member
+    user = ctx.user
+    if hasattr(user, "guild_permissions"):
+        return cast(discord.Member, user)
+    return None
 
 
 class ModerationPlugin(Plugin):
@@ -72,13 +83,16 @@ class ModerationPlugin(Plugin):
 
     async def _log_moderation(self, ctx: Context, action: str, target: discord.User, reason: str | None, duration: str | None = None) -> None:
         """Log moderation action to audit channel."""
-        cfg = await self._get_config(ctx.guild.id)
+        guild = ctx.guild
+        if guild is None:
+            return
+        cfg = await self._get_config(guild.id)
         audit_channel_id = cfg.get("audit_channel")
 
         if not audit_channel_id:
             return
 
-        audit_channel = ctx.guild.get_channel(audit_channel_id)
+        audit_channel = guild.get_channel(audit_channel_id)
         if not isinstance(audit_channel, SENDABLE_CHANNEL_TYPES):
             return
 
@@ -113,11 +127,16 @@ class ModerationPlugin(Plugin):
     @slash(description="Kick a user from the server", guild_only=True)
     async def kick(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Kick a user from the server."""
-        if not ctx.user.guild_permissions.kick_members:
+        guild = ctx.guild
+        actor = _moderator_member(ctx)
+        if guild is None or actor is None:
+            await ctx.respond("❌ This command can only be used inside a server")
+            return
+        if not actor.guild_permissions.kick_members:
             await ctx.respond("❌ You lack `kick_members` permission")
             return
 
-        member = ctx.guild.get_member(user.id)
+        member = guild.get_member(user.id)
         if not member:
             await ctx.respond(f"❌ {user.mention} is not in this server")
             return
@@ -134,7 +153,12 @@ class ModerationPlugin(Plugin):
     @slash(description="Ban a user from the server", guild_only=True)
     async def ban(self, ctx: Context, user: discord.User, reason: str | None = None, delete_days: int = 0) -> None:
         """Ban a user from the server."""
-        if not ctx.user.guild_permissions.ban_members:
+        guild = ctx.guild
+        actor = _moderator_member(ctx)
+        if guild is None or actor is None:
+            await ctx.respond("❌ This command can only be used inside a server")
+            return
+        if not actor.guild_permissions.ban_members:
             await ctx.respond("❌ You lack `ban_members` permission")
             return
 
@@ -145,7 +169,7 @@ class ModerationPlugin(Plugin):
             return
 
         try:
-            await ctx.guild.ban(user, reason=reason or "No reason provided", delete_message_days=delete_days)
+            await guild.ban(user, reason=reason or "No reason provided", delete_message_days=delete_days)
             await ctx.respond(f"✅ Banned {user.mention}")
             await self._log_moderation(ctx, "ban", user, reason)
         except discord.Forbidden:
@@ -156,12 +180,17 @@ class ModerationPlugin(Plugin):
     @slash(description="Unban a previously banned user", guild_only=True)
     async def unban(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Unban a user."""
-        if not ctx.user.guild_permissions.ban_members:
+        guild = ctx.guild
+        actor = _moderator_member(ctx)
+        if guild is None or actor is None:
+            await ctx.respond("❌ This command can only be used inside a server")
+            return
+        if not actor.guild_permissions.ban_members:
             await ctx.respond("❌ You lack `ban_members` permission")
             return
 
         try:
-            await ctx.guild.unban(user, reason=reason or "No reason provided")
+            await guild.unban(user, reason=reason or "No reason provided")
             await ctx.respond(f"✅ Unbanned {user.mention}")
             await self._log_moderation(ctx, "unban", user, reason)
         except discord.NotFound:
@@ -174,13 +203,18 @@ class ModerationPlugin(Plugin):
     @slash(description="Timeout a user (temporary mute)", guild_only=True)
     async def timeout(self, ctx: Context, user: discord.User, minutes: int, reason: str | None = None) -> None:
         """Timeout a user for specified minutes (1-40320 = up to 28 days)."""
-        if not ctx.user.guild_permissions.moderate_members:
+        guild = ctx.guild
+        actor = _moderator_member(ctx)
+        if guild is None or actor is None:
+            await ctx.respond("❌ This command can only be used inside a server")
+            return
+        if not actor.guild_permissions.moderate_members:
             await ctx.respond("❌ You lack `moderate_members` permission")
             return
 
         minutes = max(1, min(40320, minutes))
 
-        member = ctx.guild.get_member(user.id)
+        member = guild.get_member(user.id)
         if not member:
             await ctx.respond(f"❌ {user.mention} is not in this server")
             return
@@ -198,11 +232,16 @@ class ModerationPlugin(Plugin):
     @slash(description="Issue a formal warning to a user", guild_only=True)
     async def warn(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Warn a user and track warnings."""
-        if not ctx.user.guild_permissions.moderate_members:
+        guild = ctx.guild
+        actor = _moderator_member(ctx)
+        if guild is None or actor is None:
+            await ctx.respond("❌ This command can only be used inside a server")
+            return
+        if not actor.guild_permissions.moderate_members:
             await ctx.respond("❌ You lack `moderate_members` permission")
             return
 
-        cfg = await self._get_config(ctx.guild.id)
+        cfg = await self._get_config(guild.id)
         if not cfg.get("enable_warnings"):
             await ctx.respond("⚠️ Warnings are disabled for this server")
             return
@@ -214,7 +253,7 @@ class ModerationPlugin(Plugin):
             return
 
         # Load warnings for user
-        cfg_obj = await self.config.store.load(ctx.guild.id)
+        cfg_obj = await self.config.store.load(guild.id)
         warnings = cfg_obj.get_other("warnings", {})
         user_id_str = str(user.id)
 
@@ -237,8 +276,8 @@ class ModerationPlugin(Plugin):
 
         # Auto-mute if threshold reached
         if warn_count >= auto_mute_threshold:
-            mute_role = await self._get_or_create_mute_role(ctx.guild)
-            member = ctx.guild.get_member(user.id)
+            mute_role = await self._get_or_create_mute_role(guild)
+            member = guild.get_member(user.id)
             if mute_role and member:
                 try:
                     await member.add_roles(mute_role, reason=f"Auto-muted after {warn_count} warnings")
@@ -249,7 +288,11 @@ class ModerationPlugin(Plugin):
     @slash(description="View warnings for a user", guild_only=True)
     async def warnings(self, ctx: Context, user: discord.User) -> None:
         """Show warning history for a user."""
-        cfg_obj = await self.config.store.load(ctx.guild.id)
+        guild = ctx.guild
+        if guild is None:
+            await ctx.respond("❌ This command can only be used inside a server")
+            return
+        cfg_obj = await self.config.store.load(guild.id)
         all_warnings = cfg_obj.get_other("warnings", {})
         user_warnings = all_warnings.get(str(user.id), [])
 
@@ -275,16 +318,21 @@ class ModerationPlugin(Plugin):
     @slash(description="Add mute role to a user", guild_only=True)
     async def mute(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Mute a user by adding mute role."""
-        if not ctx.user.guild_permissions.manage_roles:
+        guild = ctx.guild
+        actor = _moderator_member(ctx)
+        if guild is None or actor is None:
+            await ctx.respond("❌ This command can only be used inside a server")
+            return
+        if not actor.guild_permissions.manage_roles:
             await ctx.respond("❌ You lack `manage_roles` permission")
             return
 
-        member = ctx.guild.get_member(user.id)
+        member = guild.get_member(user.id)
         if not member:
             await ctx.respond(f"❌ {user.mention} is not in this server")
             return
 
-        mute_role = await self._get_or_create_mute_role(ctx.guild)
+        mute_role = await self._get_or_create_mute_role(guild)
         if not mute_role:
             await ctx.respond("❌ Cannot create or find mute role")
             return
@@ -305,16 +353,21 @@ class ModerationPlugin(Plugin):
     @slash(description="Remove mute role from a user", guild_only=True)
     async def unmute(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Unmute a user by removing mute role."""
-        if not ctx.user.guild_permissions.manage_roles:
+        guild = ctx.guild
+        actor = _moderator_member(ctx)
+        if guild is None or actor is None:
+            await ctx.respond("❌ This command can only be used inside a server")
+            return
+        if not actor.guild_permissions.manage_roles:
             await ctx.respond("❌ You lack `manage_roles` permission")
             return
 
-        member = ctx.guild.get_member(user.id)
+        member = guild.get_member(user.id)
         if not member:
             await ctx.respond(f"❌ {user.mention} is not in this server")
             return
 
-        mute_role = discord.utils.get(ctx.guild.roles, name="Muted")
+        mute_role = discord.utils.get(guild.roles, name="Muted")
         if not mute_role or mute_role not in member.roles:
             await ctx.respond(f"ℹ️ {user.mention} is not muted")
             return
@@ -331,13 +384,17 @@ class ModerationPlugin(Plugin):
     @slash(description="View moderation settings", guild_only=True)
     async def mod_config(self, ctx: Context) -> None:
         """Show moderation configuration."""
-        cfg = await self._get_config(ctx.guild.id)
+        guild = ctx.guild
+        if guild is None:
+            await ctx.respond("❌ This command can only be used inside a server")
+            return
+        cfg = await self._get_config(guild.id)
         embed = discord.Embed(title="Moderation Config", color=discord.Color.blurple())
         embed.add_field(name="Warnings Enabled", value=str(cfg.get("enable_warnings")), inline=True)
         embed.add_field(name="Auto-Mute Threshold", value=f"{cfg.get('auto_warn_threshold')} warnings", inline=True)
 
         audit_channel_id = cfg.get("audit_channel")
-        audit_channel = ctx.guild.get_channel(audit_channel_id) if audit_channel_id else None
+        audit_channel = guild.get_channel(audit_channel_id) if audit_channel_id else None
         embed.add_field(
             name="Audit Channel",
             value=f"{audit_channel.mention}" if audit_channel else "Not set",

@@ -1,9 +1,10 @@
 """Tool registry helper shortcuts."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, cast
 
-from easycord.tools import ToolDef, ToolRegistry
+from easycord.tools import ToolDef, ToolRegistry, ToolSafety
 
 if TYPE_CHECKING:
     pass
@@ -29,12 +30,17 @@ class ToolHelpers:
             description = tool_config.get("description")
             safety = tool_config.get("safety")
 
-            if not all([name, func, description, safety]):
+            if (
+                not isinstance(name, str)
+                or not callable(func)
+                or not isinstance(description, str)
+                or not isinstance(safety, ToolSafety)
+            ):
                 continue
 
             registry.register(
                 name=name,
-                func=func,
+                func=cast(Callable[..., Any], func),
                 description=description,
                 safety=safety,
                 parameters=tool_config.get("parameters"),

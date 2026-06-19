@@ -95,8 +95,8 @@ class AIModeratorPlugin(Plugin):
         # Build analysis prompt
         prompt = (
             f"Analyze this Discord message for policy violations. Check for: {rules_text}.\n"
-            f"Message: {message.content}\n"
-            f"User: {message.author.name}\n"
+            f"<message>{message.content}</message>\n"
+            f"<author>{message.author.name}</author>\n"
             f"Reply with JSON: {{'action': 'delete|warn|timeout|none', 'confidence': 0.0-1.0, 'reason': 'brief reason'}}"
         )
 
@@ -140,6 +140,8 @@ class AIModeratorPlugin(Plugin):
         self, ctx: Context, action: ModerationAction, user: discord.User, reason: str, message: discord.Message | None = None
     ) -> bool:
         """Execute moderation action. Return True if successful."""
+        if ctx.guild is None:
+            return False
         try:
             if action == "delete" and message:
                 await message.delete()
@@ -243,6 +245,7 @@ class AIModeratorPlugin(Plugin):
     @slash(description="Enable or disable AI moderation", guild_only=True)
     async def mod_enable(self, ctx: Context, enabled: bool) -> None:
         """Enable/disable moderation."""
+        assert ctx.guild is not None
         await self._update_config(ctx.guild.id, enabled=enabled)
         status = "enabled" if enabled else "disabled"
         await ctx.send(f"✅ Moderation {status}")
@@ -250,6 +253,7 @@ class AIModeratorPlugin(Plugin):
     @slash(description="View moderation config", guild_only=True)
     async def mod_config(self, ctx: Context) -> None:
         """Show current moderation configuration."""
+        assert ctx.guild is not None
         cfg = await self._get_config(ctx.guild.id)
         embed = discord.Embed(title="Moderation Config", color=discord.Color.blurple())
         embed.add_field(name="Enabled", value=str(cfg.get("enabled")), inline=True)
@@ -261,6 +265,7 @@ class AIModeratorPlugin(Plugin):
     @slash(description="Set confidence threshold (0.0-1.0)", guild_only=True)
     async def mod_threshold(self, ctx: Context, threshold: float) -> None:
         """Set confidence threshold."""
+        assert ctx.guild is not None
         threshold = max(0.0, min(1.0, threshold))
         await self._update_config(ctx.guild.id, confidence_threshold=threshold)
         await ctx.send(f"✅ Threshold set to {threshold*100:.0f}%")
@@ -268,6 +273,7 @@ class AIModeratorPlugin(Plugin):
     @slash(description="Set action level: notify_only, warn, auto_delete", guild_only=True)
     async def mod_action_level(self, ctx: Context, level: str) -> None:
         """Set action level."""
+        assert ctx.guild is not None
         if level not in ("notify_only", "warn", "auto_delete"):
             await ctx.send("❌ Invalid level. Use: notify_only, warn, auto_delete")
             return
@@ -277,6 +283,7 @@ class AIModeratorPlugin(Plugin):
     @slash(description="Add rule to check: spam, abuse, nsfw", guild_only=True)
     async def mod_add_rule(self, ctx: Context, rule: str) -> None:
         """Add moderation rule."""
+        assert ctx.guild is not None
         if rule not in ("spam", "abuse", "nsfw"):
             await ctx.send("❌ Invalid rule. Use: spam, abuse, nsfw")
             return
@@ -290,6 +297,7 @@ class AIModeratorPlugin(Plugin):
     @slash(description="Remove rule", guild_only=True)
     async def mod_remove_rule(self, ctx: Context, rule: str) -> None:
         """Remove moderation rule."""
+        assert ctx.guild is not None
         cfg = await self._get_config(ctx.guild.id)
         rules = cfg.get("rules", [])
         if rule in rules:
