@@ -138,7 +138,7 @@ class _CommandsMixin(_MixinBase):
         return build_slash_callback(
             self,
             func,
-            context_factory=Context,
+            context_factory=lambda interaction: Context(interaction),
             chain_builder=lambda ctx, invoke, middleware: build_chain(
                 ctx,
                 invoke,
@@ -183,7 +183,7 @@ class _CommandsMixin(_MixinBase):
             self,
             func,
             callback_builder=self._build_slash_callback,
-            context_factory=Context,
+            context_factory=lambda interaction: Context(interaction),
             name=name,
             description=description,
             guild_id=guild_id,
