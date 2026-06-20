@@ -28,6 +28,8 @@ def detect_os_locale() -> str | None:
                 return _normalize_locale(f"{lang}_{country}")
             return _normalize_locale(lang)
     except (AttributeError, ValueError):
+        # getdefaultlocale() raises AttributeError on some platforms and ValueError
+        # on malformed locale env vars; fall back silently so callers get None.
         pass
     return None
 

@@ -30,12 +30,13 @@ class ToolHelpers:
             description = tool_config.get("description")
             safety = tool_config.get("safety")
 
-            if (
-                not isinstance(name, str)
-                or not callable(func)
-                or not isinstance(description, str)
-                or not isinstance(safety, ToolSafety)
-            ):
+            if not isinstance(name, str) or not callable(func) or not isinstance(description, str):
+                continue
+            if safety is not None and not isinstance(safety, ToolSafety):
+                raise TypeError(
+                    f"safety must be a ToolSafety enum member, got {type(safety).__name__!r}"
+                )
+            if not isinstance(safety, ToolSafety):
                 continue
 
             registry.register(
