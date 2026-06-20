@@ -1,5 +1,35 @@
 # Changelog
 
+## EasyCord v5.49.0 - 2026-06-20
+
+### Added
+
+**TranslatePlugin** — new `/translate` slash command backed by Google Translate (via `deep-translator`, no API key required):
+- `text` — content to translate
+- `languages` — `"source to target"` pair (e.g. `"French to English"`, `"auto to Spanish"`); blank to auto-translate into the invoking user's Discord locale
+- Translation runs in a thread executor (non-blocking); missing package or network failure returns an ephemeral error
+
+**Google Translate → LocalizationManager** (`easycord/helpers/google_translate.py`):
+- `make_google_auto_translator()` — returns a callback for `LocalizationManager(auto_translator=...)` so missing-key lookups are translated on-the-fly instead of falling back to the default locale's English strings
+- `GoogleTranslateTranslator(app_commands.Translator)` — discord.py's official translator protocol; translates command names to all supported Discord locales at sync time
+
+**Localized command names** — command names and descriptions now wrapped in `locale_str()` at registration time:
+- `bot.use_google_translate()` installs `GoogleTranslateTranslator` on the command tree
+- After `sync_commands()`, Discord shows each user the command in their own language (e.g. `/traduire` for French users, `/übersetzen` for German users)
+- Interaction payload always carries the canonical name — no routing changes needed
+
+**New optional extra:**
+```bash
+pip install "easycord[translate]"   # pulls in deep-translator
+pip install -e ".[dev]"             # dev installs include it automatically
+```
+
+### Fixed
+
+- `_parse_languages`: empty source or target after the `" to "` separator now correctly falls back to the user's Discord locale (was hardcoded to `"english"`)
+- `_parse_languages`: padding trick fixes edge cases where `str.strip()` removes the spaces that form the separator (`" to English"` and `"French to "`)
+- `asyncio.get_running_loop()` replaces deprecated `asyncio.get_event_loop()` in `TranslatePlugin.translate`
+
 ## EasyCord v5.48.0 - 2026-06-20
 
 ### Added
