@@ -1,6 +1,8 @@
 """Tests for plugin slash command handlers using mock Discord context."""
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -18,6 +20,8 @@ def _make_ctx(
     *,
     user_id: int = 1,
     guild_id: int = 100,
+    channel_id: int = 200,
+    message_id: int = 300,
     is_admin: bool = False,
     with_guild: bool = True,
 ) -> MagicMock:
@@ -27,6 +31,13 @@ def _make_ctx(
     ctx.respond = AsyncMock()
     ctx.paginate = AsyncMock()
     ctx.t = lambda key, default="", **kw: default.format(**kw) if kw else default
+
+    ctx.channel = MagicMock()
+    ctx.channel.id = channel_id
+
+    message = SimpleNamespace(id=message_id, edit=AsyncMock())
+    ctx.interaction = MagicMock()
+    ctx.interaction.original_response = AsyncMock(return_value=message)
 
     if with_guild:
         guild = MagicMock()
@@ -140,8 +151,11 @@ class TestTagsPluginCommands:
 
 class TestPollsPluginCommands:
     @pytest.fixture
-    def plugin(self) -> PollsPlugin:
-        return PollsPlugin()
+    def plugin(self, tmp_path) -> PollsPlugin:
+        p = PollsPlugin(store_path=str(tmp_path / "polls"))
+        p._bot = MagicMock()
+        p._bot.add_view = MagicMock()
+        return p
 
     @pytest.mark.asyncio
     async def test_poll_too_few_options(self, plugin) -> None:
@@ -156,6 +170,85 @@ class TestPollsPluginCommands:
         await plugin.poll(ctx, "Q?", "A", "B", "", "", "", duration=3)
         ctx.respond.assert_called_once()
         assert ctx.respond.call_args[1].get("ephemeral") is True
+
+    @pytest.mark.asyncio
+    async def test_poll_requires_guild(self, plugin) -> None:
+        ctx = _make_ctx(with_guild=False)
+        await plugin.poll(ctx, "Q?", "A", "B", "", "", "", duration=60)
+        # Bails out silently once past validation — no respond() needed beyond
+        # the initial one, and nothing is registered.
+        plugin._bot.add_view.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_poll_persists_to_store(self, plugin) -> None:
+        ctx = _make_ctx(guild_id=100, channel_id=200, message_id=300)
+        await plugin.poll(ctx, "Best color?", "Red", "Blue", "", "", "", duration=60)
+
+        cfg = await plugin._store.load(100)
+        polls = cfg.get_other("polls", {})
+        assert "300" in polls
+        data = polls["300"]
+        assert data["question"] == "Best color?"
+        assert data["options"] == ["Red", "Blue"]
+        assert data["status"] == "active"
+        assert data["channel_id"] == 200
+        plugin._bot.add_view.assert_called_once()
+
+        # Cleanup the background timer this test scheduled.
+        for task in plugin._timers.get(100, {}).values():
+            task.cancel()
+
+    @pytest.mark.asyncio
+    async def test_on_ready_resumes_active_poll(self, tmp_path) -> None:
+        plugin = PollsPlugin(store_path=str(tmp_path / "polls"))
+        plugin._bot = MagicMock()
+        plugin._bot.add_view = MagicMock()
+
+        ctx = _make_ctx(guild_id=100, channel_id=200, message_id=300)
+        await plugin.poll(ctx, "Resumes?", "Yes", "No", "", "", "", duration=9999)
+        for task in plugin._timers.get(100, {}).values():
+            task.cancel()
+
+        # Simulate a restart: a fresh plugin instance pointed at the same store.
+        resumed = PollsPlugin(store_path=str(tmp_path / "polls"))
+        resumed._bot = MagicMock()
+        resumed._bot.add_view = MagicMock()
+        await resumed.on_ready()
+
+        resumed._bot.add_view.assert_called_once()
+        assert 300 in resumed._timers.get(100, {})
+        for task in resumed._timers.get(100, {}).values():
+            task.cancel()
+
+    @pytest.mark.asyncio
+    async def test_on_ready_closes_overdue_poll(self, tmp_path) -> None:
+        plugin = PollsPlugin(store_path=str(tmp_path / "polls"))
+        plugin._bot = MagicMock()
+        plugin._bot.add_view = MagicMock()
+
+        ctx = _make_ctx(guild_id=100, channel_id=200, message_id=300)
+        await plugin.poll(ctx, "Already over?", "Yes", "No", "", "", "", duration=5)
+        for task in plugin._timers.get(100, {}).values():
+            task.cancel()
+
+        # Force the stored end_time into the past so the resumed plugin
+        # treats it as overdue.
+        cfg = await plugin._store.load(100)
+        polls = cfg.get_other("polls", {})
+        polls["300"]["end_time"] = "2000-01-01T00:00:00+00:00"
+        cfg.set_other("polls", polls)
+        await plugin._store.save(cfg)
+
+        resumed = PollsPlugin(store_path=str(tmp_path / "polls"))
+        resumed._bot = MagicMock()
+        resumed._bot.add_view = MagicMock()
+        resumed._bot.get_guild = MagicMock(return_value=None)  # guild not cached -> _close_poll returns early
+        await resumed.on_ready()
+        await asyncio.sleep(0)  # let the create_task'd _close_poll run
+
+        cfg = await resumed._store.load(100)
+        polls = cfg.get_other("polls", {})
+        assert polls["300"]["status"] == "closed"
 
 
 # ---------------------------------------------------------------------------

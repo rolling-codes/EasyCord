@@ -213,7 +213,7 @@ class TicketsPlugin(Plugin):
                 try:
                     self.bot.add_view(view, message_id=panel_msg_id)
                 except Exception:
-                    pass
+                    pass  # panel message may have been deleted; the ticket itself still works
 
     async def _finish_close(
         self,
@@ -264,12 +264,12 @@ class TicketsPlugin(Plugin):
                 try:
                     await log_channel.send(embed=log_embed)
                 except discord.HTTPException:
-                    pass
+                    pass  # log channel may be missing send permission; closing the ticket still proceeds
 
         try:
             await thread.edit(archived=True, locked=True, reason="Ticket closed")
         except discord.HTTPException:
-            pass
+            pass  # thread may already be archived/deleted; DB state is already updated
 
     @slash(description="Set the support role and transcript log channel.", guild_only=True)
     async def ticket_setup(
@@ -346,7 +346,7 @@ class TicketsPlugin(Plugin):
                     try:
                         await thread.add_user(member)
                     except discord.HTTPException:
-                        pass
+                        pass  # member may have left or already be in the thread; skip and continue with the rest
 
         data: dict = {
             "ticket_number": ticket_number,

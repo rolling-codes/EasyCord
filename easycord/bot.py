@@ -262,7 +262,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
                 mem = process.memory_info().rss / (1024 * 1024)
                 embed.add_field(name="Memory", value=f"{mem:.1f} MB")
             except ImportError:
-                pass
+                pass  # psutil is an optional dependency; skip the memory field if missing
 
             registry = self.registry.grouped()
             counts = [f"{k.title()}: {len(v)}" for k, v in registry.items()]

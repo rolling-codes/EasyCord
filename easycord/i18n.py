@@ -1,205 +1,23 @@
 """Lightweight localization helpers for EasyCord."""
 from __future__ import annotations
 
-import locale as stdlib_locale
 import logging
 from collections.abc import Mapping
-from enum import Enum
 from typing import Callable
 from typing import Any
 
+from ._i18n_diagnostics import DiagnosticMode, LocalizationDiagnostics
+from ._i18n_locale import (
+    _normalize_locale,
+    build_locale_chain,
+    build_preferred_locale_chain,
+    detect_os_locale,
+    is_valid_locale,
+)
+from ._i18n_validation import TranslationValidationReport
+
 logger = logging.getLogger("easycord.i18n")
 trace_logger = logging.getLogger("easycord.i18n.trace")
-
-
-class DiagnosticMode(Enum):
-    """Localization diagnostic modes."""
-    SILENT = "silent"       # No warnings, no tracking
-    WARN = "warn"           # Deduplicated warnings to logger
-    STRICT = "strict"       # Raise exceptions on missing keys
-
-
-class TranslationValidationReport:
-    """Report from translation completeness validation."""
-
-    def __init__(self, base_locale: str):
-        self.base_locale = base_locale
-        self.results: dict[str, dict] = {}
-
-    def add_locale(
-        self,
-        locale: str,
-        missing_keys: list[str],
-        orphaned_keys: list[str],
-        coverage: float,
-    ) -> None:
-        """Add validation results for a locale."""
-        self.results[locale] = {
-            "missing_keys": sorted(missing_keys),
-            "orphaned_keys": sorted(orphaned_keys),
-            "coverage": coverage,
-            "total_missing": len(missing_keys),
-            "total_orphaned": len(orphaned_keys),
-        }
-
-    def is_valid(self) -> bool:
-        """Check if all locales are fully translated."""
-        return all(
-            result["total_missing"] == 0 for result in self.results.values()
-        )
-
-    def summary(self) -> dict:
-        """Return summary statistics."""
-        total_locales = len(self.results)
-        fully_translated = sum(
-            1 for r in self.results.values() if r["total_missing"] == 0
-        )
-        return {
-            "base_locale": self.base_locale,
-            "total_locales": total_locales,
-            "fully_translated": fully_translated,
-            "coverage_by_locale": {
-                locale: result["coverage"] for locale, result in self.results.items()
-            },
-        }
-
-    def report_text(self) -> str:
-        """Return human-readable report."""
-        lines = [f"Translation Validation Report (base: {self.base_locale})"]
-        lines.append("")
-
-        for locale in sorted(self.results.keys()):
-            result = self.results[locale]
-            status = "✓" if result["total_missing"] == 0 else "✗"
-            lines.append(
-                f"{status} {locale}: {result['coverage']:.1%} coverage "
-                f"({result['total_missing']} missing)"
-            )
-            if result["missing_keys"]:
-                lines.append(
-                    f"  Missing: {', '.join(result['missing_keys'][:3])}"
-                    f"{'...' if len(result['missing_keys']) > 3 else ''}"
-                )
-            if result["orphaned_keys"]:
-                lines.append(
-                    f"  Orphaned: {', '.join(result['orphaned_keys'][:3])}"
-                    f"{'...' if len(result['orphaned_keys']) > 3 else ''}"
-                )
-        return "\n".join(lines)
-
-
-class LocalizationDiagnostics:
-    """Track missing keys and invalid placeholders with deduplication."""
-
-    def __init__(self, mode: DiagnosticMode = DiagnosticMode.SILENT):
-        self.mode = mode
-        self._seen_missing: set[tuple[str, str]] = set()
-        self._seen_placeholder: set[tuple[str, str]] = set()
-        self._missing_count = 0
-        self._placeholder_count = 0
-
-    def report_missing_key(
-        self,
-        key: str,
-        locale: str,
-        fallback_locale: str | None = None,
-    ) -> None:
-        """Report a missing translation key.
-
-        STRICT mode raises on every missing key.
-        WARN mode deduplicates warnings to logger.
-        SILENT mode ignores.
-        """
-        if self.mode == DiagnosticMode.SILENT:
-            return
-
-        fallback_msg = f" (fallback: {fallback_locale})" if fallback_locale else ""
-        message = f"Missing key '{key}' in locale '{locale}'{fallback_msg}"
-
-        if self.mode == DiagnosticMode.STRICT:
-            self._missing_count += 1
-            raise KeyError(message)
-        elif self.mode == DiagnosticMode.WARN:
-            cache_key = (key, locale)
-            if cache_key in self._seen_missing:
-                return
-            self._seen_missing.add(cache_key)
-            self._missing_count += 1
-            logger.warning(message)
-
-    def report_invalid_placeholder(
-        self,
-        key: str,
-        template: str,
-        placeholder: str,
-    ) -> None:
-        """Report a template with missing/invalid placeholders.
-
-        STRICT mode raises on every invalid placeholder.
-        WARN mode deduplicates warnings to logger.
-        SILENT mode ignores.
-        """
-        if self.mode == DiagnosticMode.SILENT:
-            return
-
-        message = f"Invalid placeholder in '{key}': template has '{placeholder}' but value not provided"
-
-        if self.mode == DiagnosticMode.STRICT:
-            self._placeholder_count += 1
-            raise KeyError(message)
-        elif self.mode == DiagnosticMode.WARN:
-            cache_key = (key, placeholder)
-            if cache_key in self._seen_placeholder:
-                return
-            self._seen_placeholder.add(cache_key)
-            self._placeholder_count += 1
-            logger.warning(message)
-
-    def missing_keys_summary(self) -> dict[str, int]:
-        """Return summary of missing keys."""
-        return {
-            "total_missing": self._missing_count,
-            "total_placeholders": self._placeholder_count,
-            "unique_missing": len(self._seen_missing),
-            "unique_placeholders": len(self._seen_placeholder),
-        }
-
-    def reset(self) -> None:
-        """Reset all diagnostics."""
-        self._seen_missing.clear()
-        self._seen_placeholder.clear()
-        self._missing_count = 0
-        self._placeholder_count = 0
-
-
-def _normalize_locale(locale: Any) -> str | None:
-    """Normalize locale string to standard format (en-US, not en_US)."""
-    if locale is None:
-        return None
-    if hasattr(locale, "value"):
-        locale = locale.value
-    text = str(locale).strip()
-    if not text:
-        return None
-    return text.replace("_", "-")
-
-
-def detect_os_locale() -> str | None:
-    """Detect the system's locale preference.
-
-    Returns normalized locale string (e.g., 'en-US') or None if detection fails.
-    """
-    try:
-        system_locale = stdlib_locale.getdefaultlocale()
-        if system_locale and system_locale[0]:
-            lang = system_locale[0]
-            country = system_locale[1]
-            if country:
-                return _normalize_locale(f"{lang}_{country}")
-            return _normalize_locale(lang)
-    except (AttributeError, ValueError):
-        pass
-    return None
 
 
 class LocalizationManager:
@@ -324,36 +142,14 @@ class LocalizationManager:
         guild_locale: Any = None,
     ) -> list[str]:
         """Return the fallback chain for a locale lookup (with memoization)."""
-        normalized_locale = _normalize_locale(locale)
-        normalized_guild = _normalize_locale(guild_locale)
-
-        # Create cache key from inputs (including default_locale if none specified)
-        if normalized_locale is None and normalized_guild is None:
-            # Only default locale
-            cache_key = (None, None, True)
-        else:
-            cache_key = (normalized_locale, normalized_guild, False)
-
+        cache_key, chain = build_locale_chain(
+            self.default_locale,
+            locale=locale,
+            guild_locale=guild_locale,
+        )
         if cache_key in self._chain_cache:
             return self._chain_cache[cache_key]
 
-        chain: list[str] = []
-        # If no locale specified, start with default
-        if normalized_locale is None and normalized_guild is None:
-            candidates = [self.default_locale]
-        else:
-            candidates = [normalized_locale, normalized_guild, self.default_locale]
-
-        for candidate in candidates:
-            if not candidate:
-                continue
-            parts = candidate.split("-")
-            for index in range(len(parts), 0, -1):
-                value = "-".join(parts[:index])
-                if value not in chain:
-                    chain.append(value)
-
-        # Cache result (bounded to prevent unbounded growth)
         if len(self._chain_cache) < 1000:
             self._chain_cache[cache_key] = chain
         return chain
@@ -410,37 +206,7 @@ class LocalizationManager:
         - script part (optional): 4 characters (Hant, Latn, etc.)
         - region part (optional): 2 characters (US, BR, HK, etc.)
         """
-        if not locale or not isinstance(locale, str):
-            return False
-
-        parts = locale.split("-")
-        if not parts[0] or len(parts[0]) < 2 or len(parts[0]) > 3:
-            return False
-
-        # No more parts: valid (e.g., "en", "zh")
-        if len(parts) == 1:
-            return True
-
-        # Second part validation (script or region)
-        second = parts[1]
-        if not second:
-            return False
-
-        # Script subtag (4 chars, e.g., "Hant", "Latn")
-        if len(second) == 4:
-            if len(parts) == 2:
-                return True  # language-script
-            # language-script-region
-            if len(parts) == 3:
-                third = parts[2]
-                return len(third) == 2  # region must be 2 chars
-            return False  # too many parts
-
-        # Region subtag (2 chars)
-        if len(second) == 2:
-            return len(parts) == 2  # language-region only
-
-        return False
+        return is_valid_locale(locale)
 
     def _trace_resolution(
         self,
@@ -517,16 +283,10 @@ class LocalizationManager:
         requested_locale = _normalize_locale(locale)
         guild_normalized = _normalize_locale(guild_locale)
 
-        # Build preferred chain (user locale + guild locale, NO default)
-        preferred_chain: list[str] = []
-        for candidate in (requested_locale, guild_normalized):
-            if not candidate:
-                continue
-            parts = candidate.split("-")
-            for index in range(len(parts), 0, -1):
-                value = "-".join(parts[:index])
-                if value not in preferred_chain:
-                    preferred_chain.append(value)
+        preferred_chain = build_preferred_locale_chain(
+            requested_locale,
+            guild_normalized,
+        )
 
         # Check preferred chain (user locale + guild locale)
         for candidate in preferred_chain:

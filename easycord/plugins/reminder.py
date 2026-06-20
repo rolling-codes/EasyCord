@@ -135,7 +135,7 @@ class ReminderPlugin(Plugin):
             await asyncio.sleep(seconds)
             await self._deliver_reminder(guild_id, reminder_id)
         except asyncio.CancelledError:
-            pass
+            pass  # reminder was cancelled or plugin is unloading; nothing more to do
         except Exception:
             logger.exception(
                 "ReminderPlugin _fire_after failed for reminder %d in guild %d",

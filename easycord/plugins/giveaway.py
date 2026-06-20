@@ -170,7 +170,7 @@ class GiveawayPlugin(Plugin):
                 try:
                     self.bot.add_view(view, message_id=msg_id)
                 except Exception:
-                    pass
+                    pass  # entry message may have been deleted; the giveaway timer still resumes
                 remaining = (end_time - now).total_seconds()
                 if remaining > 0:
                     self._schedule_timer(guild_id, msg_id, remaining)
@@ -199,7 +199,7 @@ class GiveawayPlugin(Plugin):
             await asyncio.sleep(seconds)
             await self._end_giveaway(guild_id, message_id)
         except asyncio.CancelledError:
-            pass
+            pass  # timer was cancelled (force-ended or plugin unload); nothing more to do
 
     async def _end_giveaway(self, guild_id: int, message_id: int) -> None:
         """Pick winners, update the embed, and post the announcement."""
@@ -245,7 +245,7 @@ class GiveawayPlugin(Plugin):
         try:
             await message.edit(embed=ended_embed, view=closed_view)
         except discord.HTTPException:
-            pass
+            pass  # message may have been deleted
 
         if winners:
             mentions = " ".join(f"<@{w}>" for w in winners)

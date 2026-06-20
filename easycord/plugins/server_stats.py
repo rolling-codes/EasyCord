@@ -97,7 +97,7 @@ class ServerStatsPlugin(Plugin):
                 await self._refresh_stats(guild_id)
                 await asyncio.sleep(_UPDATE_INTERVAL)
         except asyncio.CancelledError:
-            pass
+            pass  # loop was cancelled (plugin unload or guild teardown); stop quietly
 
     async def _refresh_stats(self, guild_id: int) -> None:
         """Fetch current stats and update the channel names."""

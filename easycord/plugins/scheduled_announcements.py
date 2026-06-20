@@ -164,7 +164,7 @@ class ScheduledAnnouncementsPlugin(Plugin):
                     cfg.set_other("announcements", data)
                     await self._store.save(cfg)
         except asyncio.CancelledError:
-            pass
+            pass  # loop was cancelled (plugin unload); stop quietly
 
     # ------------------------------------------------------------------ #
     # Commands                                                             #

@@ -73,7 +73,7 @@ class WelcomePlugin(Plugin):
                 try:
                     await member.add_roles(role, reason="WelcomePlugin auto-role")
                 except discord.HTTPException:
-                    pass
+                    pass  # bot may lack manage_roles or the role may be above its top role
 
         channel_id = cfg.get("welcome_channel")
         if not channel_id:

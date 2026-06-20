@@ -49,8 +49,8 @@ class ConfigHelpers:
                         cfg_obj = await store.load(guild_id)
                         cfg = cfg_obj.get_other("config") or {}
                         results[guild_id] = cfg
-                    except (ValueError, Exception):
-                        pass
+                    except Exception:
+                        pass  # skip files with a non-numeric name or unreadable/corrupt config
 
         return results
 

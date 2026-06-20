@@ -240,15 +240,15 @@ class _PaginatorView(discord.ui.View):
         if not await self._guard_owner(interaction):
             return
         for child in self.children:
-            child.disabled = True
+            child.disabled = True  # type: ignore[union-attr]
         await interaction.response.edit_message(view=self)
         self.stop()
 
     async def on_timeout(self) -> None:
         for child in self.children:
-            child.disabled = True
+            child.disabled = True  # type: ignore[union-attr]
         if self.message is not None:
             try:
                 await self.message.edit(view=self)
             except Exception:
-                pass
+                pass  # message may have been deleted; nothing to disable buttons on
