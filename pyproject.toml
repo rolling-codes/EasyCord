@@ -37,6 +37,10 @@ dev = [
     "tomli>=2; python_version < '3.11'",
     "build",
     "twine",
+    "deep-translator>=1.11",
+]
+translate = [
+    "deep-translator>=1.11",
 ]
 
 [project.urls]
