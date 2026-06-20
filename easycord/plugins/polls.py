@@ -189,7 +189,12 @@ class PollsPlugin(Plugin):
             try:
                 cfg = await self._store.load(guild_id)
                 polls: dict = cfg.get_other("polls", {})
-                for msg_id_str, data in list(polls.items()):
+            except Exception:
+                logger.exception("PollsPlugin on_ready: failed to load config for guild %d", guild_id)
+                continue
+
+            for msg_id_str, data in list(polls.items()):
+                try:
                     if data.get("status") != "active":
                         continue
                     message_id = int(msg_id_str)
@@ -206,8 +211,11 @@ class PollsPlugin(Plugin):
                         self._schedule_timer(guild_id, message_id, remaining)
                     else:
                         asyncio.create_task(self._close_poll(guild_id, message_id))
-            except Exception:
-                logger.exception("PollsPlugin on_ready failed for guild %d", guild_id)
+                except Exception:
+                    logger.warning(
+                        "PollsPlugin on_ready: skipping malformed poll %r in guild %d",
+                        msg_id_str, guild_id,
+                    )
 
     async def on_unload(self) -> None:
         """Cancel all in-flight poll timers."""

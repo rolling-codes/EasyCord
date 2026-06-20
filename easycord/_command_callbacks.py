@@ -109,6 +109,8 @@ def build_slash_callback(
                     for ts in cooldown_last_used.get(bucket_key, [])
                     if now - ts < cooldown
                 ]
+                if not used_at:
+                    cooldown_last_used.pop(bucket_key, None)
                 if len(used_at) >= cooldown_rate:
                     remaining = cooldown - (now - used_at[0])
                     await ctx.respond(
