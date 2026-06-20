@@ -1,5 +1,34 @@
 # Changelog
 
+## EasyCord v5.48.0 - 2026-06-20
+
+### Added
+
+**Module splits** — internal modules broken into focused sub-modules for easier navigation:
+- `_command_callbacks.py` — `build_slash_callback` / `build_context_menu_callback` with full guild/permission/cooldown/premium guards
+- `_command_registration.py` — `register_slash`, `register_context_menu`, `inject_choices`, `autocomplete_options`
+- `_plugin_scanner.py` — `scan_plugin_methods` auto-wires `@slash`/`@on` decorated plugin methods
+- `_i18n_locale.py` — locale normalisation, OS-locale detection, BCP 47 validation, fallback chain builders
+- `_i18n_diagnostics.py` — `DiagnosticMode` enum and `LocalizationDiagnostics` for missing-key and placeholder tracking
+- `_i18n_validation.py` — `TranslationValidationReport` for per-locale completeness auditing
+
+**PollsPlugin persistence** — polls now survive bot restarts:
+- Vote state and remaining time are stored per-guild via `ServerConfigStore`
+- `on_ready` re-registers views and resumes countdown timers for all active polls
+- Deterministic `custom_id` values (`poll:vote:{message_id}:{option_index}`) allow views to reconnect after restart
+
+### Fixed
+
+- **Prompt injection** (`ai_moderator.py`): user-controlled `message.content` and `message.author.name` are now delimited with XML tags in the LLM prompt, preventing crafted messages from shifting model instructions
+- **12 Pyright type errors** in `ai_moderator.py`: unguarded `ctx.guild` access narrowed with `assert ctx.guild is not None` (guild-only handlers) and `if ctx.guild is None: return False` (`_execute_action`)
+- **Poll restore isolation** (`polls.py`): a single malformed poll entry no longer aborts restoration of all polls in a guild — each entry is wrapped in its own `try/except`
+- **Cooldown dict growth** (`_command_callbacks.py`): expired bucket keys are pruned after filtering, preventing unbounded accumulation for inactive users
+- **Pylance type errors** (`helpers/tools.py`): replaced `all()` truthiness guard with `isinstance` checks so Pylance narrows `name`/`description` to `str` and `safety` to `ToolSafety`
+
+### Changed
+
+- `CLAUDE.md` expanded with architecture quick-reference, testing patterns, channel send safety guide, and key invariants
+
 ## EasyCord v5.47.1 - 2026-06-16
 
 ### Fixed
