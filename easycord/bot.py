@@ -198,6 +198,23 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             entry.sync_state = "synced"
         return plan
 
+    async def use_google_translate(self) -> None:
+        """Wire Google Translate into the command tree for localized command names.
+
+        After calling this, the next ``sync_commands()`` will translate every
+        command name into all Discord-supported locales using Google Translate.
+        Users then see commands in their own language (e.g. French users see
+        ``/traduire`` instead of ``/translate``); the interaction payload always
+        carries the canonical name so no routing changes are required.
+
+        Requires the ``deep-translator`` package::
+
+            pip install "easycord[translate]"
+        """
+        from easycord.helpers.google_translate import GoogleTranslateTranslator
+
+        await self.tree.set_translator(GoogleTranslateTranslator())
+
     def enable_interaction_inspector(self, *, owner_ids: set[int] | None = None) -> None:
         """Register the optional ``/easycord interactions`` developer command."""
         group = app_commands.Group(

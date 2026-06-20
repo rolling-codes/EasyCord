@@ -7,6 +7,7 @@ from typing import Callable, Union
 
 import discord
 from discord import app_commands
+from discord.app_commands import locale_str
 
 from ._command_callbacks import build_context_menu_callback
 
@@ -59,8 +60,8 @@ def register_slash(
     if choices:
         inject_choices(callback, choices)
     cmd = app_commands.Command(
-        name=name,
-        description=description,
+        name=locale_str(name),
+        description=locale_str(description),
         callback=callback,
         nsfw=nsfw,
         allowed_contexts=allowed_contexts,
@@ -218,7 +219,7 @@ def register_context_menu(
         parameters=[interaction_param, target_param]
     )
     menu = app_commands.ContextMenu(
-        name=name,
+        name=locale_str(name),
         callback=callback,
         type=menu_type,
         nsfw=nsfw,

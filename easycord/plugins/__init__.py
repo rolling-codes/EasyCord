@@ -27,6 +27,7 @@ from .role_persistence import RolePersistencePlugin
 from .starboard import StarboardPlugin
 from .suggestions import SuggestionsPlugin
 from .tags import TagsPlugin
+from .translate import TranslatePlugin
 from .auto_role import AutoRolePlugin
 from .birthday import BirthdayPlugin
 from .giveaway import GiveawayPlugin
@@ -78,6 +79,7 @@ __all__ = [
     "StarboardPlugin",
     "SuggestionsPlugin",
     "TagsPlugin",
+    "TranslatePlugin",
     "TogetherAIProvider",
     "WelcomePlugin",
 ]
