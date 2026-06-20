@@ -183,7 +183,7 @@ class _CommandsMixin(_MixinBase):
             self,
             func,
             callback_builder=self._build_slash_callback,
-            context_factory=lambda interaction: Context(interaction),
+            context_factory=Context,
             name=name,
             description=description,
             guild_id=guild_id,
