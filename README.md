@@ -116,7 +116,19 @@ Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
 Release links: [v5.49.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.49.0) · [Changelog](CHANGELOG.md)
 
-## New in v5.46.0 (Current Release)
+## New in v5.49.0 (Current Release)
+
+**TranslatePlugin** — `/translate` slash command backed by Google Translate (no API key required):
+- `text` — content to translate
+- `languages` — `"French to English"`, `"auto to Spanish"`, or blank to translate into the invoking user's Discord locale
+
+**Google Translate → LocalizationManager:**
+- `make_google_auto_translator()` for `LocalizationManager(auto_translator=...)` — missing-key lookups are translated on-the-fly and cached
+- `GoogleTranslateTranslator(app_commands.Translator)` — discord.py translator protocol; after `bot.use_google_translate()` + `sync_commands()`, Discord shows localized command names per locale
+
+**Localized command routing:** `locale_str()` wrapping on all registered command names; French users see `/traduire`, German `/übersetzen`, etc. — all route to the same handler.
+
+## Previous: v5.46.0
 
 **Pylance type fixes:**
 - `context_builder.py`: safe `getattr` for `ContextMenu.description` — ContextMenu commands don't have a `description` attribute.
@@ -128,11 +140,6 @@ Release links: [v5.49.0 release](https://github.com/rolling-codes/EasyCord/relea
 - Stress/concurrency tests for `rate_limit`, `ConversationMemory`, `LocalizationManager`.
 - Unit tests for 8 previously-untested plugins: starboard, suggestions, reaction_roles, moderation, polls, tags, invite_tracker, member_logging.
 - Unit tests for zero-coverage core modules: `EmbedCard`, formatters, `ContextBuilder`, `SlashGroup`, `SecurityManager`, `FrameworkManager`, `AuditLog`.
-
-**Verification:**
-- `python scripts/check_release_metadata.py`
-- `pytest` - 744 passed.
-- `ruff check easycord tests --select E9,F63,F7,F82`
 
 ## Previous: v5.43.0
 
