@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -98,15 +97,15 @@ def bump(new_version: str, *, dry_run: bool = False) -> int:
         print(f"  updated: {path.relative_to(ROOT)}")
 
     # Validate immediately so the caller knows if anything was missed
-    result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "check_release_metadata.py")],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        print("\ncheck_release_metadata.py found issues after bump:", file=sys.stderr)
-        print(result.stderr, file=sys.stderr)
-        return result.returncode
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from check_release_metadata import collect_errors  # type: ignore[import]
+
+    errors = collect_errors(ROOT)
+    if errors:
+        print("\ncheck_release_metadata found issues after bump:", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        return 1
 
     print(f"\nBumped {old_version} → {new_version}. Metadata check passed.")
     return 0
