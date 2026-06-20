@@ -70,14 +70,17 @@ def _parse_languages(languages: str, ctx_locale: discord.Locale | str | None) ->
     if not cleaned:
         return "auto", _locale_to_language(ctx_locale)
 
+    # Pad with spaces so " to " is found even when source or target is empty.
+    # e.g. "French to " → " french to " → split works; target="" → ctx locale.
     sep = " to "
-    idx = cleaned.lower().find(sep)
+    padded = f" {cleaned.lower()} "
+    idx = padded.find(sep)
     if idx == -1:
-        return "auto", cleaned.strip().lower()
+        return "auto", cleaned.lower()
 
-    source = cleaned[:idx].strip().lower()
-    target = cleaned[idx + len(sep):].strip().lower()
-    return (source or "auto"), (target or "english")
+    source = padded[:idx].strip()
+    target = padded[idx + len(sep):].strip()
+    return (source or "auto"), (target or _locale_to_language(ctx_locale))
 
 
 def _do_translate(text: str, source: str, target: str) -> str:
@@ -126,7 +129,7 @@ class TranslatePlugin(Plugin):
     ) -> None:
         source, target = _parse_languages(languages, ctx.locale)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             translated = await loop.run_in_executor(
                 None, partial(_do_translate, text, source, target)

@@ -66,6 +66,18 @@ def test_parse_languages_case_insensitive_separator():
     assert target == "english"
 
 
+def test_parse_languages_empty_source_defaults_auto():
+    source, target = _parse_languages(" to English", discord.Locale.french)
+    assert source == "auto"
+    assert target == "english"
+
+
+def test_parse_languages_empty_target_uses_locale():
+    source, target = _parse_languages("French to ", discord.Locale.spain_spanish)
+    assert source == "french"
+    assert target == "spanish"
+
+
 # ── Integration tests ─────────────────────────────────────────────────────────
 
 
