@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from easycord import Plugin, slash
-from easycord.testing import PluginTestSuite
+from easycord.testing import PluginTestSuite, __all__ as testing_all
 
 
 class PingPlugin(Plugin):
@@ -67,8 +67,7 @@ class TestPluginTestSuiteExport:
     """PluginTestSuite is importable from easycord.testing __all__."""
 
     def test_in_all(self):
-        import easycord.testing as t
-        assert "PluginTestSuite" in t.__all__
+        assert "PluginTestSuite" in testing_all
 
     def test_importable(self):
         from easycord.testing import PluginTestSuite as PTS
