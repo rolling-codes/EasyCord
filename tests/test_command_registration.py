@@ -176,7 +176,7 @@ class TestChoiceCountValidation:
 
 class TestValidCommandPasses:
     def test_typical_command_passes(self) -> None:
-        def my_cmd(self, user: str, count: int = 1): ...
+        def my_cmd(self, user: str, count: int = 1): pass
         _validate_command(
             "my_cmd",
             "A normal command that does something useful.",
