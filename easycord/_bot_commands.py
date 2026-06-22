@@ -328,4 +328,5 @@ class _CommandsMixin(_MixinBase):
 
     @staticmethod
     def _autocomplete_options(interaction: discord.Interaction) -> dict[str, object]:
+        """Extract the current autocomplete option values from an interaction."""
         return autocomplete_options(interaction)
