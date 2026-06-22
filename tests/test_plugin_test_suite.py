@@ -1,8 +1,6 @@
 """Demo: using PluginTestSuite reduces plugin test boilerplate."""
 from __future__ import annotations
 
-import pytest
-
 from easycord import Plugin, slash
 from easycord.testing import PluginTestSuite, __all__ as testing_all
 
