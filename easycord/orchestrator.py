@@ -208,14 +208,14 @@ class Orchestrator:
                 p.kind is inspect.Parameter.VAR_KEYWORD or name == "tools"
                 for name, p in signature.parameters.items()
             )
-            provider._cached_supports_tools = supports_tools  # type: ignore
+            provider._cached_supports_tools = supports_tools  # type: ignore[attr-defined]
 
         if provider._cached_supports_tools:  # type: ignore[attr-defined]
             return await provider.query(prompt=prompt, tools=tools_schema)  # type: ignore[call-arg]
         return await provider.query(prompt)
 
     @staticmethod
-    def _format_messages(messages: list[dict]) -> str:
+    def _format_messages(messages: list[dict[str, str]]) -> str:
         """Convert chat-style messages into the plain prompt used by legacy providers."""
         lines = []
         for message in messages:
