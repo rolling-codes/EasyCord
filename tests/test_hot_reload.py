@@ -5,8 +5,6 @@ import asyncio
 import types
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from easycord import Bot, Plugin
 
 
