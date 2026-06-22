@@ -116,6 +116,7 @@ class BirthdayPlugin(Plugin):
         self._store = ServerConfigStore(store_path)
         self._locks: dict[int, asyncio.Lock] = {}
         self._loop_task: asyncio.Task | None = None
+        self._role_tasks: set[asyncio.Task[None]] = set()
 
     def _guild_lock(self, guild_id: int) -> asyncio.Lock:
         if guild_id not in self._locks:
@@ -130,10 +131,13 @@ class BirthdayPlugin(Plugin):
             self._loop_task = asyncio.create_task(self._daily_check_loop())
 
     async def on_unload(self) -> None:
-        """Cancel the daily-check loop."""
+        """Cancel the daily-check loop and any pending role-removal tasks."""
         if self._loop_task is not None:
             self._loop_task.cancel()
             self._loop_task = None
+        for task in list(self._role_tasks):
+            task.cancel()
+        self._role_tasks.clear()
 
     # ── Background loop ───────────────────────────────────────
 
@@ -234,9 +238,11 @@ class BirthdayPlugin(Plugin):
             if role and member:
                 try:
                     await member.add_roles(role, reason="BirthdayPlugin birthday role")
-                    asyncio.create_task(
+                    _task = asyncio.create_task(
                         self._remove_role_after(guild_id, uid, role.id, 86400)
                     )
+                    self._role_tasks.add(_task)
+                    _task.add_done_callback(self._role_tasks.discard)
                 except discord.HTTPException:
                     logger.exception("Failed to assign birthday role to %d", uid)
 
