@@ -27,7 +27,7 @@ from .context import Context
 from .context_builder import ContextBuilder
 from .database import DatabaseConfig, EasyCordDatabase, GuildRecord, MemoryDatabase, SQLiteDatabase
 from .config import BotConfig
-from .decorators import ai_tool, autocomplete, command_error, component, cooldown, describe, install_type, message_command, modal, on, premium_required, require_permissions, slash, slash_command, task, user_command
+from .decorators import ai_tool, autocomplete, command_error, component, cooldown, deprecated, describe, install_type, message_command, modal, on, premium_required, require_permissions, slash, slash_command, task, user_command, version_introduced
 from .i18n import LocalizationManager, format_number, format_date
 from .group import SlashGroup
 from .plugin import Plugin
@@ -103,6 +103,7 @@ __all__ = [
     "create_in_project_plugin",
     "create_package_plugin",
     "create_plugin_scaffold",
+    "deprecated",
     "describe",
     "discover_plugins",
     "Duration",
@@ -177,4 +178,5 @@ __all__ = [
     "URL",
     "validate_plugin_manifest",
     "ValidationError",
+    "version_introduced",
 ]

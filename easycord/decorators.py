@@ -1,11 +1,79 @@
 """Decorators for marking Plugin methods as slash commands or event handlers."""
 from __future__ import annotations
 
-from typing import Callable
+import functools
+import warnings
+from typing import Callable, TypeVar, ParamSpec
 
 from discord import app_commands
 
 from easycord.tools import ToolSafety
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def deprecated(
+    version: str,
+    replacement: str | None = None,
+    reason: str | None = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Mark a function or method as deprecated.
+
+    Emits a ``DeprecationWarning`` at call time with a migration hint.
+
+    Args:
+        version: Version when this was deprecated (e.g. ``"5.50.0"``).
+        replacement: What to use instead (e.g. ``"bot.add_plugin(MyPlugin())"``)
+        reason: Optional explanation beyond the replacement hint.
+
+    Example::
+
+        @deprecated("5.50.0", replacement="bot.add_plugin(MyPlugin())")
+        def add_plugin_legacy(self, name: str) -> None:
+            ...
+    """
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        msg_parts = [f"{func.__qualname__} is deprecated since v{version}."]
+        if replacement:
+            msg_parts.append(f"Use {replacement!r} instead.")
+        if reason:
+            msg_parts.append(reason)
+        message = " ".join(msg_parts)
+
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            warnings.warn(message, DeprecationWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        wrapper.__deprecated__ = version  # type: ignore[attr-defined]
+        wrapper.__replacement__ = replacement  # type: ignore[attr-defined]
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
+
+
+def version_introduced(version: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Document when a function or method was introduced.
+
+    Attaches a ``__version_introduced__`` attribute for introspection and
+    documentation tooling.  Does not affect runtime behaviour.
+
+    Args:
+        version: Version string when the decorated callable was added
+            (e.g. ``"5.49.0"``).
+
+    Example::
+
+        @version_introduced("5.49.0")
+        def new_helper(self) -> None:
+            ...
+    """
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        func.__version_introduced__ = version  # type: ignore[attr-defined]
+        return func
+
+    return decorator
 
 
 def describe(**descriptions: str) -> Callable:
