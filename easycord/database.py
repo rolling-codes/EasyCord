@@ -6,9 +6,10 @@ import copy
 import json
 import os
 import sqlite3
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 
 DatabaseBackend = Literal["sqlite", "memory"]
@@ -29,7 +30,7 @@ class DatabaseConfig:
         path = os.getenv("EASYCORD_DB_PATH", ".easycord/library.db")
         auto_sync = os.getenv("EASYCORD_DB_AUTO_SYNC_GUILDS", "1").strip().lower()
         return cls(
-            backend=backend if backend in {"sqlite", "memory"} else "sqlite",
+            backend=cast(DatabaseBackend, backend if backend in {"sqlite", "memory"} else "sqlite"),
             path=path,
             auto_sync_guilds=auto_sync not in {"0", "false", "no", "off"},
         )
@@ -90,6 +91,10 @@ class EasyCordDatabase:
 
     async def replace_guild(self, guild_id: int, data: dict[str, Any]) -> None:
         """Replace the full guild payload."""
+        raise NotImplementedError
+
+    async def ping(self) -> float:
+        """Return round-trip latency in milliseconds for a lightweight operation."""
         raise NotImplementedError
 
 
@@ -228,6 +233,13 @@ class SQLiteDatabase(EasyCordDatabase):
                 (guild_id, self._encode_data(dict(data))),
             )
 
+    async def ping(self) -> float:
+        """Time a SELECT 1 round-trip and return the latency in milliseconds."""
+        start = time.monotonic()
+        async with self._lock:
+            await asyncio.to_thread(self._conn.execute, "SELECT 1")
+        return (time.monotonic() - start) * 1000
+
 
 class MemoryDatabase(EasyCordDatabase):
     """In-memory backend used for tests and ephemeral bots."""
@@ -279,3 +291,15 @@ class MemoryDatabase(EasyCordDatabase):
     async def replace_guild(self, guild_id: int, data: dict[str, Any]) -> None:
         async with self._lock:
             self._guilds[guild_id] = copy.deepcopy(data)
+
+    async def ping(self) -> float:
+        """Time an in-memory dict access and return the latency in milliseconds."""
+        start = time.monotonic()
+        async with self._lock:
+            _ = len(self._guilds)
+        return (time.monotonic() - start) * 1000
+
+    @property
+    def record_count(self) -> int:
+        """Return the number of guild records currently held in memory."""
+        return len(self._guilds)

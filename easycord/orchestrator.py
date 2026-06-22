@@ -210,8 +210,8 @@ class Orchestrator:
             )
             provider._cached_supports_tools = supports_tools  # type: ignore
 
-        if provider._cached_supports_tools:  # type: ignore
-            return await provider.query(prompt=prompt, tools=tools_schema)
+        if provider._cached_supports_tools:  # type: ignore[attr-defined]
+            return await provider.query(prompt=prompt, tools=tools_schema)  # type: ignore[call-arg]
         return await provider.query(prompt)
 
     @staticmethod
