@@ -535,3 +535,30 @@ def ai_tool(
         return func
 
     return decorator
+
+
+def subscribe(event: str) -> Callable:
+    """Mark a Plugin method as an EventBus subscription.
+
+    Parameters
+    ----------
+    event:
+        The event name to subscribe to.
+
+    Example::
+
+        class MyPlugin(Plugin):
+
+            @subscribe("user_signup")
+            async def on_user_signup(self, username, email):
+                ...
+    """
+    if not event:
+        raise ValueError("Event name must be a non-empty string")
+
+    def decorator(func: Callable) -> Callable:
+        func._is_subscription = True
+        func._subscription_event = event
+        return func
+
+    return decorator

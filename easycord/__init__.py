@@ -28,7 +28,7 @@ from .context_builder import ContextBuilder
 from .database import DatabaseConfig, EasyCordDatabase, GuildRecord, MemoryDatabase, SQLiteDatabase
 from .config import BotConfig
 from .decorators import ai_tool, autocomplete, command_error, component, cooldown, describe, install_type, message_command, modal, on, premium_required, require_permissions, slash, slash_command, task, user_command
-from .i18n import LocalizationManager
+from .i18n import LocalizationManager, format_number, format_date
 from .group import SlashGroup
 from .plugin import Plugin
 from .plugin_creator import (
@@ -128,6 +128,8 @@ __all__ = [
     "modal",
     "MemoryDatabase",
     "LocalizationManager",
+    "format_number",
+    "format_date",
     "load_entrypoint_plugins",
     "load_plugin_manifest",
     "Orchestrator",

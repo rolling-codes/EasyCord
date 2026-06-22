@@ -65,6 +65,8 @@ def scan_plugin_methods(
             bot._register_modal_handler(custom_id, method, source_plugin=plugin_name)
         if getattr(method, "_is_ai_tool", False):
             _register_ai_tool(bot, method)
+        if getattr(method, "_is_subscription", False):
+            bot.event_bus.subscribe(method._subscription_event, method)
 
 
 def _collect_standalone_autocomplete(

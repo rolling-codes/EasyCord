@@ -27,9 +27,12 @@ def build_slash_callback(
     """Build a discord.py-compatible slash callback."""
     sig = inspect.signature(func)
     user_params = list(sig.parameters.values())[1:]
-    cooldown_last_used: dict[int, list[float]] = {}
-    if cooldown is not None and cooldown_rate < 1:
-        raise ValueError("cooldown_rate must be at least 1")
+    cooldown_last_used: dict[Any, list[float]] = {}
+    if cooldown is not None:
+        if cooldown_rate < 1:
+            raise ValueError("cooldown_rate must be at least 1")
+        if hasattr(bot, "_cooldown_registries"):
+            bot._cooldown_registries.append((cooldown_last_used, cooldown))
     if cooldown_bucket not in {"user", "guild", "global"}:
         raise ValueError("cooldown_bucket must be 'user', 'guild', or 'global'")
 

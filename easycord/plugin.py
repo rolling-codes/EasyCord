@@ -85,6 +85,23 @@ class Plugin:
         Override this to run teardown code (e.g. closing connections).
         """
 
+    async def on_reload(self) -> None:
+        """Called on the new instance immediately after a hot-reload swap.
+
+        Override to re-initialize state that doesn't survive re-instantiation —
+        cached data, open connections, middleware state, etc.  The plugin is
+        fully registered and ``self.bot`` is available when this fires.
+
+        Example::
+
+            class MyPlugin(Plugin):
+                async def on_load(self):
+                    self.cache = await fetch_data()
+
+                async def on_reload(self):
+                    self.cache = await fetch_data()   # re-warm the cache
+        """
+
     async def on_error(self, ctx: "Context", exc: Exception) -> None:
         """Called when any slash command in this plugin raises an unhandled exception.
 
