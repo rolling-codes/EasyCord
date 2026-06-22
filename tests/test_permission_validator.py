@@ -5,7 +5,6 @@ import logging
 from unittest.mock import MagicMock
 
 import discord
-import pytest
 
 from easycord._bot_plugins import _PluginsMixin
 from easycord.decorators import slash
