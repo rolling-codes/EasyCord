@@ -42,7 +42,10 @@ class EventBus:
             try:
                 self._listeners[event].remove(callback)
             except ValueError:
-                pass
+                logger.debug(
+                    "Attempted to unsubscribe non-existent callback from event %r",
+                    event,
+                )
             if not self._listeners[event]:
                 del self._listeners[event]
 
