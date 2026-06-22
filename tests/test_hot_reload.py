@@ -129,6 +129,7 @@ async def test_hot_reload_loop_seeds_without_reload():
                     try:
                         await task
                     except asyncio.CancelledError:
+                        # Expected: task was explicitly cancelled to stop the loop after one tick.
                         pass
 
     assert call_count == 0
