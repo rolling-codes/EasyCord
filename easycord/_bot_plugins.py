@@ -320,3 +320,62 @@ class _PluginsMixin(_MixinBase):
             key: dict(value)
             for key, value in getattr(self, "_task_statuses", {}).items()
         }
+
+    def _validate_plugin_permissions(self, plugin: Plugin) -> None:
+        """Warn if the bot lacks Discord permissions required by the plugin's commands.
+
+        Iterates over every ``@slash``-decorated method on *plugin* and checks
+        whether the bot's member permissions in each relevant guild satisfy the
+        ``permissions=`` list declared on the command.  Called from ``on_ready``
+        once the guild list is populated.
+
+        Only runs when the bot is in at least one guild; skips silently otherwise.
+        """
+        guilds = list(getattr(self, "guilds", []))
+        if not guilds:
+            return
+
+        plugin_name = getattr(plugin, "name", type(plugin).__name__)
+
+        for _, method in _iter_methods(plugin):
+            if not getattr(method, "_is_slash", False):
+                continue
+
+            required_perms: list[str] | None = getattr(method, "_slash_permissions", None)
+            require_admin: bool = getattr(method, "_slash_require_admin", False)
+
+            # Build effective permission list
+            effective: list[str] = []
+            if require_admin:
+                effective.append("administrator")
+            if required_perms:
+                effective.extend(required_perms)
+            if not effective:
+                continue
+
+            command_name = getattr(method, "_slash_name", method.__name__)
+            guild_id: int | None = getattr(method, "_slash_guild", None)
+
+            # Determine which guilds to check
+            if guild_id is not None:
+                target_guilds = [g for g in guilds if g.id == guild_id]
+            else:
+                target_guilds = guilds
+
+            for guild in target_guilds:
+                # Retrieve the bot's Member object in this guild
+                me = guild.me
+                if me is None:
+                    continue
+                bot_perms: discord.Permissions = me.guild_permissions
+                for perm in effective:
+                    if not getattr(bot_perms, perm, False):
+                        logger.warning(
+                            "Plugin %r requires %r permission but bot lacks it "
+                            "in guild %r (ID: %s) — command /%s may not work as expected",
+                            plugin_name,
+                            perm,
+                            guild.name,
+                            guild.id,
+                            command_name,
+                        )

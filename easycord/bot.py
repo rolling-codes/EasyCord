@@ -406,7 +406,13 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
                 await plugin.on_ready()
             except Exception:
                 logger.exception("Error calling on_ready for %s", plugin.__class__.__name__)
-        
+
+        for plugin in self._plugins:
+            try:
+                self._validate_plugin_permissions(plugin)
+            except Exception:
+                logger.debug("Permission validation failed for %s", plugin.__class__.__name__, exc_info=True)
+
         # Startup diagnostics summary
         from . import __version__
         diag = [
