@@ -32,6 +32,10 @@ class ToolHelpers:
 
             if not isinstance(name, str) or not callable(func) or not isinstance(description, str):
                 continue
+            if safety is not None and not isinstance(safety, ToolSafety):
+                raise TypeError(
+                    f"safety must be a ToolSafety enum member, got {type(safety).__name__!r}"
+                )
             if not isinstance(safety, ToolSafety):
                 continue
 
@@ -67,7 +71,7 @@ class ToolHelpers:
         return registry._tools.copy()
 
     @staticmethod
-    def get_tool_info(registry: ToolRegistry, tool_name: str) -> dict | None:
+    def get_tool_info(registry: ToolRegistry, tool_name: str) -> dict[str, object] | None:
         """Get tool metadata as dict."""
         tool = registry._tools.get(tool_name)
         if not tool:
