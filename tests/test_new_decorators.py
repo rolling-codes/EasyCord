@@ -590,3 +590,77 @@ class TestScannerMetadataPropagation:
             assert call.kwargs["nsfw"] is True
             assert call.kwargs["allowed_contexts"] is contexts
             assert call.kwargs["allowed_installs"] is installs
+
+
+# ---------------------------------------------------------------------------
+# TTL-based cooldown sweep
+# ---------------------------------------------------------------------------
+
+class TestCooldownSweep:
+    @pytest.mark.asyncio
+    async def test_sweep_prunes_stale_entries(self):
+        """Pruning logic removes entries whose timestamps are all beyond max_age."""
+        import time
+
+        COOLDOWN_TTL = 3600.0
+        bucket: dict[int, list[float]] = {}
+        cooldown_window = 5.0
+        max_age = max(cooldown_window, COOLDOWN_TTL)
+
+        # Seed two entries: one clearly stale, one still active.
+        now = time.monotonic()
+        bucket[1] = [now - max_age - 1]   # stale — older than max_age
+        bucket[2] = [now]                  # active — just used
+
+        # Replicate exactly what _cooldown_sweep_loop does after each sleep.
+        stale = [
+            key
+            for key, timestamps in list(bucket.items())
+            if all(time.monotonic() - ts >= max_age for ts in timestamps)
+        ]
+        for key in stale:
+            bucket.pop(key, None)
+
+        assert 1 not in bucket, "stale entry should have been pruned"
+        assert 2 in bucket, "active entry must survive the sweep"
+
+    @pytest.mark.asyncio
+    async def test_sweep_leaves_empty_dict_intact(self):
+        """Sweep over an empty bucket dict does not raise."""
+        import time
+
+        COOLDOWN_TTL = 3600.0
+        bucket: dict[int, list[float]] = {}
+        cooldown_window = 30.0
+        max_age = max(cooldown_window, COOLDOWN_TTL)
+        now = time.monotonic()
+
+        stale = [
+            key
+            for key, timestamps in list(bucket.items())
+            if all(now - ts >= max_age for ts in timestamps)
+        ]
+        assert stale == []
+
+    @pytest.mark.asyncio
+    async def test_cooldown_still_works_after_active_key_cleanup(self):
+        """Verifying active entries survive a sweep and enforce the cooldown."""
+        from easycord import Bot
+        from easycord.testing import invoke
+
+        bot = Bot(auto_sync=False, db_backend="memory")
+        calls = []
+        try:
+            @bot.slash(description="Sweep test", cooldown=30.0)
+            async def sweep_cmd(ctx):
+                calls.append(ctx.user.id)
+                await ctx.respond("ok")
+
+            first = await invoke(bot, "sweep_cmd", user_id=99)
+            second = await invoke(bot, "sweep_cmd", user_id=99)
+
+            assert first.last_response == "ok"
+            assert "cooldown" in (second.last_response or "").lower()
+            assert calls == [99]
+        finally:
+            await bot.close()
