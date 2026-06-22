@@ -1,8 +1,6 @@
 """Tests for the @deprecated and @version_introduced decorators."""
 import warnings
 
-import pytest
-
 from easycord.decorators import deprecated, version_introduced
 
 
