@@ -91,15 +91,32 @@ class Orchestrator:
         # Cache provider schema and formatted messages (avoid repeated generation)
         tools_schema = self.tools.to_provider_schema(run_ctx.ctx) if run_ctx.ctx else []
 
+        total_providers = (
+            len(self.strategy.providers)
+            if isinstance(self.strategy, FallbackStrategy)
+            else "?"
+        )
+
         while steps < max_steps:
             try:
                 provider = self.strategy.select(run_ctx, attempt)
             except IndexError:
+                logger.error(
+                    "All AI providers exhausted after %d attempt(s)",
+                    attempt,
+                )
                 return FinalResponse(
                     text="All providers exhausted",
                     provider=None,
                     steps=steps,
                 )
+
+            logger.debug(
+                "AI request: trying provider %s (attempt %d/%s)",
+                type(provider).__name__,
+                attempt + 1,
+                total_providers,
+            )
 
             try:
                 # Query provider
@@ -111,6 +128,10 @@ class Orchestrator:
                 )
 
                 if isinstance(output, str):
+                    logger.debug(
+                        "AI request handled by provider %s",
+                        type(provider).__name__,
+                    )
                     if run_ctx.conversation_memory and run_ctx.ctx:
                         run_ctx.conversation_memory.add_assistant_message(
                             run_ctx.ctx.user.id,
@@ -160,6 +181,10 @@ class Orchestrator:
                 # Check for final text
                 text = getattr(output, "text", None)
                 if text:
+                    logger.debug(
+                        "AI request handled by provider %s",
+                        type(provider).__name__,
+                    )
                     # Save to conversation memory if provided
                     if run_ctx.conversation_memory and run_ctx.ctx:
                         run_ctx.conversation_memory.add_assistant_message(
@@ -179,9 +204,9 @@ class Orchestrator:
 
             except Exception as e:
                 logger.warning(
-                    "Provider %s failed on attempt %d: %s",
+                    "AI provider %s failed (%s: %s), falling back to next",
                     type(provider).__name__,
-                    attempt,
+                    type(e).__name__,
                     e,
                 )
                 attempt += 1
