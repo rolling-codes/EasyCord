@@ -48,6 +48,8 @@ async def test_health_command():
         # We need to find the health command in the tree
         health_cmd = next(c for c in bot.tree.get_commands() if c.name == "health")
 
+        from discord import app_commands
+        assert isinstance(health_cmd, app_commands.Command)
         ctx = FakeContext.make(client=bot)
         await health_cmd.callback(ctx.interaction)
 
@@ -57,6 +59,7 @@ async def test_health_command():
         assert embed.title == "Bot Health & Telemetry"
         # Check if plugin metadata is in the embed
         plugin_field = next(f for f in embed.fields if f.name == "Plugins")
+        assert plugin_field.value is not None
         assert "test_plugin (v1.2.3)" in plugin_field.value
     finally:
         await bot.close()

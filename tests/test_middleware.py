@@ -456,7 +456,10 @@ class TestBoostOnly:
         ctx = _ctx(guild=_guild(is_booster=False))
         mw = boost_only(message="Boosters only!")
 
-        await mw(ctx, lambda: None)
+        async def _noop() -> None:
+            pass
+
+        await mw(ctx, _noop)
         ctx.respond.assert_called_once_with("Boosters only!", ephemeral=True)
 
 
