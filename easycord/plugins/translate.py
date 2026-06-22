@@ -115,11 +115,7 @@ class TranslatePlugin(Plugin):
     """
 
     @slash(
-        description=(
-            "Translate text between languages. "
-            'Use "source to target" in the languages field, e.g. "French to English". '
-            "Leave languages blank to translate into your Discord language."
-        ),
+        description='Translate text. Use "source to target" in languages (e.g. "French to English"), or leave blank.',
     )
     async def translate(
         self,
