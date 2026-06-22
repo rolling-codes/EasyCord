@@ -1,6 +1,7 @@
 """Lightweight localization helpers for EasyCord."""
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 from collections.abc import Mapping
 from typing import Callable
@@ -47,6 +48,7 @@ class LocalizationManager:
         track_metrics: bool = False,
         max_auto_translated_locales: int = 50,
         max_tracked_locales: int = 100,
+        plural_rule_evaluator: Callable[[str, float | int], str] | None = None,
     ) -> None:
         self.default_locale = _normalize_locale(default_locale) or "en-US"
         self._catalogs: dict[str, dict[str, str]] = {}
@@ -59,6 +61,7 @@ class LocalizationManager:
         self._max_auto_translated = max_auto_translated_locales
         self._max_tracked_locales = max_tracked_locales
         self._auto_translated_count = 0
+        self._plural_rule_evaluator = plural_rule_evaluator or default_plural_rule
         self._metrics: dict[str, Any] = {
             "cache_hits": 0,
             "cache_misses": 0,
@@ -271,6 +274,22 @@ class LocalizationManager:
 
         return report
 
+    def _lookup_in_catalog(
+        self,
+        cat: dict[str, str],
+        candidate_locale: str,
+        key: str,
+        count: float | int | None,
+    ) -> str | None:
+        if count is not None:
+            category = self._plural_rule_evaluator(candidate_locale, count)
+            suffix_key = f"{key}_{category}"
+            if suffix_key in cat:
+                return cat[suffix_key]
+        if key in cat:
+            return cat[key]
+        return None
+
     def get(
         self,
         key: str,
@@ -278,6 +297,7 @@ class LocalizationManager:
         locale: Any = None,
         guild_locale: Any = None,
         default: str | None = None,
+        count: float | int | None = None,
     ) -> str:
         """Look up a translated string and fall back safely if missing."""
         requested_locale = _normalize_locale(locale)
@@ -291,15 +311,17 @@ class LocalizationManager:
         # Check preferred chain (user locale + guild locale)
         for candidate in preferred_chain:
             catalog = self._catalogs.get(candidate)
-            if catalog and key in catalog:
-                if self.track_metrics:
-                    self._metrics["cache_hits"] += 1
-                    self._update_locale_frequency(candidate)
-                self._trace_resolution(
-                    key, locale, requested_locale, guild_locale, candidate,
-                    preferred_chain, candidate, True
-                )
-                return catalog[key]
+            if catalog:
+                val = self._lookup_in_catalog(catalog, candidate, key, count)
+                if val is not None:
+                    if self.track_metrics:
+                        self._metrics["cache_hits"] += 1
+                        self._update_locale_frequency(candidate)
+                    self._trace_resolution(
+                        key, locale, requested_locale, guild_locale, candidate,
+                        preferred_chain, candidate, True
+                    )
+                    return val
 
         # Try auto-translation if enabled and key not found in preferred chain
         if self.track_metrics:
@@ -310,6 +332,7 @@ class LocalizationManager:
             locale=locale,
             guild_locale=guild_locale,
             default=default,
+            count=count,
         )
         if auto_translated is not None:
             if self.track_metrics:
@@ -326,19 +349,21 @@ class LocalizationManager:
         default_chain = self.resolve_chain(self.default_locale)
         for candidate in default_chain:
             catalog = self._catalogs.get(candidate)
-            if catalog and key in catalog:
-                if self.track_metrics:
-                    self._metrics["fallback_resolution"] += 1
-                    self._update_locale_frequency(candidate)
-                if requested_locale:
-                    self.diagnostics.report_missing_key(
-                        key, requested_locale, fallback_locale=candidate
+            if catalog:
+                val = self._lookup_in_catalog(catalog, candidate, key, count)
+                if val is not None:
+                    if self.track_metrics:
+                        self._metrics["fallback_resolution"] += 1
+                        self._update_locale_frequency(candidate)
+                    if requested_locale:
+                        self.diagnostics.report_missing_key(
+                            key, requested_locale, fallback_locale=candidate
+                        )
+                    self._trace_resolution(
+                        key, locale, requested_locale, guild_locale, candidate,
+                        default_chain, candidate, False
                     )
-                self._trace_resolution(
-                    key, locale, requested_locale, guild_locale, candidate,
-                    default_chain, candidate, False
-                )
-                return catalog[key]
+                    return val
 
         # Not found anywhere
         if self.track_metrics:
@@ -367,19 +392,31 @@ class LocalizationManager:
         key: str,
         *,
         default: str | None,
-    ) -> tuple[str, str] | None:
+        count: float | int | None = None,
+    ) -> tuple[str, str, str] | None:
         for candidate in self.resolve_chain(self.default_locale):
             catalog = self._catalogs.get(candidate)
-            if catalog and key in catalog:
-                return candidate, catalog[key]
+            if catalog:
+                if count is not None:
+                    category = self._plural_rule_evaluator(candidate, count)
+                    suffix_key = f"{key}_{category}"
+                    if suffix_key in catalog:
+                        return candidate, suffix_key, catalog[suffix_key]
+                if key in catalog:
+                    return candidate, key, catalog[key]
 
         if default is not None:
-            return self.default_locale, default
+            return self.default_locale, key, default
 
         for candidate in sorted(self._catalogs):
             catalog = self._catalogs[candidate]
+            if count is not None:
+                category = self._plural_rule_evaluator(candidate, count)
+                suffix_key = f"{key}_{category}"
+                if suffix_key in catalog:
+                    return candidate, suffix_key, catalog[suffix_key]
             if key in catalog:
-                return candidate, catalog[key]
+                return candidate, key, catalog[key]
         return None
 
     def _auto_translate_missing(
@@ -389,6 +426,7 @@ class LocalizationManager:
         locale: Any = None,
         guild_locale: Any = None,
         default: str | None = None,
+        count: float | int | None = None,
     ) -> str | None:
         if self._auto_translator is None:
             return None
@@ -397,10 +435,10 @@ class LocalizationManager:
         if target_locale is None:
             return None
 
-        source = self._find_source_for_key(key, default=default)
+        source = self._find_source_for_key(key, default=default, count=count)
         if source is None:
             return None
-        source_locale, source_text = source
+        source_locale, resolved_key, source_text = source
         if source_locale == target_locale:
             return None
 
@@ -408,11 +446,35 @@ class LocalizationManager:
         if not translated:
             return None
 
+        if count is not None:
+            target_category = self._plural_rule_evaluator(target_locale, count)
+            register_key = f"{key}_{target_category}"
+        else:
+            register_key = resolved_key
+
         # Only register if within bounds to prevent unbounded catalog growth
         if self._auto_translated_count < self._max_auto_translated:
-            self.register(target_locale, {key: translated})
+            self.register(target_locale, {register_key: translated})
             self._auto_translated_count += 1
         return translated
+
+    def t(
+        self,
+        key: str,
+        *,
+        locale: Any = None,
+        guild_locale: Any = None,
+        default: str | None = None,
+        **kwargs,
+    ) -> str:
+        """Alias for format()."""
+        return self.format(
+            key,
+            locale=locale,
+            guild_locale=guild_locale,
+            default=default,
+            **kwargs,
+        )
 
     def format(
         self,
@@ -424,11 +486,13 @@ class LocalizationManager:
         **kwargs,
     ) -> str:
         """Look up a translated string and format it with keyword arguments."""
+        count = kwargs.get("count")
         template = self.get(
             key,
             locale=locale,
             guild_locale=guild_locale,
             default=default,
+            count=count,
         )
         try:
             return template.format(**kwargs)
@@ -443,3 +507,246 @@ class LocalizationManager:
             finally:
                 self._reporting = False
             raise
+
+
+def default_plural_rule(locale: str, count: float | int) -> str:
+    """Default CLDR plural rule evaluator for common languages."""
+    lang = (locale or "").split("-")[0].split("_")[0].lower()
+    try:
+        if isinstance(count, str):
+            if "." in count:
+                count = float(count)
+            else:
+                count = int(count)
+        n = abs(count)
+    except Exception:
+        n = count
+
+    is_int = isinstance(n, int) or (isinstance(n, float) and n.is_integer())
+    val = int(n) if is_int else n
+
+    if lang in ("ja", "zh", "ko", "vi", "th", "ms", "id"):
+        return "other"
+    elif lang == "fr":
+        if val == 0 or val == 1:
+            return "one"
+        return "other"
+    elif lang == "pt":
+        loc_lower = locale.lower()
+        if "pt-br" in loc_lower or "pt_br" in loc_lower:
+            if val == 0 or val == 1:
+                return "one"
+        else:
+            if val == 1:
+                return "one"
+        return "other"
+    elif lang in ("ru", "uk", "be"):
+        if not is_int:
+            return "other"
+        if val % 10 == 1 and val % 100 != 11:
+            return "one"
+        elif val % 10 in (2, 3, 4) and val % 100 not in (12, 13, 14):
+            return "few"
+        elif val % 10 == 0 or val % 10 in (5, 6, 7, 8, 9) or val % 100 in (11, 12, 13, 14):
+            return "many"
+        return "other"
+    elif lang == "pl":
+        if not is_int:
+            return "other"
+        if val == 1:
+            return "one"
+        elif val % 10 in (2, 3, 4) and val % 100 not in (12, 13, 14):
+            return "few"
+        elif val % 10 in (0, 1, 5, 6, 7, 8, 9) or val % 100 in (11, 12, 13, 14):
+            return "many"
+        return "other"
+    elif lang == "ar":
+        if not is_int:
+            return "other"
+        if val == 0:
+            return "zero"
+        elif val == 1:
+            return "one"
+        elif val == 2:
+            return "two"
+        elif 3 <= val % 100 <= 10:
+            return "few"
+        elif 11 <= val % 100 <= 99:
+            return "many"
+        return "other"
+    else:
+        if val == 1:
+            return "one"
+        return "other"
+
+
+NUM_FORMATS = {
+    "en": (",", "."),
+    "de": (".", ","),
+    "fr": ("\xa0", ","),  # non-breaking space
+    "es": (".", ","),
+    "it": (".", ","),
+    "pt": (".", ","),
+    "ru": ("\xa0", ","),
+    "pl": ("\xa0", ","),
+    "uk": ("\xa0", ","),
+    "nl": (".", ","),
+    "da": (".", ","),
+    "sv": ("\xa0", ","),
+    "nb": ("\xa0", ","),
+    "nn": ("\xa0", ","),
+    "fi": ("\xa0", ","),
+    "tr": (".", ","),
+    "el": (".", ","),
+    "ar": (",", "."),
+    "ja": (",", "."),
+    "zh": (",", "."),
+    "ko": (",", "."),
+}
+
+
+def format_number(value: float | int, locale: str | None = None) -> str:
+    """Format a number according to locale-specific conventions."""
+    if locale:
+        locale = locale.strip()
+    lang = (locale or "").split("-")[0].split("_")[0].lower()
+    if not lang:
+        lang = "en"
+
+    thousand_sep, decimal_sep = NUM_FORMATS.get(lang, (",", "."))
+
+    if isinstance(value, int):
+        s = str(abs(value))
+        parts = []
+        while s:
+            parts.append(s[-3:])
+            s = s[:-3]
+        formatted_int = thousand_sep.join(reversed(parts))
+        return f"-{formatted_int}" if value < 0 else formatted_int
+    else:
+        val_str = str(value)
+        if "e" in val_str or "E" in val_str:
+            val_str = f"{value:.10f}".rstrip('0').rstrip('.')
+
+        if "." in val_str:
+            int_part, frac_part = val_str.split(".", 1)
+        else:
+            int_part, frac_part = val_str, ""
+
+        is_negative = int_part.startswith("-")
+        int_part = int_part.lstrip("-")
+
+        parts = []
+        while int_part:
+            parts.append(int_part[-3:])
+            int_part = int_part[:-3]
+        formatted_int = thousand_sep.join(reversed(parts)) or "0"
+
+        if is_negative:
+            formatted_int = f"-{formatted_int}"
+
+        if frac_part:
+            return f"{formatted_int}{decimal_sep}{frac_part}"
+        return formatted_int
+
+
+DATE_FORMATS = {
+    "en": "%m/%d/%Y",
+    "en-us": "%m/%d/%Y",
+    "en-gb": "%d/%m/%Y",
+    "de": "%d.%m.%Y",
+    "fr": "%d/%m/%Y",
+    "es": "%d/%m/%Y",
+    "it": "%d/%m/%Y",
+    "pt": "%d/%m/%Y",
+    "ru": "%d.%m.%Y",
+    "pl": "%d.%m.%Y",
+    "uk": "%d.%m.%Y",
+    "nl": "%d-%m-%Y",
+    "ja": "%Y/%m/%d",
+    "zh": "%Y/%m/%d",
+    "ko": "%Y-%m-%d",
+}
+
+
+def format_date(dt: datetime, locale: str | None = None, format_pattern: str | None = None) -> str:
+    """Format a datetime according to locale-specific conventions."""
+    if locale:
+        locale = locale.strip()
+    lang = (locale or "").split("-")[0].split("_")[0].lower()
+    if not lang:
+        lang = "en"
+
+    if not format_pattern:
+        full_loc = (locale or "").lower().replace("_", "-")
+        format_pattern = DATE_FORMATS.get(full_loc) or DATE_FORMATS.get(lang) or "%Y-%m-%d"
+
+    months_long = {
+        "en": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+        "de": ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+        "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"],
+        "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+        "ru": ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"],
+        "pt": ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"],
+        "pl": ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września", "października", "listopada", "grudnia"],
+    }
+
+    months_short = {
+        "en": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        "de": ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
+        "fr": ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."],
+        "es": ["ene.", "feb.", "mar.", "abr.", "may.", "jun.", "jul.", "ago.", "sept.", "oct.", "nov.", "dic."],
+        "ru": ["янв.", "февр.", "мар.", "апр.", "мая", "июн.", "июл.", "авг.", "сент.", "окт.", "нояб.", "дек."],
+        "pt": ["jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."],
+        "pl": ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"],
+    }
+
+    days_long = {
+        "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        "de": ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"],
+        "fr": ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"],
+        "es": ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"],
+        "ru": ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"],
+        "pt": ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"],
+        "pl": ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"],
+    }
+
+    days_short = {
+        "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        "de": ["Mon", "Die", "Mit", "Don", "Fre", "Sam", "Son"],
+        "fr": ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."],
+        "es": ["lun.", "mar.", "mié.", "jue.", "vie.", "sáb.", "dom."],
+        "ru": ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
+        "pt": ["seg.", "ter.", "qua.", "qui.", "sex.", "sáb.", "dom."],
+        "pl": ["pon.", "wt.", "śr.", "czw.", "pt.", "sob.", "ned."],
+    }
+
+    weekday_idx = dt.weekday()
+    month_idx = dt.month - 1
+
+    l_month = months_long.get(lang, months_long["en"])[month_idx]
+    s_month = months_short.get(lang, months_short["en"])[month_idx]
+    l_day = days_long.get(lang, days_long["en"])[weekday_idx]
+    s_day = days_short.get(lang, days_short["en"])[weekday_idx]
+
+    temp_pattern = format_pattern
+    replacements = []
+
+    if "%B" in temp_pattern:
+        temp_pattern = temp_pattern.replace("%B", "___LONG_MONTH___")
+        replacements.append(("___LONG_MONTH___", l_month))
+    if "%b" in temp_pattern:
+        temp_pattern = temp_pattern.replace("%b", "___SHORT_MONTH___")
+        replacements.append(("___SHORT_MONTH___", s_month))
+    if "%A" in temp_pattern:
+        temp_pattern = temp_pattern.replace("%A", "___LONG_DAY___")
+        replacements.append(("___LONG_DAY___", l_day))
+    if "%a" in temp_pattern:
+        temp_pattern = temp_pattern.replace("%a", "___SHORT_DAY___")
+        replacements.append(("___SHORT_DAY___", s_day))
+
+    res = dt.strftime(temp_pattern)
+    for token, value in replacements:
+        res = res.replace(token, value)
+
+    return res
