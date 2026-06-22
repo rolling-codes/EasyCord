@@ -165,7 +165,8 @@ async def test_hot_reload_loop_fires_on_mtime_change():
                         await bot._hot_reload_loop()
                     except asyncio.CancelledError:
                         pass
-
+                        # Expected: fake_sleep cancels the loop to end the test after tick processing.
+                        _ = None
     assert len(fired) == 1
     assert fired[0] is plugin
 
