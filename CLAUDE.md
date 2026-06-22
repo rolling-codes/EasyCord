@@ -11,6 +11,8 @@ pytest tests/test_middleware.py -v
 pytest tests/test_middleware.py::test_name -v
 python -m build --no-isolation   # plain `python -m build` needs a working venv module
 python scripts/check_release_metadata.py   # version consistency across pyproject/__init__/CHANGELOG
+python scripts/bump_version.py 5.50.0      # bump version across all tracked files
+pyright                                    # static type checking (pyrightconfig.json at root)
 ```
 
 `pytest-asyncio` with `asyncio_mode = "auto"` — no manual event loop setup needed.
@@ -21,6 +23,10 @@ The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easyco
 
 - [Architecture](context/architecture.md) — layers, mixins, module map
 - [Conventions](context/conventions.md) — naming rules, key invariants
+- [Hot-Reload Development](docs/hot-reload-development.md) — `bot.run(reload=True)`, `on_reload()` hook
+- [Middleware Patterns](docs/middleware-patterns.md) — composition, ordering, built-ins, testing
+- [Error Handling](docs/error-handling.md) — command error waterfall, per-command/plugin/global handlers
+- [Type Checking](docs/type-checking.md) — pyright config, discord.py gaps, plugin typing patterns
 
 ## Architecture quick-reference
 
@@ -34,7 +40,11 @@ The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easyco
 
 **AI orchestration** — `orchestrator.py` routes via `FallbackStrategy` (advances through providers on exhaustion, raises `IndexError` when all fail). AI providers are lazy-imported from `plugins/_ai_providers.py` via `easycord.__getattr__`. `ToolLimiter` methods (`check_limit`, `reset_user`, `reset_tool`) are async — always await them.
 
-**Command registration split** — `_command_callbacks.py` builds the actual callback wrappers; `_command_registration.py` handles option injection, choice population, and context-menu registration. Both are consumed by `_bot_commands.py`.
+**Command registration split** — `_command_callbacks.py` builds the actual callback wrappers; `_command_registration.py` handles option injection, choice population, and context-menu registration. Both are consumed by `_bot_commands.py`. Registration validates Discord constraints upfront: name ≤ 32 chars matching `[-_a-z0-9]`, description ≤ 100 chars, ≤ 25 options, ≤ 25 choices per option — violations raise `ValueError` before hitting the tree.
+
+**Extensibility** — `event_bus.py` exposes `EventBus` for async pub/sub between plugins (`.subscribe(event, callback)` / `.publish(event, **kwargs)`). `hooks.py` exposes `HookRegistry` with four built-in hooks: `before_command`, `after_command`, `on_plugin_load`, `on_plugin_unload`.
+
+**Deprecation** — `@deprecated(version, replacement)` and `@version_introduced(version)` in `easycord/decorators.py`. `@deprecated` emits `DeprecationWarning` at call time with a migration hint; both are exported from `easycord`.
 
 ## Testing
 
@@ -61,6 +71,16 @@ ctx = (
 plugin = MyPlugin.__new__(MyPlugin)
 plugin._bot = bot   # set _bot, NOT bot (bot is a property that raises if _bot is None)
 Plugin.__init__(plugin)
+
+# PluginTestSuite — base class that wires up bot + helpers automatically
+class TestMyPlugin(PluginTestSuite):
+    def setup_method(self):
+        super().setup_method()
+        self.plugin = self.make_plugin(MyPlugin)
+
+    async def test_something(self):
+        ctx = await self.invoke_command("mycommand")
+        self.assert_last_response(ctx, "expected text")
 ```
 
 Available invoke helpers: `invoke`, `invoke_autocomplete`, `invoke_component`, `invoke_modal`, `invoke_user_command`, `invoke_message_command`.
@@ -82,3 +102,6 @@ if isinstance(channel, SENDABLE_CHANNEL_TYPES):
 - `@ai_tool` requires an explicit `ToolSafety` annotation to register.
 - CI actions are pinned to `actions/checkout@v4` and `actions/setup-python@v5` — v6 does not exist.
 - `sync_commands()` raises `RuntimeError` on removals unless `confirm_removals=True` is passed explicitly.
+- `Plugin.on_reload()` fires on the **new** instance after a hot-reload swap, not the old one; `self.bot` is available when it fires. Only fires on success — never on failure.
+- `bot.run(reload=True)` is dev-only — the mtime watcher runs as a background task in `_background_tasks` and is cancelled by `close()`.
+- `_MixinBase` pattern — every `_bot_*.py` mixin uses `if TYPE_CHECKING: from ._bot_base import _BotBase; _MixinBase = _BotBase` so Pylance sees the full `Bot` surface without a runtime import cycle. Never set `_MixinBase = object` without the `TYPE_CHECKING` guard.

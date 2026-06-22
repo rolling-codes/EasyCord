@@ -4,41 +4,45 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 
-> A modern Discord bot framework for production bots. **No AI required.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add bundled plugins for features (moderation, roles, logging, leveling). Optionally add intelligent agents with multi-provider LLM support and permission-gated tool calling.
+> A production-grade Discord bot framework built on discord.py. Slash commands, events, components, modals, plugins, middleware, per-guild storage, localization, and optional AI orchestration — all with decorator-based APIs and no boilerplate. **AI is optional.** A fully-featured bot needs zero AI dependencies.
 
 ## Documentation
 
 | | |
 |---|---|
-| [Getting Started](docs/getting-started.md) | Install, write your first command, and add plugins |
-| [Interactions](docs/interactions.md) | Slash commands, context menus, components, and autocomplete |
-| [Command Sync](docs/command-sync.md) | Preview and debug Discord command registration |
-| [Dynamic Component Routing](docs/components-dynamic-routing.md) | Typed URL-style routes for buttons and selects |
-| [Plugin Authoring](docs/plugin-authoring.md) | Build reusable, distributable plugins |
-| [Developer Toolkit](docs/developer-toolkit.md) | CLI scaffolding, offline testing, and diagnostics |
+| [Getting Started](docs/getting-started.md) | Install, write your first command, add plugins, configure storage |
+| [Interactions](docs/interactions.md) | Slash commands, context menus, components, modals, and autocomplete |
+| [Command Sync](docs/command-sync.md) | Preview, diff, and apply Discord command registration |
+| [Dynamic Component Routing](docs/components-dynamic-routing.md) | Typed URL-style routes for buttons and select menus with TTL support |
+| [Middleware Patterns](docs/middleware-patterns.md) | Built-in guards, rate limiting, logging, and custom middleware |
+| [Error Handling](docs/error-handling.md) | Per-command, plugin-scoped, and global error handler waterfall |
+| [Plugin Authoring](docs/plugin-authoring.md) | Build, validate, and distribute reusable plugin packages |
+| [Developer Toolkit](docs/developer-toolkit.md) | CLI scaffolding, offline testing, interaction inspection, and diagnostics |
+| [Hot-Reload Development](docs/hot-reload-development.md) | Watch plugin files and reload code without restarting the bot |
+| [Type Checking](docs/type-checking.md) | Pyright configuration and common plugin type patterns |
 | [Examples](examples/) | Working bot code |
 
-## Start here
+---
 
-1. Install: `pip install easycord`
-2. Create: A bot with one slash command.
-3. Grow: Split features into plugins.
+## Installation
 
-### Architecture
-
-```text
-+----------------+      +-------------------+      +------------------+
-|   Discord.py   | <--> |  EasyCord (Bot)   | <--> | InteractionRegistry|
-+----------------+      +---------+---------+      +------------------+
-                                  |
-            +-----------+---------+---------+-----------+
-            |           |                   |           |
-      +-----+-----+ +---+-------+     +-----+-----+ +---+-------+
-      |  Plugins  | | Middleware|     | Localization| | Database  |
-      +-----------+ +-----------+     +-------------+ +-----------+
+```bash
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.49.0/easycord-5.49.0-py3-none-any.whl"
 ```
 
-### 5 Minute Quickstart
+Or clone and install locally:
+
+```bash
+git clone https://github.com/rolling-codes/EasyCord.git
+cd EasyCord
+pip install -e ".[dev]"
+```
+
+**Requirements:** Python 3.10+. The only runtime dependency is `discord.py>=2.7.1,<3`.
+
+---
+
+## Quickstart
 
 ```python
 from easycord import Bot
@@ -49,644 +53,896 @@ bot = Bot()
 async def ping(ctx):
     await ctx.respond("Pong!")
 
-bot.run("TOKEN")
+bot.run("YOUR_TOKEN")
 ```
 
-### Advanced Examples
+Save as `bot.py` and run it. `/ping` appears in Discord automatically.
 
-#### 1. Creating a Plugin
-```python
-from easycord import Plugin, slash
+---
 
-class Fun(Plugin):
-    @slash(description="Greets the user")
-    async def greet(self, ctx):
-        await ctx.respond(f"Hello {ctx.user.display_name}!")
-
-bot.add_plugin(Fun())
-```
-
-Reusable plugins can be scaffolded and checked with the Python-first authoring
-helpers:
-
-```python
-from pathlib import Path
-
-from easycord import create_package_plugin
-
-result = create_package_plugin(
-    name="fun",
-    target=Path("easycord-fun"),
-    author="EasyCord Developer",
-)
-```
-
-Generated plugin projects include a required manifest. Runnable bot scaffolds
-default to local storage with command sync disabled; generated tests use
-in-memory storage so they stay disposable. Package plugins are exposed through
-the `easycord.plugins` entry-point group. The CLI wrappers are
-`easycord plugin create`, `easycord plugin check`, and
-`easycord plugin discover`; see [plugin authoring docs](docs/plugin-authoring.md).
-
-#### 2. Components & Modals
-```python
-from easycord import component, modal
-
-@bot.component("my_button")
-async def on_button(ctx):
-    await ctx.respond("Button clicked!", ephemeral=True)
-
-@bot.modal("my_modal")
-async def on_modal(ctx, name: str):
-    await ctx.respond(f"Received: {name}")
-```
-
-#### 3. Testing with FakeContext
-```python
-from easycord.testing import FakeContext
-
-async def test_my_logic():
-    ctx = FakeContext.make()
-    await my_command(ctx)
-    ctx.assert_content("Expected response")
-```
-
-For more, see [examples/](examples/) and [docs/](docs/).
-Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
-
-Release links: [v5.49.0 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.49.0) · [Changelog](CHANGELOG.md)
-
-## New in v5.49.0 (Current Release)
-
-**TranslatePlugin** — `/translate` slash command backed by Google Translate (no API key required):
-- `text` — content to translate
-- `languages` — `"French to English"`, `"auto to Spanish"`, or blank to translate into the invoking user's Discord locale
-
-**Google Translate → LocalizationManager:**
-- `make_google_auto_translator()` for `LocalizationManager(auto_translator=...)` — missing-key lookups are translated on-the-fly and cached
-- `GoogleTranslateTranslator(app_commands.Translator)` — discord.py translator protocol; after `bot.use_google_translate()` + `sync_commands()`, Discord shows localized command names per locale
-
-**Localized command routing:** `locale_str()` wrapping on all registered command names; French users see `/traduire`, German `/übersetzen`, etc. — all route to the same handler.
-
-## Previous: v5.46.0
-
-**Pylance type fixes:**
-- `context_builder.py`: safe `getattr` for `ContextMenu.description` — ContextMenu commands don't have a `description` attribute.
-- `i18n.py`: corrected `_metrics` annotation to `dict[str, Any]` and `_chain_cache` key type to `tuple`.
-- `plugins/invite_tracker.py`: `invite.uses or 0` (was `int | None`); `isinstance` narrowing before `channel.send`.
-- `plugins/member_logging.py`: `isinstance` narrowing before `channel.send`.
-
-**Test expansion (+110 tests, total 744):**
-- Stress/concurrency tests for `rate_limit`, `ConversationMemory`, `LocalizationManager`.
-- Unit tests for 8 previously-untested plugins: starboard, suggestions, reaction_roles, moderation, polls, tags, invite_tracker, member_logging.
-- Unit tests for zero-coverage core modules: `EmbedCard`, formatters, `ContextBuilder`, `SlashGroup`, `SecurityManager`, `FrameworkManager`, `AuditLog`.
-
-## Previous: v5.43.0
-
-**Plugin authoring:**
-- Added Python-first plugin creator helpers for in-project plugins and reusable package plugins.
-- Added required plugin manifests, project validation, and entry-point discovery through the `easycord.plugins` group.
-- Added thin CLI wrappers: `easycord plugin create`, `easycord plugin check`, and `easycord plugin discover`.
-- Documented local-safe scaffold defaults: generated bot code disables command sync and uses local storage by default, while generated tests use memory storage.
-
-## Previous: v5.40.2
-
-**Patch fixes:**
-- Added a release metadata checker that keeps the package version, README badge, release links, changelog heading, and expected wheel/source asset names in sync.
-- Wired the metadata checker into GitHub Actions so release drift fails pull requests before packaging.
-- Cleaned the source distribution manifest so published artifacts include runtime source, docs, examples, and context notes while excluding local automation, release prep folders, tests, caches, and contributor-only files.
-
-## Previous: v5.40.1
-
-**Patch fixes:**
-- Updated EasyCord to require `discord.py>=2.7.1,<3` and verified current app-command contexts, installs, entitlements, and locale metadata.
-- Added non-SQL memory database startup paths via `db_backend="memory"`, `database=MemoryDatabase()`, and `EASYCORD_DB_BACKEND=memory`.
-- Updated generated starter projects to use memory storage for local tests and ephemeral bots.
-- Repaired strict ResourceWarning checks and the i18n performance regression workflow.
-- Validated the release on Python 3.11.9 for GitHub Actions parity.
-
-**Developer experience:**
-- Stabilized JSON output contracts for `easycord doctor --json`, `easycord inspect --json`, and `easycord sync-plan --json`.
-- Added `easycord new --template minimal|plugin|ai|database`; the default remains the v5.3 plugin scaffold.
-- Added actionable `easycord doctor` diagnostics with stable `code`, `severity`, and `fix` fields.
-- Added `FakeContextBuilder` for fluent offline command test setup.
-- Added offline AI tool safety audits with `easycord audit-tools`, `audit_tool_registry(...)`, and `format_tool_audit(...)`.
-- Added `easycord new --list-templates`, `easycord audit-tools --fail-on-warnings`, and role-aware `FakeContextBuilder.with_roles(...)`.
-
-See [`docs/developer-toolkit.md`](docs/developer-toolkit.md).
-
-## Previous: v5.3.0
-
-**Developer toolkit:**
-- Added a dependency-free `easycord` CLI with `easycord new`, `easycord inspect`, `easycord sync-plan`, `easycord doctor`, and `easycord test-template`.
-- `easycord new <name>` scaffolds a runnable bot project with a plugin, `.env.example`, project metadata, and a starter pytest.
-- `easycord doctor [module:bot]` checks the local Python/runtime setup, token configuration, and optional bot imports before you run the bot.
-- Added text formatters: `format_interaction_inventory(...)`, `format_sync_plan(...)`, and `format_doctor_report(...)` for CLI output and app diagnostics.
-- Added offline testing helpers: `invoke_user_command(...)`, `invoke_message_command(...)`, `invoke_component(...)`, and `invoke_modal(...)`.
-
-See [`docs/developer-toolkit.md`](docs/developer-toolkit.md).
-
-## Previous: v5.2.1
-
-**Interaction architecture:**
-- `InteractionRegistry` is now the authoritative EasyCord inventory for slash commands, context menus, components, modals, and autocomplete callbacks while `discord.app_commands.CommandTree` remains the Discord sync backend.
-- Added `@slash_command` as a public compatibility alias for `@slash`.
-- Added `bot.inspect_interactions()`, `bot.plan_command_sync(...)`, and `bot.sync_commands(..., dry_run=True)` for debugging registrations and previewing sync changes before touching Discord.
-- Added dynamic component routes such as `@component("ticket:close:{ticket_id:int}")` with typed variables, TTL metadata, and collision checks.
-
-**Developer debugging & Telemetry:**
-- Added a global `/health` command with real-time telemetry: API latency, event loop latency (congestion monitoring), resident memory usage (via `psutil`), and active thread counts.
-- Added `@autocomplete("option", command="name")` and `easycord.testing.invoke_autocomplete(...)`.
-- Added option validators: `Duration`, `URL`, `Snowflake`, `Range`, `Regex`, and `ChoiceSet`.
-- Added task supervision snapshots via `bot.task_statuses()` plus optional task restart/backoff metadata.
-
-See [`docs/interactions.md`](docs/interactions.md), [`docs/command-sync.md`](docs/command-sync.md), and [`docs/components-dynamic-routing.md`](docs/components-dynamic-routing.md).
-
-## Previous: v5.1.2
-
-**Bug fixes:**
-- `BotConfig.build_bot()` now honors `db_backend="memory"` and uses `guild_id` for guild-scoped command sync.
-- `BotConfig.from_file()` now applies config precedence consistently: environment → file → explicit overrides.
-- Added `ctx.send(...)` as a compatibility alias for `ctx.respond(...)` so bundled plugins and discord.py-style code work as expected.
-- Fixed user-install command contexts for current `discord.py` versions and completed public exports for `command_error` and `describe`.
-
-**Developer experience:**
-- Added `BotConfig` for environment/file-driven startup.
-- Added `easycord.testing.FakeContext` and `invoke()` for command tests without Discord.
-- Added reusable command guards: `@cooldown`, `@require_permissions`, `@install_type`, and `@premium_required`.
-- Added plugin-scoped `Plugin.on_error()` plus context helpers for app context, premium entitlements, forwarding, silent replies, and suppressing embeds.
-
-**Docs & packaging:**
-- Source distributions now include docs, examples, context notes, and agent notes.
-- Documentation now describes the starter built-in plugin set and explicit plugin loading with `bot.add_plugin(...)`.
-
-## Previous: v5.1.1
-
-**Bug fixes:**
-- Fixed `LevelsPlugin._award_xp` cooldown sentinel — default of `0.0` caused the first-message XP award to be silently blocked on freshly-booted CI runners and any host where `time.monotonic()` starts below `cooldown_seconds`. Changed to `float("-inf")` so a user who has never sent a message always passes the cooldown gate.
-
-**CI & infra:**
-- Corrected GitHub Actions versions across all three workflows — `actions/checkout@v6` and `actions/setup-python@v6` do not exist and resolved unpredictably. Pinned to `actions/checkout@v4` and `actions/setup-python@v5`.
-
-## Previous: v5.1.0
-
-**Bug fixes:**
-- Fixed `LevelsPlugin` role reward assignment — `isinstance(author, discord.Member)` returned `False` on Python 3.11 with specced mocks and in some runtime edge cases; replaced with `hasattr(author, "add_roles")` which is version-agnostic and semantically correct.
-- Fixed orchestrator empty-string output — `result.output or result.error` would fall through to the error branch when the AI returned an empty string (a valid response); now uses `result.output if result.output is not None else result.error`.
-- Fixed `ToolRegistry` role check crash in DMs — when `allowed_roles` was set but `require_guild=False`, accessing `ctx.member.roles` in a DM context raised `AttributeError`; now safely fetches the member from the guild or returns a permission-denied message.
-
-**New:**
-- Added `OpenClawPlugin` — autonomous agent runner that lets the bot execute multi-step AI tasks on a schedule or on demand, with per-guild task history and slash commands (`/openclaw_task`, `/openclaw_stop`).
-
-**CI & infra:**
-- Added `test_levels_plugin.py` and `test_openclaw.py` — 411 tests now passing.
-- Added `CLAUDE.md`, `AGENTS.md`, and `context/` architecture and conventions docs.
-
-## Previous: v5.0.0
-
-**Bug fixes:**
-- Fixed `FallbackStrategy.select()` — the fallback chain was broken: `min(attempt, len-1)` caused it to pin to the last provider instead of advancing through the list. All configured providers are now tried in order.
-- Fixed `ctx.is_admin` — was being called as `ctx.is_admin()` (method call) in the tool registry, meaning the permission check always passed because a bound method is truthy. Now correctly reads the `@property`.
-- Fixed `ToolLimiter` race condition — `check_limit` and `reset_*` now hold an `asyncio.Lock`, preventing concurrent commands from bypassing rate limits.
-- Fixed `asyncio.get_event_loop()` deprecation across all 9 AI provider implementations — replaced with `asyncio.get_running_loop()`.
-- Fixed unused `import discord` in `plugins/tags.py`.
-
-**Improvements:**
-- `ToolRegistry.can_execute` is now `async` so the rate-limit check is a proper awaited call instead of a sync call on an async method.
-- Provider failures in the orchestrator are now logged (`WARNING`) instead of silently swallowed, making debugging provider issues possible.
-- `AnthropicProvider` default model updated from `claude-3-5-sonnet-20241022` to `claude-sonnet-4-6`.
-- All 9 AI provider classes and the `AIProvider` base class are now accessible directly from `easycord` via lazy import.
-- `easycord.__version__` is now set to `"5.0.0"`.
-- Python 3.13 added to supported classifiers.
-- Package status promoted from `Beta` to `Production/Stable`.
-
-**Earlier in v4.5.0-beta.3:**
-- Platform-grade localization infrastructure: locale auto-detection with intelligent fallback chains (user → guild → system → default), regional fallback (pt-BR → pt → en-US), three diagnostic modes (SILENT/WARN/STRICT), translation completeness validation, optional metrics tracking.
-
-## New in v4.2
-
-### Easy Paginator
-
-Create paginated help/results in one line:
-
-```python
-from easycord import Paginator
-
-@bot.slash(description="Show commands")
-async def help(ctx):
-    lines = [f"/cmd{i}" for i in range(1, 37)]
-    await Paginator.from_lines(lines, per_page=10, title="Command List").send(ctx)
-```
-
-Or paginate existing embeds:
-
-```python
-from easycord import Paginator
-
-embeds = [embed_page_1, embed_page_2, embed_page_3]
-await Paginator.from_embeds(embeds).send(ctx)
-```
-
-### Smart Embeds
-
-Use status templates for common bot responses:
-
-```python
-from easycord import EasyEmbed
-
-await ctx.respond(embed=EasyEmbed.success("Operation complete!"))
-await ctx.respond(embed=EasyEmbed.error("Something went wrong."))
-await ctx.respond(embed=EasyEmbed.info("Update available."))
-await ctx.respond(embed=EasyEmbed.warning("Double-check this setting."))
-```
-
-### Faster Bot Bootstrap
-
-Start with a safer default stack in one line:
-
-```python
-from easycord import FrameworkManager
-
-bot = (
-    FrameworkManager.build_bot(
-        builtin_plugins=True,
-        guild_only=True,
-    )
-)
-```
-
-## Installation
-
-### From GitHub (via pip)
+## Start a project with the CLI
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.49.0/easycord-5.49.0-py3-none-any.whl"
-```
-
-### Clone and install locally
-
-```bash
-git clone https://github.com/rolling-codes/EasyCord.git
-cd EasyCord
-pip install .
-```
-
-### With dev dependencies
-
-```bash
+easycord new my-bot --template plugin
+cd my-bot
 pip install -e ".[dev]"
+pytest
+easycord doctor bot:bot
 ```
 
-## Config-driven startup
+The generated project includes `bot.py`, one example plugin, `.env.example`, `pyproject.toml`, and a starter pytest file. Four templates are available:
 
-Use `BotConfig` to load tokens, database settings, logging, and development
-guild sync from environment variables or JSON:
+| Template | What it generates |
+|---|---|
+| `minimal` | Single `bot.py` with one slash command and one command test |
+| `plugin` | Plugin-oriented project with a memory database — **the default** |
+| `ai` | Plugin scaffold with an AI-provider placeholder command |
+| `database` | Plugin scaffold with SQLite app setup and in-memory tests |
+
+Run `easycord new --list-templates` to see all options.
+
+---
+
+## Architecture
+
+```
++----------------+      +-------------------+      +----------------------+
+|   Discord.py   | <--> |  EasyCord (Bot)   | <--> | InteractionRegistry  |
++----------------+      +---------+---------+      +----------------------+
+                                  |
+          +-----------+-----------+-----------+-----------+
+          |           |           |           |           |
+    +-----+-----+ +---+-------+ +-+--------+ +-+-------+ +-----------+
+    |  Plugins  | | Middleware| | Database | |  i18n   | | AI Layer  |
+    +-----------+ +-----------+ +----------+ +---------+ +-----------+
+```
+
+`InteractionRegistry` is the authoritative EasyCord inventory. `discord.app_commands.CommandTree` remains the Discord sync backend.
+
+---
+
+## Commands and Interactions
+
+### Slash commands
 
 ```python
-from easycord import BotConfig
+from easycord import Bot, slash_command
 
-cfg = BotConfig.from_env()
-bot = cfg.build_bot()
-bot.run(cfg.token)
+bot = Bot()
+
+@bot.slash(description="Add two numbers")
+async def add(ctx, a: int, b: int):
+    await ctx.respond(str(a + b))
 ```
 
-`DISCORD_GUILD_ID` maps to `guild_id` and makes auto-sync target that one
-guild. `db_backend="memory"` stays in-memory; `db_backend="sqlite"` uses
-`db_path`.
+`@slash` and `@slash_command` are identical — use either. Parameters are typed via Python annotations and rendered as Discord option types automatically.
 
-## Command guards and context helpers
+**Decorator options:**
 
-Declare common command policies with decorators:
+| Option | Type | Effect |
+|---|---|---|
+| `name` | `str` | Command name; defaults to the function name |
+| `description` | `str` | Shown in the Discord UI — required |
+| `guild_id` | `int` | Register to one guild (instant); `None` = global (up to 1 hour) |
+| `guild_only` | `bool` | Reject DM invocations with an ephemeral message |
+| `ephemeral` | `bool` | Force all responses from this command to be ephemeral |
+| `permissions` | `list[str]` | `discord.Permissions` attribute names the invoker must hold |
+| `cooldown` | `float` | Per-user cooldown in seconds |
+| `autocomplete` | `dict` | Live suggestion callbacks keyed to parameter names |
+| `choices` | `dict` | Fixed dropdown values keyed to parameter names |
+
+### Command guards
+
+Stack reusable guards with decorators:
 
 ```python
 from easycord import cooldown, install_type, premium_required, require_permissions, slash_command
 
-@slash_command(description="Purge messages")
+@slash_command(description="Clean up messages")
 @require_permissions("manage_messages")
 @cooldown(rate=2, per=30, bucket="guild")
-async def purge(ctx, count: int = 10):
-    await ctx.send(f"Purged {count} messages.", silent=True)
+async def cleanup(ctx, count: int = 10):
+    await ctx.send(f"Cleaned {count} messages.", silent=True)
 
-@slash_command(description="Premium report")
+@slash_command(description="Premium-only feature")
 @install_type(guild=True, user=True)
 @premium_required
-async def report(ctx):
-    await ctx.respond("Premium report ready.", suppress_embeds=True)
+async def exclusive(ctx):
+    await ctx.respond("Thanks for supporting the bot!", suppress_embeds=True)
 ```
 
-Use `ctx.app_context` to inspect where a user-installable command ran,
-`ctx.entitlements` for active Discord premium entitlements, `ctx.forward(...)`
-to forward a message, and `ctx.send(...)` as an alias for `ctx.respond(...)`.
-Built-in command cooldowns are process-local and in-memory; use external
-coordination if you need cooldowns shared across shards or multiple bot
-processes.
+- `@require_permissions(*perms)` — blocks the command if the invoker lacks any named permission.
+- `@cooldown(rate, per, bucket)` — per-user or per-guild rate limit stored in process memory.
+- `@install_type(guild, user)` — restricts where a user-installable command appears.
+- `@premium_required` — blocks the command unless the invoker has an active Discord premium entitlement.
 
-Plugins can override `async def on_error(self, ctx, exc)` for plugin-scoped
-error handling. Per-command `@command_error("name")` handlers still run first;
-the global `bot.on_error` handler runs only when neither handles the exception.
-
-## Testing commands
-
-Use `easycord.testing` to test commands without a live Discord connection:
+### Context menus
 
 ```python
-from easycord.testing import FakeContext, invoke
+@bot.user_command(name="View Profile")
+async def profile(ctx, member):
+    await ctx.respond(f"{member.display_name} joined {member.guild.name}.")
 
-async def test_command(bot):
-    ctx = await invoke(bot, "ping")
-    assert ctx.last_response == "Pong!"
-
-async def test_handler_directly():
-    ctx = FakeContext.make(is_admin=True)
-    await ctx.respond("ok")
-    ctx.assert_content("ok")
+@bot.message_command(name="Quote This")
+async def quote(ctx, message):
+    await ctx.respond(f'"{message.content}" — {message.author.display_name}')
 ```
 
-## Localization (multi-language support)
-
-Build bots that speak your server's language:
+### Buttons, select menus, and modals
 
 ```python
-# Define translations in a locale file (en.json)
-{
-  "commands": {
-    "ping": {
-      "response": "Pong!"
-    }
-  }
-}
+from easycord import component, modal
 
-# Use in your command
-@bot.slash()
-async def ping(ctx):
-    await ctx.respond(ctx.t("commands.ping.response"))
+@bot.component("approve_btn")
+async def on_approve(ctx):
+    await ctx.respond("Approved!", ephemeral=True)
+
+@bot.modal("feedback_form")
+async def on_feedback(ctx, message: str):
+    await ctx.respond(f"Feedback received: {message}")
 ```
 
-Initialize the bot with localization:
+### Dynamic component routing
+
+Route component interactions using typed URL-style patterns with collision checking:
+
+```python
+from easycord import Plugin, component
+
+class TicketPlugin(Plugin):
+    @component("ticket:close:{ticket_id:int}")
+    async def close_ticket(self, ctx, ticket_id: int):
+        await ctx.respond(f"Closing ticket {ticket_id}.", ephemeral=True)
+
+    @component("poll:vote:{poll_id:int}:{choice_id:int}")
+    async def record_vote(self, ctx, poll_id: int, choice_id: int):
+        await ctx.respond("Vote recorded.", ephemeral=True)
+
+    @component("wizard:{session_id:snowflake}:next", ttl=300)
+    async def wizard_next(self, ctx, session_id: int):
+        ...
+```
+
+Supported route types: `str`, `int`, `snowflake`. Routes with `ttl=` expire without dispatching after their deadline. Routes without `ttl` are persistent and survive restarts.
+
+### Autocomplete
+
+```python
+from easycord import Plugin, autocomplete, slash_command
+
+class FruitPlugin(Plugin):
+    @autocomplete("fruit", command="pick")
+    async def fruit_choices(self, ctx, current: str, options: dict):
+        return [name for name in ["apple", "banana", "cherry"] if current.lower() in name]
+
+    @slash_command(description="Pick a fruit")
+    async def pick(self, ctx, fruit: str):
+        await ctx.respond(fruit)
+```
+
+### Option validators
+
+Validate slash command parameters before the handler runs:
+
+```python
+from easycord.validators import Duration, URL, Snowflake, Range, Regex, ChoiceSet
+```
+
+- `Duration` — parses human-readable durations like `"2h30m"` into seconds.
+- `URL` — validates and normalizes a URL string.
+- `Snowflake` — validates a Discord snowflake ID.
+- `Range` — enforces a numeric min/max range.
+- `Regex` — matches input against a pattern.
+- `ChoiceSet` — enforces membership in a fixed set of strings.
+
+`ValidationError` is raised on failure. Call `exc.user_message(ctx)` for the localized string.
+
+---
+
+## Plugins
+
+A plugin groups related commands, event handlers, and background tasks into a single reloadable unit with lifecycle hooks.
+
+```python
+from easycord import Bot, Plugin, on, slash, task
+
+class GreetPlugin(Plugin):
+    async def on_load(self):
+        print("GreetPlugin loaded")
+
+    async def on_unload(self):
+        print("GreetPlugin unloaded")
+
+    @slash(description="Say hello")
+    async def hello(self, ctx):
+        await ctx.respond(f"Hello, {ctx.user.display_name}!")
+
+    @on("member_join")
+    async def welcome(self, member):
+        if channel := member.guild.system_channel:
+            await channel.send(f"Welcome, {member.mention}!")
+
+    @task(minutes=30)
+    async def periodic_cleanup(self):
+        ...  # runs every 30 minutes, starts on load, stops on unload
+
+bot = Bot()
+bot.add_plugin(GreetPlugin())
+bot.run("YOUR_TOKEN")
+```
+
+Lifecycle hooks:
+- `on_load()` — runs when the plugin is registered with `bot.add_plugin()`.
+- `on_unload()` — runs when the plugin is removed with `bot.remove_plugin()`.
+- `on_reload()` — runs after a successful hot-reload (see [hot-reload-development.md](docs/hot-reload-development.md)).
+- `on_error(ctx, exc)` — catches unhandled exceptions from any command in the plugin.
+
+### Bundled first-party plugins
+
+Load the starter set with one call:
+
+```python
+bot = Bot(load_builtin_plugins=True)   # loads WelcomePlugin, TagsPlugin, PollsPlugin, LevelsPlugin
+```
+
+Or load them selectively:
+
+```python
+from easycord.plugins import (
+    LevelsPlugin,
+    ModerationPlugin,
+    PollsPlugin,
+    StarboardPlugin,
+    TagsPlugin,
+    WelcomePlugin,
+    InviteTrackerPlugin,
+    ReactionRolesPlugin,
+    MemberLoggingPlugin,
+    SuggestionsPlugin,
+    OpenClaudePlugin,
+    TranslatePlugin,
+)
+
+bot.add_plugin(LevelsPlugin(xp_per_message=15, cooldown_seconds=45))
+bot.add_plugin(ModerationPlugin())
+bot.add_plugin(PollsPlugin())
+bot.add_plugin(StarboardPlugin())
+bot.add_plugin(TagsPlugin())
+bot.add_plugin(WelcomePlugin())
+bot.add_plugin(InviteTrackerPlugin())
+bot.add_plugin(ReactionRolesPlugin())
+bot.add_plugin(MemberLoggingPlugin())
+bot.add_plugin(SuggestionsPlugin())
+bot.add_plugin(TranslatePlugin())         # /translate with Google Translate, no API key
+bot.add_plugin(OpenClaudePlugin(api_key="sk-ant-..."))  # /ask backed by Claude
+```
+
+### Hot-reload during development
+
+```python
+import os
+bot.run(os.environ["DISCORD_TOKEN"], reload=os.environ.get("ENV") == "development")
+```
+
+When a plugin file changes on disk, EasyCord calls `importlib.reload()`, swaps the instance, and calls `on_reload()`. Syntax errors keep the old plugin running; the next successful save retries automatically.
+
+---
+
+## Middleware
+
+Middleware intercepts every slash command before it reaches the handler. Each layer receives `ctx` and a `proceed()` coroutine. Call `proceed()` to continue; skip it to block.
+
+```python
+bot.use(catch_errors())
+bot.use(guild_only())
+bot.use(admin_only())
+bot.use(rate_limit(limit=5, window=10.0))
+bot.use(log_middleware())
+```
+
+**Recommended order:** `catch_errors` first (outermost), then access gates, then rate limiting, then logging.
+
+### Built-in middleware
+
+| Factory | Blocks when… |
+|---|---|
+| `guild_only()` | Command is invoked in a DM |
+| `dm_only()` | Command is invoked inside a guild |
+| `admin_only(message=None)` | Invoker lacks the `administrator` permission |
+| `allowed_roles(*role_ids, message=None)` | Invoker holds none of the given role IDs |
+| `has_permission(*perms, message=None)` | Invoker lacks any of the named permissions |
+| `channel_only(*channel_ids, message=None)` | Command is invoked outside the specified channels |
+| `boost_only(message=None)` | Invoker is not currently boosting the server |
+| `rate_limit(limit=5, window=10.0)` | User exceeds `limit` calls within `window` seconds |
+| `log_middleware(level, fmt)` | Never — logs every invocation and always proceeds |
+| `catch_errors(message=None)` | Never — catches exceptions and sends an ephemeral reply |
+
+### Custom middleware
+
+```python
+from easycord.middleware import MiddlewareFn
+
+def require_prefix(prefix: str) -> MiddlewareFn:
+    async def handler(ctx, proceed):
+        if not ctx.user.name.startswith(prefix):
+            await ctx.respond(f"Only users whose name starts with '{prefix}' can use this.", ephemeral=True)
+            return
+        await proceed()
+    return handler
+
+bot.use(require_prefix("dev_"))
+```
+
+---
+
+## Error Handling
+
+EasyCord walks a waterfall and stops at the first registered handler:
+
+```
+1. @command_error("name")   — per-command handler on the plugin
+2. Plugin.on_error()        — plugin-scoped override
+3. @bot.on_error            — global bot-level handler
+4. Framework fallback       — re-raises for slash commands; logs for tasks and components
+```
+
+```python
+from easycord import Plugin, slash, command_error
+
+class MathPlugin(Plugin):
+    @slash(description="Divide two numbers")
+    async def divide(self, ctx, a: int, b: int):
+        await ctx.respond(str(a // b))
+
+    @command_error("divide")
+    async def divide_error(self, ctx, exc):
+        if isinstance(exc, ZeroDivisionError):
+            await ctx.respond("Cannot divide by zero.", ephemeral=True)
+        else:
+            await ctx.respond("Math failed. Try again.", ephemeral=True)
+
+    async def on_error(self, ctx, exc):
+        # catches any command in this plugin not handled by @command_error
+        await ctx.respond("Something went wrong.", ephemeral=True)
+
+@bot.on_error
+async def global_handler(ctx, exc):
+    # ctx is None for task-originated errors
+    if ctx is not None:
+        await ctx.respond("An unexpected error occurred.", ephemeral=True)
+```
+
+See [error-handling.md](docs/error-handling.md) for the full guide including common exceptions and testing patterns.
+
+---
+
+## Storage
+
+### Guild-scoped key-value store
+
+```python
+from easycord import ServerConfigStore
+
+store = ServerConfigStore()
+await store.set(ctx.guild.id, "welcome_channel", channel_id)
+value = await store.get(ctx.guild.id, "welcome_channel")
+```
+
+### SQLite database
+
+```python
+from easycord import Bot, SQLiteDatabase
+
+bot = Bot(database=SQLiteDatabase(path="data/bot.db"))
+await bot.db.set(guild_id, "key", {"any": "json_value"})
+value = await bot.db.get(guild_id, "key", default=None)
+```
+
+### Memory database (for tests and disposable bots)
+
+```python
+bot = Bot(db_backend="memory")
+# or
+from easycord import MemoryDatabase
+bot = Bot(database=MemoryDatabase())
+# or
+EASYCORD_DB_BACKEND=memory python bot.py
+```
+
+---
+
+## Config-driven startup
+
+```python
+from easycord import BotConfig
+
+cfg = BotConfig.from_env()   # reads DISCORD_TOKEN, DISCORD_GUILD_ID, db_backend, etc.
+bot = cfg.build_bot()
+bot.run(cfg.token)
+```
+
+JSON files use the same field names: `token`, `guild_id`, `db_backend`, `db_path`, `auto_sync`, `log_level`, `extra`. Config precedence: environment → file → explicit keyword overrides.
+
+---
+
+## Localization
 
 ```python
 from easycord import Bot, LocalizationManager
 
 locales = LocalizationManager()
-locales.register("en", "locales/en.json")
-locales.register("es", "locales/es.json")
+locales.register("en-US", "locales/en.json")
+locales.register("es-ES", "locales/es.json")
 
-bot = Bot(localization=locales, default_locale="en")
+bot = Bot(localization=locales, default_locale="en-US")
+
+@bot.slash(description="Ping")
+async def ping(ctx):
+    await ctx.respond(ctx.t("commands.ping.response", default="Pong!"))
 ```
 
-Translations fallback gracefully: user locale → guild locale → default locale → English.
+Locale resolution order: user locale → guild locale → default locale → English. Missing keys fall back gracefully at every step.
 
-## Optional: AI Integration
-
-EasyCord core works great without AI. If you want intelligent agents, add them optionally.
-
-### Simple AI assistant (ask Claude)
+**Google Translate auto-translation** (no API key required):
 
 ```python
-from easycord import Bot
+from easycord import make_google_auto_translator
+
+locales = LocalizationManager(auto_translator=make_google_auto_translator())
+```
+
+Missing-key lookups are translated on-the-fly and cached. After `bot.use_google_translate()` + `sync_commands()`, Discord shows localized command names per locale — French users see `/traduire`, German users see `/übersetzen` — all routed to the same handler.
+
+**TranslatePlugin** adds a `/translate` slash command backed by Google Translate:
+
+```python
+from easycord.plugins import TranslatePlugin
+
+bot.add_plugin(TranslatePlugin())
+# Members use: /translate text:"Hello" languages:"English to French"
+# or:          /translate text:"Hola"  (auto-detects language, translates to invoker's Discord locale)
+```
+
+---
+
+## Testing
+
+Test commands without a live Discord connection:
+
+```python
+from easycord.testing import (
+    FakeContext,
+    FakeContextBuilder,
+    invoke,
+    invoke_autocomplete,
+    invoke_component,
+    invoke_message_command,
+    invoke_modal,
+    invoke_user_command,
+)
+
+async def test_ping(bot):
+    ctx = await invoke(bot, "ping")
+    assert ctx.last_response == "Pong!"
+
+async def test_user_command(bot):
+    ctx = await invoke_user_command(bot, "View Profile", target_id=42)
+    ctx.assert_contains("profile")
+
+async def test_component(bot):
+    ctx = await invoke_component(bot, "ticket:close:7")
+    ctx.assert_content("Closing ticket 7.")
+
+async def test_modal(bot):
+    ctx = await invoke_modal(bot, "feedback_form", message="Great bot")
+    ctx.assert_contains("received")
+
+async def test_autocomplete(bot):
+    choices = await invoke_autocomplete(bot, "pick", "fruit", "ap")
+    assert "apple" in choices
+```
+
+Build a richer context with `FakeContextBuilder`:
+
+```python
+ctx = (
+    FakeContextBuilder()
+    .with_user(42, display_name="Ada")
+    .in_guild(100, name="Test Guild")
+    .as_admin()
+    .with_permissions(manage_messages=True)
+    .with_roles(123456789)
+    .with_locale("en-US", guild_locale="en-GB")
+    .build()
+)
+```
+
+---
+
+## AI Integration (optional)
+
+EasyCord works without AI. Add AI features as plugins when needed.
+
+### Quick AI assistant
+
+```python
 from easycord.plugins import OpenClaudePlugin
 
-bot = Bot()
-bot.add_plugin(OpenClaudePlugin(api_key="sk-ant-..."))  # or ANTHROPIC_API_KEY env var
-
-bot.run("YOUR_TOKEN")
+bot.add_plugin(OpenClaudePlugin(api_key="sk-ant-..."))
+# Members use: /ask "your question"
+# Responses are rate-limited per user and truncated to Discord's 2000-character limit.
 ```
 
-Members use `/ask "your question"` to query Claude API. Responses are automatically truncated to Discord's 2000-char limit, requests are rate limited per user, and the waiting message can be localized with `openclaude.thinking`.
-
-For custom commands, configure a shared provider and call it through context:
+### 9 supported LLM providers
 
 ```python
-from easycord.plugins import OpenAIProvider
+from easycord.plugins import (
+    AnthropicProvider,    # Claude (claude-sonnet-4-6 default)
+    OpenAIProvider,       # GPT-4o and others
+    GeminiProvider,       # Google Gemini
+    GroqProvider,         # Groq (fast inference)
+    MistralProvider,      # Mistral AI
+    HuggingFaceProvider,  # HuggingFace Inference API
+    TogetherProvider,     # Together.ai
+    OllamaProvider,       # Local Ollama models
+    LiteLLMProvider,      # LiteLLM proxy (routes to any backend)
+)
+```
 
-bot = Bot(ai_provider=OpenAIProvider(api_key="sk-..."))
+### Multi-provider orchestration with fallback chains
 
-@bot.slash(description="Ask AI")
+```python
+from easycord import Orchestrator, FallbackStrategy, RunContext
+
+orchestrator = Orchestrator(
+    strategy=FallbackStrategy([
+        AnthropicProvider(),   # tried first
+        GroqProvider(),        # tried if Anthropic fails
+        OpenAIProvider(),      # tried if Groq fails
+    ]),
+    tools=bot.tool_registry,
+)
+
+@bot.slash(description="Ask AI with tool access")
 async def ask(ctx, prompt: str):
-    response = await ctx.ai(prompt, model="gpt-4o")
-    await ctx.respond(response[:2000])
+    await ctx.defer()
+    result = await orchestrator.run(
+        RunContext(
+            messages=[{"role": "user", "content": prompt}],
+            ctx=ctx,
+            max_steps=5,    # max tool calls before returning a final answer
+            timeout=30.0,   # seconds per tool call
+        )
+    )
+    await ctx.respond(result.text[:2000])
 ```
 
-**Setup:** Install `anthropic` SDK and set `ANTHROPIC_API_KEY` environment variable.
+The orchestrator:
+- **Selects providers** by trying the best first and falling back if it fails.
+- **Detects tool calls** when the AI requests a function.
+- **Executes tools** with permission checks, timeouts, and exception handling.
+- **Loops** by feeding tool results back to the AI until it returns a final response.
+- **Enforces constraints** — admin-only, role-gated, and user-allowlisted tools are checked at each step.
 
-See the AI Orchestration section below for multi-provider examples.
+### AI tool registration
 
-### Advanced: AI Tool Registration (function calling)
-
-Let AI safely call into your bot via `@ai_tool` decorator:
+Expose bot functions to the AI with `@ai_tool`:
 
 ```python
+import discord
 from easycord import Plugin, ai_tool, ToolSafety
 from datetime import timedelta
 
 class ModToolsPlugin(Plugin):
-    @ai_tool(description="Check if user is a member of the server")
-    async def is_member(self, ctx, user_id: int):
+    @ai_tool(description="Check if a user is a member of this server")
+    async def is_member(self, ctx, user_id: int) -> str:
         try:
             await ctx.guild.fetch_member(user_id)
-            return "User is a member"
-        except:
-            return "User is not a member"
+            return "User is a member."
+        except discord.NotFound:
+            return "User is not a member."
+        except discord.HTTPException as exc:
+            return f"Could not check membership: {exc}"
 
     @ai_tool(
         description="Timeout a user from the server",
         safety=ToolSafety.CONTROLLED,
         require_admin=True,
-        parameters={
-            "type": "object",
-            "properties": {
-                "user_id": {"type": "integer"},
-                "seconds": {"type": "integer"}
-            }
-        }
     )
-    async def timeout_user(self, ctx, user_id: int, seconds: int = 3600):
+    async def timeout_user(self, ctx, user_id: int, seconds: int = 3600) -> str:
         member = await ctx.guild.fetch_member(user_id)
         await member.timeout(timedelta(seconds=seconds))
-        return f"Timed out {member.name} for {seconds}s"
+        return f"Timed out {member.name} for {seconds}s."
 ```
 
-Tools are categorized by safety:
-- **SAFE** — read-only (queries, lookups, member info)
-- **CONTROLLED** — validated actions (moderation, database writes, role changes)
-- **RESTRICTED** — never expose to AI (admin-only, destructive operations)
+Safety levels:
+- `ToolSafety.SAFE` — read-only operations (queries, lookups, member info).
+- `ToolSafety.CONTROLLED` — validated write operations (moderation, role changes, database writes).
+- `ToolSafety.RESTRICTED` — never exposed to AI (admin-only or destructive operations).
 
-Each tool can require `require_admin=True`, specific `allowed_roles`, or `allowed_users`.
+Each tool optionally requires `require_admin=True`, specific `allowed_roles`, or `allowed_users`.
 
-## AI Orchestration (multi-provider routing & tool calling)
+Audit tools offline before connecting to Discord:
 
-Use the orchestration layer for intelligent provider selection with fallback chains:
+```bash
+easycord audit-tools bot:bot
+easycord audit-tools bot:bot --fail-on-warnings   # exit 1 in CI if warnings exist
+```
+
+---
+
+## Command Sync
+
+Preview what would change before syncing with Discord:
 
 ```python
-from easycord import Bot, Plugin, slash, Orchestrator, FallbackStrategy, RunContext
-from easycord.plugins import AnthropicProvider, GroqProvider, OpenAIProvider
+plan = bot.plan_command_sync(remote_commands=["old_ping"])
+# plan has: added, changed, removed, unchanged, warnings
 
-bot = Bot()
+plan = await bot.sync_commands(dry_run=True, remote_commands=["old_ping"])
+await bot.sync_commands()                                        # live sync
+await bot.sync_commands(guild_id=123456789012345678)            # guild sync
+await bot.sync_commands(remote_commands=["old_ping"], confirm_removals=True)
+```
 
-# Create orchestrator with fallback chain
-orchestrator = Orchestrator(
-    strategy=FallbackStrategy([
-        AnthropicProvider(),  # Try first
-        GroqProvider(),       # Fallback
-        OpenAIProvider(),     # Last resort
-    ]),
-    tools=bot.tool_registry,  # Auto-includes @ai_tool methods
+From the CLI:
+
+```bash
+easycord sync-plan bot:bot --remote old_ping
+easycord sync-plan bot:bot --remote old_ping --json
+```
+
+---
+
+## Inspect Registered Interactions
+
+```python
+inventory = bot.inspect_interactions()
+# returns: slash, context_menu, component, modal, autocomplete
+```
+
+Each entry includes: interaction type, name or route pattern, callback name, source plugin, guild scope, metadata, enabled state, sync state, and registration time.
+
+From the CLI:
+
+```bash
+easycord inspect bot:bot
+easycord inspect bot:bot --json
+```
+
+---
+
+## Built-in Embeds
+
+```python
+from easycord import EasyEmbed, EmbedBuilder, EmbedCard
+from easycord.embed_cards import InfoEmbed, SuccessEmbed, WarningEmbed, ErrorEmbed
+
+# Quick status embeds
+await ctx.respond(embed=EasyEmbed.success("Operation complete!"))
+await ctx.respond(embed=EasyEmbed.error("Something went wrong."))
+await ctx.respond(embed=EasyEmbed.info("Update available."))
+await ctx.respond(embed=EasyEmbed.warning("Double-check this setting."))
+
+# Fluent builder
+embed = (
+    EmbedBuilder()
+    .title("Member Info")
+    .description("Details about the member")
+    .field("Joined", "2024-01-01")
+    .field("Roles", "Moderator, Staff")
+    .color(0x5865F2)
+    .build()
 )
 
-class AIPlugin(Plugin):
-    @slash(description="Ask AI with tool access")
-    async def ask_with_tools(self, ctx, prompt: str):
-        await ctx.defer()
-        response = await orchestrator.run(
-            RunContext(
-                messages=[{"role": "user", "content": prompt}],
-                ctx=ctx,
-                max_steps=5,  # Max tool calls before returning
-            )
-        )
-        await ctx.respond(response.text[:2000])
+# Card with buttons
+card = (
+    EmbedCard.from_embed(embed)
+    .button("Approve", custom_id="approve", style="success")
+    .button("Reject",  custom_id="reject",  style="danger")
+)
+await ctx.respond(**card.to_kwargs())
+```
 
-bot.add_plugin(AIPlugin())
+---
+
+## Pagination
+
+```python
+from easycord import Paginator
+
+@bot.slash(description="Show all commands")
+async def help(ctx):
+    lines = [f"/command{i}" for i in range(1, 37)]
+    await Paginator.from_lines(lines, per_page=10, title="Commands").send(ctx)
+
+@bot.slash(description="Browse results")
+async def browse(ctx):
+    embeds = [page_one, page_two, page_three]
+    await Paginator.from_embeds(embeds).send(ctx)
+```
+
+---
+
+## Developer Diagnostics
+
+```bash
+easycord doctor                        # check Python, discord.py, DISCORD_TOKEN
+easycord doctor bot:bot                # also check bot imports and interaction count
+easycord doctor bot:bot --json         # stable JSON output for CI
+
+easycord inspect bot:bot               # print all registered interactions
+easycord inspect bot:bot --json
+
+easycord sync-plan bot:bot             # preview command sync changes
+easycord audit-tools bot:bot           # check AI tool safety classification
+
+easycord test-template my_plugin       # generate a starter test file
+easycord test-template my_plugin -o tests/test_my_plugin.py
+
+easycord plugin create my_plugin       # scaffold a new plugin module
+easycord plugin check ./my_plugin      # validate manifest, layout, and imports
+easycord plugin discover --json        # list installed easycord.plugins entry points
+```
+
+---
+
+## Fluent Setup (alternative to manual wiring)
+
+```python
+from easycord import FrameworkManager
+
+bot = FrameworkManager.build_bot(
+    builtin_plugins=True,
+    guild_only=True,
+)
 bot.run("YOUR_TOKEN")
 ```
 
-The orchestrator:
-- **Routes intelligently:** tries best provider first, falls back if it fails
-- **Detects tool calls:** when AI requests a function call
-- **Executes safely:** checks permissions, enforces timeouts, handles exceptions
-- **Loops:** feeds tool results back to AI, continues until final response
-- **Respects constraints:** admin-only, role-gated, and user-allowlisted tools
+---
 
-## Features at a glance
-
-**Bot Framework (complete lifecycle management):**
-- Slash commands, context menus, buttons, select menus, modals — all with decorators
-- Event handlers (`@on`) for member joins, message updates, reactions, etc.
-- Per-guild configuration and persistent storage (SQLite or in-memory)
-- Plugins: reusable feature bundles with lifecycle hooks (`on_load`, `on_ready`, `on_unload`)
-- Built-in starter plugins via `load_builtin_plugins()`: welcome, tags, polls, and leveling; load other first-party plugins explicitly with `bot.add_plugin(...)`
-- Rate limiting per-user, per-tool, or per-guild
-- Permission checks (built-in or custom via middleware)
-- Localization: user/guild/default locale fallback
-- Conversation memory for multi-turn context
-
-**Moderation & Server Management (built-in):**
-- Manual moderation: kick, ban, unban, timeout, warn, mute/unmute
-- AI-powered moderation: message analysis with configurable confidence thresholds
-- Member audit logging: track joins, leaves, nickname changes, role changes
-- Reaction roles: auto-assign/revoke roles via emoji reactions
-- Starboard: archive popular messages
-- Invite tracking: see which invite brought each member
-
-**Developer Experience:**
-- Minimal boilerplate — decorators handle registration
-- Middleware for cross-cutting concerns (logging, auth, rate limits)
-- Fluent builder (`Composer`) for declarative bot setup
-- Context object with shortcuts for common operations
-- Embed helpers with buttons/selects built-in
-- Helper libraries for common tasks (EmbedBuilder, ConfigHelpers, ContextHelpers, ToolHelpers, RateLimitHelpers)
-
-**AI & Orchestration:**
-- **9 LLM providers:** Anthropic (Claude), OpenAI (GPT), Google (Gemini), Groq, Mistral, HuggingFace, Together.ai, Ollama (local), LiteLLM (proxy)
-- **Multi-provider routing:** fallback chain (try Anthropic → Groq → OpenAI if first fails)
-- **Tool registration:** expose bot commands and custom functions to AI via `@ai_tool` decorator
-- **Permission-gated tools:** SAFE (read-only), CONTROLLED (validated), RESTRICTED (never expose) — each tool can require admin/roles/users
-- **Tool execution loop:** AI detects function calls, executes with timeout + exception handling, feeds results back
-- **Conversation memory:** maintain context across multi-turn interactions
-- **Smart truncation:** responses auto-fit Discord's 2000-char limit
-
-## Why this exists
-
-Built for the moment a bot stops being a weekend project and becomes production infrastructure.
-
-EasyCord started as a way to eliminate repetitive Discord bot boilerplate. It evolved into something deeper: **a framework that removes architectural decisions you'd otherwise have to make**.
-
-With discord.py, you decide:
-- How to structure commands (app_commands, prefixed, cogs?)
-- How to handle permissions (decorators, checks, middleware?)
-- How to rate limit (custom tracking, cooldowns, both?)
-- How to organize features (cogs, blueprints, file layout?)
-- How to configure per-guild (JSON files, database, cache?)
-
-With EasyCord, those are answered. One way. Designed for production.
-
-**AI is optional.** You can build fully-featured bots with zero AI dependencies. If you want intelligent agents, the framework has you covered—but you don't need it.
-
-That's worth more than "less code"—it's fewer design questions.
-
-| Task | Raw `discord.py` | This framework |
-| --- | --- | --- |
-| Slash commands | Build command tree, sync manually | `@bot.slash(...)` |
-| Permission checks | Repeat in each command | Declare on decorator |
-| Cooldowns | Track timestamps yourself | `cooldown=...` |
-| Components | Wire interaction handlers by ID | `@bot.component(...)` |
-| Middleware | Write custom decorators | `bot.use(log_middleware())` |
-| Plugins | Custom `Cog` wiring | `Plugin` + lifecycle |
-| AI integration | Build from discord.py + LLM SDK | `Orchestrator` + `ToolRegistry` |
-| Tool calling | Manual prompt engineering | `@ai_tool` + routing |
-
-## Recommended first project layout
+## Recommended Project Layout
 
 ```text
 my_bot/
-├── bot.py
+├── bot.py              # startup, BotConfig, plugin registration
 ├── plugins/
-│   ├── fun.py
+│   ├── __init__.py
+│   ├── fun.py          # one Plugin subclass per file
 │   └── moderation.py
+├── locales/
+│   ├── en-US.json
+│   └── es-ES.json
+├── tests/
+│   └── test_commands.py
 └── pyproject.toml
 ```
 
-- Keep `bot.py` for startup and wiring.
-- Put each feature in its own plugin.
-- Move shared config into `ServerConfigStore` when you need it.
+- Keep `bot.py` for startup and wiring only.
+- Put each feature in its own `Plugin`.
+- Move shared settings into `ServerConfigStore` (no database) or `SQLiteDatabase` (relational).
+- Use `db_backend="memory"` in tests so test runs stay offline and produce no local files.
 
-## Core pieces
+---
 
-**Commands & Interaction:**
-- `Bot` for slash commands, events, components, and plugin loading
-- `@slash`, `@on`, `@component`, `@modal`, `@task` decorators
-- `SlashGroup` for command namespaces
-- `Context` for replies, DMs, embeds, moderation
-- `EmbedCard` and themed embed helpers
+## Full Feature Reference
 
-**Plugins & Configuration:**
-- `Plugin` for reusable feature bundles with `on_load()` / `on_unload()`
-- `Bot.db` for guild-scoped storage (SQLite or in-memory)
-- `ServerConfigStore` for per-guild settings without a database
-- `Composer` for fluent declarative setup
+**Commands and interactions:**
+- Slash commands with typed parameters, cooldowns, permission guards, and ephemeral forcing.
+- Context menu commands for right-click User and right-click Message actions.
+- Button and select menu components with static or dynamic typed-route custom IDs.
+- Modals with named field extraction.
+- Autocomplete callbacks for live suggestions as the user types.
+- Option validators: `Duration`, `URL`, `Snowflake`, `Range`, `Regex`, `ChoiceSet`.
+- Command sync planner with dry-run mode and explicit removal confirmation.
 
-**Middleware & Utilities:**
-- Middleware for logging, error handling, rate limiting, permission guards
-- Built-in: `guild_only`, `admin_only`, `allowed_roles`, `has_permission`, `boost_only`
-- `LocalizationManager` for multi-language support
+**Plugins:**
+- `Plugin` base class with `on_load`, `on_unload`, `on_reload`, and `on_error` hooks.
+- `@slash`, `@on`, `@component`, `@modal`, `@task` decorators inside plugins.
+- `SlashGroup` for command namespaces with subcommands.
+- `bot.add_plugin()`, `bot.remove_plugin()`, and hot-reload via `reload=True`.
+- Plugin authoring helpers: `create_package_plugin`, `check_plugin_project`, `discover_plugins`, `load_entrypoint_plugins`.
+- Plugin manifest validation and `easycord.plugins` entry-point discovery.
 
-**AI & Orchestration:**
-- 9 `AIProvider` implementations (Anthropic, OpenAI, Gemini, Groq, Mistral, HuggingFace, Together, Ollama, LiteLLM)
-- `Orchestrator` for provider routing + tool execution loops
-- `ToolRegistry` for explicit tool registration with permission gates
-- `@ai_tool` decorator for AI-callable functions
-- `FallbackStrategy` for multi-provider resilience
+**Bundled plugins:**
+- `WelcomePlugin` — configurable welcome messages on member join.
+- `TagsPlugin` — per-guild text snippet store with `/tag get/set/delete/list`.
+- `PollsPlugin` — slash-command polls with reaction-based voting.
+- `LevelsPlugin` — per-guild XP, leveling, rank names, and role rewards.
+- `ModerationPlugin` — kick, ban, unban, timeout, warn, mute, unmute.
+- `StarboardPlugin` — archives messages that reach a reaction threshold.
+- `InviteTrackerPlugin` — tracks which invite brought each member.
+- `ReactionRolesPlugin` — auto-assigns roles on emoji reactions.
+- `MemberLoggingPlugin` — logs joins, leaves, nickname changes, and role changes.
+- `SuggestionsPlugin` — collects and votes on server suggestions.
+- `OpenClaudePlugin` — `/ask` command backed by Anthropic Claude.
+- `TranslatePlugin` — `/translate` backed by Google Translate, no API key required.
 
-## Best beginner path
+**Middleware:**
+- `guild_only`, `dm_only`, `admin_only`, `allowed_roles`, `has_permission`, `channel_only`, `boost_only`.
+- `rate_limit` — per-user sliding-window rate limiter.
+- `log_middleware` — logs every invocation to the `easycord` logger.
+- `catch_errors` — wraps the chain in a broad except and sends an ephemeral reply.
+- Custom middleware: function-factory pattern or stateful class with `__call__`.
 
-1. Read [`docs/getting-started.md`](docs/getting-started.md) — 5-minute walkthrough to a working bot.
-2. Open [`examples/core-bot.py`](examples/core-bot.py) and make one change.
-3. Move a command into a `Plugin` once the file starts feeling crowded.
+**Storage:**
+- `ServerConfigStore` — per-guild JSON key-value store with atomic writes.
+- `SQLiteDatabase` — persistent relational storage with guild-row sync.
+- `MemoryDatabase` — in-process storage for tests and disposable bots.
+- `BotConfig` — environment/file-driven startup with config precedence rules.
 
-## Examples and docs
+**Localization:**
+- `LocalizationManager` — registers locale files and resolves keys.
+- `ctx.t(key, default=...)` — resolves a translation key in the invoker's locale.
+- Locale fallback chain: user locale → guild locale → default locale → English.
+- `make_google_auto_translator()` — auto-translates missing keys on-the-fly.
+- `bot.use_google_translate()` + `sync_commands()` — localizes Discord command names per locale.
 
-- [`examples/core-bot.py`](examples/core-bot.py) — production bot without AI: slash commands, events, plugins, per-guild config
-- [`docs/getting-started.md`](docs/getting-started.md) — install, first command, first plugin, localization, AI integration
+**AI and orchestration:**
+- 9 `AIProvider` implementations: Anthropic, OpenAI, Gemini, Groq, Mistral, HuggingFace, Together.ai, Ollama, LiteLLM.
+- `Orchestrator` — multi-step tool execution loop with provider routing.
+- `FallbackStrategy` — tries providers in order, falls back on failure.
+- `@ai_tool` — exposes a plugin method to the AI with permission gates and safety classification.
+- `ToolSafety.SAFE / CONTROLLED / RESTRICTED` — three-tier safety model.
+- `ToolRegistry` — manages registered tools with explicit permission gates.
+- `ConversationMemory` — maintains multi-turn context across commands.
+- `easycord audit-tools` — offline safety audit before connecting to any provider.
 
-## Project backstory
+**Developer toolkit:**
+- `easycord new` — scaffolds a runnable bot project with one of four templates.
+- `easycord doctor` — checks Python version, discord.py, token, and optional bot import.
+- `easycord inspect` — prints all registered interactions grouped by type.
+- `easycord sync-plan` — diffs local commands against remote names without contacting Discord.
+- `easycord audit-tools` — checks tool safety, descriptions, schemas, and permission gates.
+- `easycord test-template` — generates a starter test file for a plugin.
+- `easycord plugin create/check/discover` — plugin scaffolding and validation.
 
-This project started as a way to cut down the repetitive work of Discord bot development for a school server. That original goal still drives the project: make the first command easy, then make the second and third commands feel just as simple.
+**Testing:**
+- `invoke(bot, "name", **kwargs)` — invokes a slash command offline.
+- `invoke_user_command`, `invoke_message_command` — invokes context menus offline.
+- `invoke_component(bot, "custom_id")` — invokes a component handler offline.
+- `invoke_modal(bot, "custom_id", **fields)` — submits a modal offline.
+- `invoke_autocomplete(bot, "cmd", "param", "current")` — fetches autocomplete choices offline.
+- `FakeContextBuilder` — fluent builder for richer offline handler contexts.
+- `FakeContext.make(is_admin=True)` — quick one-line fake context.
+- `ctx.assert_content(str)`, `ctx.assert_contains(str)` — inline response assertions.
 
-# License
+**Error handling:**
+- `@command_error("name")` — per-command handler on the plugin.
+- `Plugin.on_error(ctx, exc)` — plugin-scoped handler for all commands in the plugin.
+- `@bot.on_error` — global fallback handler (one allowed; second call overwrites).
+- Framework fallback — re-raises for slash commands; logs for tasks and components.
 
-EasyCord is currently released under the **MIT License**.
+**Type checking:**
+- Ships `pyrightconfig.json` pre-configured for `standard` mode.
+- `SENDABLE_CHANNEL_TYPES` for narrowing channel sends without type suppression.
+- `TYPE_CHECKING` import pattern for cyclic dependency resolution.
 
-- See `pyproject.toml` for the canonical package license metadata (`license = "MIT"`).
-- Any future licensing experiments (including dual-license models) are **not part of this release line**.
+---
 
-Copyright (c) 2026 Rolling Codes
+## Why EasyCord vs. raw discord.py
+
+| Task | Raw `discord.py` | EasyCord |
+|---|---|---|
+| Slash commands | Build `CommandTree`, sync manually | `@bot.slash(description="...")` |
+| Permission checks | Repeat in each command | `@require_permissions(...)` on the decorator |
+| Cooldowns | Track timestamps yourself | `@cooldown(rate=2, per=30)` |
+| Components | Wire handlers by matching string IDs | `@bot.component("ticket:close:{id:int}")` |
+| Middleware | Write custom decorator chains | `bot.use(rate_limit())` |
+| Plugins | Custom `Cog` wiring | `Plugin` with lifecycle hooks |
+| Per-guild config | Hand-rolled JSON or a database | `ServerConfigStore` or `bot.db` |
+| Error handling | Catch and re-raise in each command | `@command_error`, `on_error`, `@bot.on_error` |
+| Offline tests | Mock the entire discord.py client | `invoke(bot, "command_name")` |
+| AI integration | discord.py + LLM SDK glue code | `Orchestrator` + `ToolRegistry` |
+| Tool calling | Manual prompt engineering | `@ai_tool` with safety classification |
+
+---
+
+## License
+
+EasyCord is released under the **MIT License**.
+
+- See `pyproject.toml` for the canonical license metadata.
+- Copyright (c) 2026 Rolling Codes.
+
+Release: [v5.49.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.49.0) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)

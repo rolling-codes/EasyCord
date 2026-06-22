@@ -237,7 +237,8 @@ async def exclusive(ctx):
 
 Use `@install_type(guild=True, user=True)` for Discord user-installable
 commands. Inside handlers, `ctx.app_context` exposes the Discord app command
-context and `ctx.entitlements` exposes active premium entitlements.
+context, `ctx.entitlements` exposes active premium entitlements, and
+`ctx.forward(message)` forwards a message from one context to another.
 
 Plugins can override `async def on_error(self, ctx, exc)` for plugin-scoped
 error handling after optional per-command handlers decorated with
@@ -355,3 +356,15 @@ settings into `ServerConfigStore` or `SQLiteDatabase` when you need them.
   with commands, events, plugins, and per-guild config.
 - See the README for the full API reference and AI orchestration docs.
 - Check [CHANGELOG.md](../CHANGELOG.md) for what changed in each release.
+
+---
+
+## Development: Hot-Reload Plugins
+
+Pass `reload=True` to `bot.run()` to watch plugin files for changes and reload them automatically — no restart needed:
+
+```python
+bot.run(os.environ["DISCORD_TOKEN"], reload=True)
+```
+
+See [hot-reload-development.md](hot-reload-development.md) for the full guide including the `on_reload()` hook, logging, and production safeguards.
