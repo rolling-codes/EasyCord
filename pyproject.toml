@@ -44,13 +44,26 @@ translate = [
 ]
 
 [project.urls]
-Homepage       = "https://github.com/rolling-codes/EasyCord"
-Repository     = "https://github.com/rolling-codes/EasyCord"
-Issues         = "https://github.com/rolling-codes/EasyCord/issues"
-Documentation  = "https://github.com/rolling-codes/EasyCord"
-Download       = "https://github.com/rolling-codes/EasyCord/releases/download/v5.50.0/easycord-5.50.0-py3-none-any.whl"
-Release        = "https://github.com/rolling-codes/EasyCord/releases/tag/v5.50.0"
-Changelog      = "https://github.com/rolling-codes/EasyCord/blob/main/CHANGELOG.md"
+Homepage                = "https://github.com/rolling-codes/EasyCord"
+Repository              = "https://github.com/rolling-codes/EasyCord"
+Issues                  = "https://github.com/rolling-codes/EasyCord/issues"
+Documentation           = "https://github.com/rolling-codes/EasyCord/tree/main/docs"
+Download                = "https://github.com/rolling-codes/EasyCord/releases/download/v5.50.0/easycord-5.50.0-py3-none-any.whl"
+Release                 = "https://github.com/rolling-codes/EasyCord/releases/tag/v5.50.0"
+Changelog               = "https://github.com/rolling-codes/EasyCord/blob/main/CHANGELOG.md"
+"Getting Started"       = "https://github.com/rolling-codes/EasyCord/blob/main/docs/getting-started.md"
+"Task Scheduling"       = "https://github.com/rolling-codes/EasyCord/blob/main/docs/task-scheduling.md"
+"Subcommand Groups"     = "https://github.com/rolling-codes/EasyCord/blob/main/docs/subcommand-groups.md"
+"Interactive UI"        = "https://github.com/rolling-codes/EasyCord/blob/main/docs/context-interactive-ui.md"
+"Conversation Memory"   = "https://github.com/rolling-codes/EasyCord/blob/main/docs/conversation-memory.md"
+"Built-in Plugins"      = "https://github.com/rolling-codes/EasyCord/blob/main/docs/builtin-plugins.md"
+"Context Reference"     = "https://github.com/rolling-codes/EasyCord/blob/main/docs/context-reference.md"
+"Event Bus"             = "https://github.com/rolling-codes/EasyCord/blob/main/docs/event-bus.md"
+"Lifecycle Hooks"       = "https://github.com/rolling-codes/EasyCord/blob/main/docs/hooks.md"
+"Hot-Reload"            = "https://github.com/rolling-codes/EasyCord/blob/main/docs/hot-reload-development.md"
+"Testing"               = "https://github.com/rolling-codes/EasyCord/blob/main/docs/testing.md"
+"Middleware"            = "https://github.com/rolling-codes/EasyCord/blob/main/docs/middleware-patterns.md"
+"Error Handling"        = "https://github.com/rolling-codes/EasyCord/blob/main/docs/error-handling.md"
 
 [project.scripts]
 easycord = "easycord.cli:main"
