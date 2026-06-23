@@ -24,6 +24,12 @@
 | [Developer Toolkit](docs/developer-toolkit.md) | CLI scaffolding, offline testing, interaction inspection, and diagnostics |
 | [Hot-Reload Development](docs/hot-reload-development.md) | Watch plugin files and reload code without restarting the bot |
 | [Type Checking](docs/type-checking.md) | Pyright configuration and common plugin type patterns |
+| [Task Scheduling](docs/task-scheduling.md) | `@task` decorator — background tasks, intervals, error restart |
+| [Subcommand Groups](docs/subcommand-groups.md) | `SlashGroup` — subcommand namespaces and permission gates |
+| [Interactive UI](docs/context-interactive-ui.md) | `ctx.confirm()`, `ctx.paginate()`, `ctx.ask_form()`, `ctx.choose()`, `ctx.prompt()` |
+| [Conversation Memory](docs/conversation-memory.md) | Multi-turn AI context, eviction, `ctx.ai()` vs `Orchestrator` |
+| [Built-in Plugins](docs/builtin-plugins.md) | All 28 bundled plugins — commands, setup, and storage requirements |
+| [Context Reference](docs/context-reference.md) | Full `Context` API — responses, DMs, moderation, channels, members |
 | [Examples](examples/) | Working bot code |
 
 ---
