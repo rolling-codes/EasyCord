@@ -1,5 +1,45 @@
 # Changelog
 
+## EasyCord v5.50.0 - 2026-06-23
+
+### Added
+
+**EventBus** (`easycord/event_bus.py`) — async pub/sub between plugins:
+- `bot.event_bus.subscribe(event, callback)` — register sync or async listeners
+- `bot.event_bus.unsubscribe(event, callback)` — remove a listener
+- `bot.event_bus.publish(event, **kwargs)` — fire an event; exceptions are isolated per listener
+
+**HookRegistry** (`easycord/hooks.py`) — lifecycle hooks for bot internals:
+- Four built-in hooks: `before_command`, `after_command`, `on_plugin_load`, `on_plugin_unload`
+- `bot.hooks.register(hook_name, callback)` — register sync or async callbacks
+- `bot.hooks.fire(hook_name, **kwargs)` — await all callbacks in registration order
+
+**`@deprecated` / `@version_introduced` decorators** (`easycord/decorators.py`):
+- `@deprecated("5.50.0", replacement="new_name")` emits `DeprecationWarning` at call time with a migration hint
+- `@version_introduced("5.50.0")` annotates when a function was added (no runtime cost)
+
+**Bot permission validator** — `on_ready` now warns (WARNING level) per command if the bot lacks a required Discord permission in any guild
+
+**Provider fallback metrics** — AI provider attempts log at DEBUG (try), DEBUG (success), WARNING (provider failure + exception type), ERROR (all exhausted)
+
+**Database health in `/health`** — embed now shows the configured DB backend (`sqlite` or `memory`)
+
+**pyrightconfig.json** — standard-mode Pyright config for plugin authors
+
+### Fixed
+
+- `format_number` O(n²) `list.insert(0, …)` replaced with `list.append` + `reversed` join → O(n)
+- Conversation summarization failures now log a WARNING instead of silently swallowing the exception
+- Hot-reload poll interval: 1 s → 3 s (reduces unnecessary I/O)
+- Birthday plugin `asyncio.create_task` for role removal is now tracked in `_role_tasks` — tasks are cancelled on plugin unload
+- `asyncio.iscoroutinefunction` (deprecated in 3.16) replaced with `inspect.iscoroutinefunction` in `EventBus` and `HookRegistry`
+- CodeQL finding "statement has no effect" in test_hot_reload.py resolved
+- `database.py`: `cast(DatabaseBackend, …)` prevents Pyright type errors on `os.getenv()` return
+
+### Tests
+
+28 new tests across `test_event_bus.py`, `test_hooks.py`, and `test_hot_reload.py` — patch coverage now > 80%
+
 ## EasyCord v5.49.0 - 2026-06-20
 
 ### Added
