@@ -357,7 +357,7 @@ async def test_in_flight_coroutine_completes_after_reload():
         with patch("importlib.reload", return_value=fake_module):
             await bot._hot_reload_plugin(plugin)
 
-    # Give slow_work time to finish
-    await in_flight
+    # Give slow_work time to finish; gather re-raises any exception from the task.
+    await asyncio.gather(in_flight)
 
     assert completed == ["done"]

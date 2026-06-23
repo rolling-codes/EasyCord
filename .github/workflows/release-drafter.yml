@@ -3,6 +3,10 @@ name: Release Drafter
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "pyproject.toml"
+      - "easycord/__init__.py"
+      - "CHANGELOG.md"
   pull_request:
     types: [opened, reopened, synchronize]
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from typing import Any, Callable
 
@@ -65,7 +66,7 @@ class EventBus:
         tasks = []
         for callback in list(self._listeners.get(event, [])):
             try:
-                if asyncio.iscoroutinefunction(callback):
+                if inspect.iscoroutinefunction(callback):
                     tasks.append(callback(**payload))
                 else:
                     callback(**payload)

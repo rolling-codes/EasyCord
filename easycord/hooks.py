@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from typing import Any, Callable
 
@@ -51,7 +52,7 @@ class HookRegistry:
             raise ValueError(f"Unsupported hook: {hook_name}. Supported hooks: {sorted(SUPPORTED_HOOKS)}")
 
         for callback in self._callbacks[hook_name]:
-            if asyncio.iscoroutinefunction(callback):
+            if inspect.iscoroutinefunction(callback):
                 await callback(**kwargs)
             else:
                 callback(**kwargs)
