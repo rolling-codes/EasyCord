@@ -215,12 +215,18 @@ Patch coverage: 74% → 82% (above the 80% floor).
 
 ## Documentation
 
-Four new guides:
+Ten new guides:
 
 - [Event Bus](https://github.com/rolling-codes/EasyCord/blob/main/docs/event-bus.md) — subscribe, publish, exception isolation, testing patterns
 - [Lifecycle Hooks](https://github.com/rolling-codes/EasyCord/blob/main/docs/hooks.md) — all four hooks, registering from plugins, testing
 - [Deprecation Helpers](https://github.com/rolling-codes/EasyCord/blob/main/docs/deprecation.md) — `@deprecated`, `@version_introduced`, suppressing warnings
 - [Testing Commands](https://github.com/rolling-codes/EasyCord/blob/main/docs/testing.md) — `PluginTestSuite`, `FakeContextBuilder`, `invoke_*` helpers
+- [Task Scheduling](https://github.com/rolling-codes/EasyCord/blob/main/docs/task-scheduling.md) — `@task` decorator, intervals, error restart, lifecycle
+- [Subcommand Groups](https://github.com/rolling-codes/EasyCord/blob/main/docs/subcommand-groups.md) — `SlashGroup`, permission inheritance, guild restrictions
+- [Interactive UI](https://github.com/rolling-codes/EasyCord/blob/main/docs/context-interactive-ui.md) — `ctx.confirm()`, `ctx.paginate()`, `ctx.ask_form()`, `ctx.choose()`, `ctx.prompt()`
+- [Conversation Memory](https://github.com/rolling-codes/EasyCord/blob/main/docs/conversation-memory.md) — multi-turn AI context, eviction, `ctx.ai()` vs `Orchestrator`
+- [Built-in Plugins](https://github.com/rolling-codes/EasyCord/blob/main/docs/builtin-plugins.md) — all 28 bundled plugins with setup and storage notes
+- [Context Reference](https://github.com/rolling-codes/EasyCord/blob/main/docs/context-reference.md) — full `Context` API: responses, DMs, moderation, channels, members
 
 ---
 
