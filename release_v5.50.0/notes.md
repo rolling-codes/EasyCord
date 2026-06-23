@@ -28,7 +28,7 @@ async def _grant_reward(self, user_id: int, guild_id: int, level: int) -> None:
         await self._assign_milestone_role(guild_id, user_id, level)
 ```
 
-`bot.event_bus` is initialized automatically. See [docs/event-bus.md](../docs/event-bus.md).
+`bot.event_bus` is initialized automatically. See [docs/event-bus.md](https://github.com/rolling-codes/EasyCord/blob/main/docs/event-bus.md).
 
 ---
 
@@ -46,7 +46,7 @@ bot.hooks.register("on_plugin_load", lambda plugin_name: print(f"{plugin_name} l
 bot.hooks.register("on_plugin_unload", lambda plugin_name: ...)
 ```
 
-Both sync and async callbacks accepted. `bot.hooks` is initialized automatically. See [docs/hooks.md](../docs/hooks.md).
+Both sync and async callbacks accepted. `bot.hooks` is initialized automatically. See [docs/hooks.md](https://github.com/rolling-codes/EasyCord/blob/main/docs/hooks.md).
 
 ---
 
@@ -65,7 +65,7 @@ def new_event_api(self, event: str, callback) -> None:
     ...
 ```
 
-See [docs/deprecation.md](../docs/deprecation.md).
+See [docs/deprecation.md](https://github.com/rolling-codes/EasyCord/blob/main/docs/deprecation.md).
 
 ---
 
@@ -100,7 +100,7 @@ ctx = (
 )
 ```
 
-See [docs/testing.md](../docs/testing.md).
+See [docs/testing.md](https://github.com/rolling-codes/EasyCord/blob/main/docs/testing.md).
 
 ---
 
@@ -121,7 +121,7 @@ class StatefulPlugin(Plugin):
 
 The watcher polls every 3 seconds (down from 1 s), skips plugins whose `__init__` requires arguments, and logs a clear error if reload fails — the original instance is kept running.
 
-See [docs/hot-reload-development.md](../docs/hot-reload-development.md).
+See [docs/hot-reload-development.md](https://github.com/rolling-codes/EasyCord/blob/main/docs/hot-reload-development.md).
 
 ---
 
@@ -175,7 +175,7 @@ The `/health` command embed now shows which database backend is active (`sqlite`
 
 ### `pyrightconfig.json` for plugin authors
 
-A standard-mode Pyright configuration is included at the repo root. It enforces the typing patterns documented in [docs/type-checking.md](../docs/type-checking.md) and is pre-configured for EasyCord's `_MixinBase` and `TYPE_CHECKING` conventions.
+A standard-mode Pyright configuration is included at the repo root. It enforces the typing patterns documented in [docs/type-checking.md](https://github.com/rolling-codes/EasyCord/blob/main/docs/type-checking.md) and is pre-configured for EasyCord's `_MixinBase` and `TYPE_CHECKING` conventions.
 
 ---
 
@@ -217,10 +217,10 @@ Patch coverage: 74% → 82% (above the 80% floor).
 
 Four new guides:
 
-- [Event Bus](../docs/event-bus.md) — subscribe, publish, exception isolation, testing patterns
-- [Lifecycle Hooks](../docs/hooks.md) — all four hooks, registering from plugins, testing
-- [Deprecation Helpers](../docs/deprecation.md) — `@deprecated`, `@version_introduced`, suppressing warnings
-- [Testing Commands](../docs/testing.md) — `PluginTestSuite`, `FakeContextBuilder`, `invoke_*` helpers
+- [Event Bus](https://github.com/rolling-codes/EasyCord/blob/main/docs/event-bus.md) — subscribe, publish, exception isolation, testing patterns
+- [Lifecycle Hooks](https://github.com/rolling-codes/EasyCord/blob/main/docs/hooks.md) — all four hooks, registering from plugins, testing
+- [Deprecation Helpers](https://github.com/rolling-codes/EasyCord/blob/main/docs/deprecation.md) — `@deprecated`, `@version_introduced`, suppressing warnings
+- [Testing Commands](https://github.com/rolling-codes/EasyCord/blob/main/docs/testing.md) — `PluginTestSuite`, `FakeContextBuilder`, `invoke_*` helpers
 
 ---
 
