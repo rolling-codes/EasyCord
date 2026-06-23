@@ -14,31 +14,55 @@
 - `bot.hooks.register(hook_name, callback)` — register sync or async callbacks
 - `bot.hooks.fire(hook_name, **kwargs)` — await all callbacks in registration order
 
-**`@deprecated` / `@version_introduced` decorators** (`easycord/decorators.py`):
+**`@deprecated` / `@version_introduced` decorators** (`easycord/decorators.py`) ([docs](docs/deprecation.md)):
 - `@deprecated("5.50.0", replacement="new_name")` emits `DeprecationWarning` at call time with a migration hint
 - `@version_introduced("5.50.0")` annotates when a function was added (no runtime cost)
+- Both set introspectable `__deprecated__`/`__version_introduced__` attributes on the wrapped function
 
-**Bot permission validator** — `on_ready` now warns (WARNING level) per command if the bot lacks a required Discord permission in any guild
+**PluginTestSuite** (`easycord/testing.py`) ([docs](docs/testing.md)):
+- Base class for plugin unit tests — wires up a `Bot` instance with no Discord connection
+- `make_plugin(PluginClass)`, `invoke_command`, `invoke_autocomplete`, `invoke_component`, `invoke_modal`, `invoke_user_command`, `invoke_message_command`
+- `assert_last_response(ctx, text)` — content assertion helper
+- `FakeContextBuilder` — fluent builder for locale, roles, admin, DM, and guild contexts
+
+**Hot-reload with `on_reload()` lifecycle** ([docs](docs/hot-reload-development.md)):
+- `Plugin.on_reload()` fires on the **new** instance after a successful hot-reload swap
+- Use it to migrate in-memory state that can't be reconstructed from `__init__` alone
+- Poll interval: 1 s → 3 s; plugins requiring `__init__` args are skipped gracefully with an error log
+
+**Command registration validation**:
+- `ValueError` raised at registration time for: name > 32 chars or not matching `[-_a-z0-9]`, description > 100 chars, > 25 options, > 25 choices per option
+- Error messages include the constraint, the actual value, and the command name
+
+**Bot permission validator** ([docs](docs/hooks.md)):
+- At `on_ready`, logs a WARNING per command if the bot lacks a required Discord permission in any joined guild
+- Includes guild name, guild ID, and command name in the message
 
 **Provider fallback metrics** — AI provider attempts log at DEBUG (try), DEBUG (success), WARNING (provider failure + exception type), ERROR (all exhausted)
 
-**Database health in `/health`** — embed now shows the configured DB backend (`sqlite` or `memory`)
+**Database backend in `/health`** — embed now shows the configured backend (`sqlite` or `memory`), connection status, and round-trip latency
 
-**pyrightconfig.json** — standard-mode Pyright config for plugin authors
+**`pyrightconfig.json`** — standard-mode Pyright configuration at repo root for plugin authors
 
 ### Fixed
 
-- `format_number` O(n²) `list.insert(0, …)` replaced with `list.append` + `reversed` join → O(n)
-- Conversation summarization failures now log a WARNING instead of silently swallowing the exception
-- Hot-reload poll interval: 1 s → 3 s (reduces unnecessary I/O)
-- Birthday plugin `asyncio.create_task` for role removal is now tracked in `_role_tasks` — tasks are cancelled on plugin unload
-- `asyncio.iscoroutinefunction` (deprecated in 3.16) replaced with `inspect.iscoroutinefunction` in `EventBus` and `HookRegistry`
-- CodeQL finding "statement has no effect" in test_hot_reload.py resolved
-- `database.py`: `cast(DatabaseBackend, …)` prevents Pyright type errors on `os.getenv()` return
+- `format_number`: O(n²) `list.insert(0, …)` in thousands-grouping replaced with `list.append` + `"".join(reversed(parts))` → O(n)
+- Conversation summarization: silent `except Exception: pass` replaced with `logger.warning(…)` — failures visible in logs
+- Hot-reload poll: 1 s → 3 s
+- Birthday plugin: untracked `asyncio.create_task` for role removal — tasks now held in `_role_tasks` and cancelled on `on_unload`
+- `asyncio.iscoroutinefunction` (deprecated in Python 3.16) replaced with `inspect.iscoroutinefunction` in `EventBus` and `HookRegistry`
+- CodeQL "statement has no effect" in `test_hot_reload.py` resolved
+- `database.py`: `cast(DatabaseBackend, …)` eliminates Pyright errors on `os.getenv()` return value
+- Pyright: `# type: ignore` narrowed to specific error codes; bare `dict` generics replaced with typed equivalents
+- Release-drafter workflow: `paths-ignore` for version-bump files prevents redundant draft-release updates on `main`
 
 ### Tests
 
-28 new tests across `test_event_bus.py`, `test_hooks.py`, and `test_hot_reload.py` — patch coverage now > 80%
+1,169 tests total (up from ~900). New test files: `test_event_bus.py`, `test_hooks.py`, `test_hot_reload.py`, `test_command_registration.py`, `test_cooldown_cleanup.py`, `test_deprecation.py`, `test_health.py`, `test_orchestrator.py`, `test_permission_validator.py`, `test_plugin_test_suite.py`, `test_new_decorators.py`. Patch coverage: 74% → 82%.
+
+### Documentation
+
+Four new guides: [Event Bus](docs/event-bus.md), [Lifecycle Hooks](docs/hooks.md), [Deprecation Helpers](docs/deprecation.md), [Testing Commands](docs/testing.md).
 
 ## EasyCord v5.49.0 - 2026-06-20
 

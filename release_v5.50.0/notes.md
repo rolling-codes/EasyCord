@@ -1,38 +1,52 @@
 # EasyCord v5.50.0 Release Notes
 
-Architecture release — EventBus, HookRegistry, `@deprecated`, TTL cooldowns, bot permission validator, AI provider metrics, and 28 new tests.
+Architecture and testing release. New cross-plugin communication primitives, full lifecycle hook coverage, a dedicated testing layer, hot-reload with on_reload() lifecycle, command validation, AI provider observability, bot permission auditing, and a near-doubling of the test suite.
 
 ---
 
-## Added
+## New features
 
 ### EventBus — async pub/sub between plugins
 
+Plugins can now communicate without importing each other. One plugin publishes a named event; any subscriber receives it — with full exception isolation so one bad handler never silences others.
+
 ```python
-# Plugin A publishes
-await bot.event_bus.publish("user_leveled_up", user_id=ctx.user.id, level=new_level)
+# levels_plugin.py
+await self.bot.event_bus.publish(
+    "user_leveled_up",
+    user_id=ctx.user.id,
+    guild_id=ctx.guild.id,
+    level=new_level,
+)
 
-# Plugin B subscribes
-async def on_level_up(user_id: int, level: int) -> None:
-    await announce_channel.send(f"<@{user_id}> reached level {level}!")
+# rewards_plugin.py
+async def on_load(self) -> None:
+    self.bot.event_bus.subscribe("user_leveled_up", self._grant_reward)
 
-bot.event_bus.subscribe("user_leveled_up", on_level_up)
+async def _grant_reward(self, user_id: int, guild_id: int, level: int) -> None:
+    if level % 10 == 0:
+        await self._assign_milestone_role(guild_id, user_id, level)
 ```
 
-Exceptions in one listener do not affect others — each subscriber is isolated.
+`bot.event_bus` is initialized automatically. See [docs/event-bus.md](../docs/event-bus.md).
 
 ---
 
 ### HookRegistry — lifecycle hooks
 
-```python
-async def log_before(ctx, name: str) -> None:
-    print(f"/{name} invoked by {ctx.user}")
+Attach callbacks to four built-in bot lifecycle events without subclassing `Bot`:
 
-bot.hooks.register("before_command", log_before)
+```python
+async def audit_command(ctx, name: str) -> None:
+    await db.log(user_id=ctx.user.id, command=name)
+
+bot.hooks.register("before_command", audit_command)
+bot.hooks.register("after_command", record_timing)
+bot.hooks.register("on_plugin_load", lambda plugin_name: print(f"{plugin_name} loaded"))
+bot.hooks.register("on_plugin_unload", lambda plugin_name: ...)
 ```
 
-Four built-in hooks: `before_command`, `after_command`, `on_plugin_load`, `on_plugin_unload`.
+Both sync and async callbacks accepted. `bot.hooks` is initialized automatically. See [docs/hooks.md](../docs/hooks.md).
 
 ---
 
@@ -41,48 +55,172 @@ Four built-in hooks: `before_command`, `after_command`, `on_plugin_load`, `on_pl
 ```python
 from easycord import deprecated, version_introduced
 
-@deprecated("5.50.0", replacement="new_feature")
-def old_feature():
+@deprecated("5.50.0", replacement="bot.event_bus.subscribe")
+def on_user_join(self, callback):
     ...
-# → DeprecationWarning: old_feature is deprecated since v5.50.0. Use new_feature instead.
+# → DeprecationWarning at call time with migration hint
 
 @version_introduced("5.50.0")
-def new_feature():
+def new_event_api(self, event: str, callback) -> None:
     ...
 ```
+
+See [docs/deprecation.md](../docs/deprecation.md).
+
+---
+
+### PluginTestSuite — test plugins without Discord
+
+Write plugin tests with zero boilerplate. No Discord connection required.
+
+```python
+from easycord.testing import PluginTestSuite
+
+class TestCounterPlugin(PluginTestSuite):
+    def setup_method(self):
+        super().setup_method()
+        self.plugin = self.make_plugin(CounterPlugin)
+
+    async def test_first_increment(self):
+        ctx = await self.invoke_command("increment")
+        self.assert_last_response(ctx, "Count: 1")
+```
+
+Available helpers: `invoke`, `invoke_autocomplete`, `invoke_component`, `invoke_modal`, `invoke_user_command`, `invoke_message_command`, `FakeContextBuilder`.
+
+```python
+ctx = (
+    FakeContextBuilder()
+    .with_user(42, name="alice")
+    .in_guild(100)
+    .as_admin()
+    .with_roles(999)
+    .with_locale("fr")
+    .build()
+)
+```
+
+See [docs/testing.md](../docs/testing.md).
+
+---
+
+### Hot-reload with `on_reload()` lifecycle
+
+`bot.run(reload=True)` watches plugin files for changes and hot-swaps them at runtime. The new `on_reload()` lifecycle method fires on the **new** instance after a successful swap, giving plugins a chance to migrate in-memory state.
+
+```python
+class StatefulPlugin(Plugin):
+    def __init__(self):
+        super().__init__()
+        self._cache: dict[int, str] = {}
+
+    async def on_reload(self) -> None:
+        # self._cache is empty on the new instance; restore from your DB if needed
+        self._cache = await db.load_cache()
+```
+
+The watcher polls every 3 seconds (down from 1 s), skips plugins whose `__init__` requires arguments, and logs a clear error if reload fails — the original instance is kept running.
+
+See [docs/hot-reload-development.md](../docs/hot-reload-development.md).
+
+---
+
+### Command registration validation
+
+Discord API constraints are now enforced at registration time rather than at sync, with clear error messages:
+
+```
+ValueError: Command name 'My_Command' contains invalid characters.
+  Names must match [-_a-z0-9] and be 1–32 characters.
+  Got: 'My_Command'
+
+ValueError: Description for command 'ping' is 107 characters (max 100).
+```
+
+Constraints validated: name ≤ 32 chars matching `[-_a-z0-9]`, description ≤ 100 chars, ≤ 25 options per command, ≤ 25 choices per option.
 
 ---
 
 ### Bot permission validator
 
-At `on_ready`, EasyCord warns if the bot lacks a permission required by any loaded command:
+At `on_ready`, EasyCord now checks every loaded plugin's commands against the bot's actual guild permissions and logs a WARNING for each gap:
 
 ```
 WARNING easycord: Plugin 'ModerationPlugin' requires 'ban_members' permission but bot
 lacks it in guild 'My Server' (ID: 123456789) — command /ban may not work as expected
 ```
 
+No code changes needed — the validator runs automatically for every loaded plugin.
+
 ---
 
 ### AI provider fallback metrics
+
+Each provider attempt is now logged so you can see exactly which provider handled a request and why fallback occurred:
 
 ```
 DEBUG  easycord.orchestrator: AI request: trying provider ClaudeProvider (attempt 1/2)
 WARNING easycord.orchestrator: AI provider ClaudeProvider failed (RateLimitError: …), falling back to next
 DEBUG  easycord.orchestrator: AI request handled by provider OpenAIProvider
+ERROR  easycord.orchestrator: All AI providers exhausted after 2 attempt(s)
 ```
 
 ---
 
-## Fixed
+### Database backend in `/health`
 
-- `format_number`: O(n²) `list.insert(0, …)` replaced with O(n) append + reversed join
-- Conversation summarization failures now log a WARNING instead of silently swallowing the exception
-- Hot-reload watcher poll: 1 s → 3 s
-- `BirthdayPlugin` role-removal tasks are now tracked in `_role_tasks` and cancelled on unload
-- `asyncio.iscoroutinefunction` (deprecated in Python 3.16) replaced with `inspect.iscoroutinefunction`
-- CodeQL "statement has no effect" finding in `test_hot_reload.py` resolved
-- Release-drafter no longer re-triggers on version-bump commits to `main`
+The `/health` command embed now shows which database backend is active (`sqlite` or `memory`), its connection status, and round-trip latency.
+
+---
+
+### `pyrightconfig.json` for plugin authors
+
+A standard-mode Pyright configuration is included at the repo root. It enforces the typing patterns documented in [docs/type-checking.md](../docs/type-checking.md) and is pre-configured for EasyCord's `_MixinBase` and `TYPE_CHECKING` conventions.
+
+---
+
+## Fixes
+
+- **`format_number` O(n²) → O(n)**: `list.insert(0, …)` in the thousands-grouping loop replaced with `list.append` + `"".join(reversed(parts))`.
+- **Conversation summarization**: silent `except Exception: pass` replaced with `logger.warning(…)` — failures are now visible in logs.
+- **Birthday plugin task leak**: role-removal tasks created with `asyncio.create_task` were untracked. They are now held in `_role_tasks` and cancelled during `on_unload`.
+- **`asyncio.iscoroutinefunction` deprecation**: replaced with `inspect.iscoroutinefunction` in `EventBus` and `HookRegistry` (deprecated in Python 3.16).
+- **Release-drafter**: added `paths-ignore` for version-bump files so pushing a `chore: release vX.Y.Z` commit to `main` no longer triggers a redundant draft-release update.
+- **CodeQL findings**: `test_hot_reload.py` "statement has no effect" on `await in_flight` resolved.
+- **Pyright**: narrowed `# type: ignore` to specific error codes throughout; `dict` bare generic in `_format_messages` and `get_tool_info` replaced with typed equivalents.
+
+---
+
+## Tests
+
+1,169 tests total (up from ~900). New test files in this release:
+
+| File | What it covers |
+|---|---|
+| `tests/test_event_bus.py` | EventBus subscribe/unsubscribe/publish, exception isolation, async gathering |
+| `tests/test_hooks.py` | HookRegistry all four hooks, sync+async callbacks, error cases |
+| `tests/test_hot_reload.py` | `_hot_reload_plugin`, `_hot_reload_loop`, `on_reload()`, logging levels |
+| `tests/test_command_registration.py` | Constraint validation for name/description/options/choices |
+| `tests/test_cooldown_cleanup.py` | TTL sweep loop, concurrent deletion safety |
+| `tests/test_deprecation.py` | `@deprecated` warning emission, `@version_introduced` attributes |
+| `tests/test_health.py` | `/health` embed, DB backend field, SQLite + memory paths |
+| `tests/test_orchestrator.py` | Provider fallback, metrics logging, tool loop |
+| `tests/test_permission_validator.py` | `_validate_plugin_permissions` per guild |
+| `tests/test_plugin_test_suite.py` | `PluginTestSuite` helpers |
+| `tests/test_new_decorators.py` | `@deprecated`, `@version_introduced`, `@cooldown` |
+
+Patch coverage: 74% → 82% (above the 80% floor).
+
+---
+
+## Documentation
+
+Four new guides:
+
+- [Event Bus](../docs/event-bus.md) — subscribe, publish, exception isolation, testing patterns
+- [Lifecycle Hooks](../docs/hooks.md) — all four hooks, registering from plugins, testing
+- [Deprecation Helpers](../docs/deprecation.md) — `@deprecated`, `@version_introduced`, suppressing warnings
+- [Testing Commands](../docs/testing.md) — `PluginTestSuite`, `FakeContextBuilder`, `invoke_*` helpers
 
 ---
 

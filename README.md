@@ -16,6 +16,10 @@
 | [Dynamic Component Routing](docs/components-dynamic-routing.md) | Typed URL-style routes for buttons and select menus with TTL support |
 | [Middleware Patterns](docs/middleware-patterns.md) | Built-in guards, rate limiting, logging, and custom middleware |
 | [Error Handling](docs/error-handling.md) | Per-command, plugin-scoped, and global error handler waterfall |
+| [Event Bus](docs/event-bus.md) | Async pub/sub between plugins — decouple cross-plugin communication |
+| [Lifecycle Hooks](docs/hooks.md) | `before_command`, `after_command`, `on_plugin_load`, `on_plugin_unload` |
+| [Deprecation Helpers](docs/deprecation.md) | `@deprecated` and `@version_introduced` for API lifecycle management |
+| [Testing Commands](docs/testing.md) | `PluginTestSuite`, `FakeContextBuilder`, and offline `invoke_*` helpers |
 | [Plugin Authoring](docs/plugin-authoring.md) | Build, validate, and distribute reusable plugin packages |
 | [Developer Toolkit](docs/developer-toolkit.md) | CLI scaffolding, offline testing, interaction inspection, and diagnostics |
 | [Hot-Reload Development](docs/hot-reload-development.md) | Watch plugin files and reload code without restarting the bot |
