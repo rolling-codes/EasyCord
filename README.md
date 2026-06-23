@@ -8,6 +8,8 @@
 
 ## Documentation
 
+**[Browse all guides →](docs/README.md)** — organized by what you want to do, with a complete index.
+
 | | |
 |---|---|
 | [Getting Started](docs/getting-started.md) | Install, write your first command, add plugins, configure storage |

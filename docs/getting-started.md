@@ -352,9 +352,8 @@ settings into `ServerConfigStore` or `SQLiteDatabase` when you need them.
 
 ## Next steps
 
-- Browse [`examples/core-bot.py`](../examples/core-bot.py) for a complete bot
-  with commands, events, plugins, and per-guild config.
-- See the README for the full API reference and AI orchestration docs.
+- **[Documentation index](README.md)** — all 20 guides organized by what you want to do next.
+- Browse [`examples/core-bot.py`](../examples/core-bot.py) for a complete bot with commands, events, plugins, and per-guild config.
 - Check [CHANGELOG.md](../CHANGELOG.md) for what changed in each release.
 
 ---
