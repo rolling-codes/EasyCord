@@ -56,3 +56,58 @@ def test_i18n_strict_placeholder_diagnostics() -> None:
 
     with pytest.raises(KeyError):
         manager.format("hello")
+
+
+def test_conversation_summary_on_eviction() -> None:
+    def simple_summary(turns) -> str:
+        return " & ".join(t.content for t in turns)
+
+    memory = ConversationMemory(
+        default_max_turns=3,
+        summary_on_eviction=True,
+        summary_fn=simple_summary,
+    )
+    conv = memory.get_or_create(1, 10)
+
+    conv.add_turn("user", "one")
+    conv.add_turn("user", "two")
+    conv.add_turn("user", "three")
+
+    assert len(conv.turns) == 3
+
+    conv.add_turn("user", "four")
+
+    # Length must still be 3.
+    # The evicted turns: "one" and "two" (k = 4 - 3 + 1 = 2)
+    # They should be compressed to "TL;DR: one & two" as a system turn.
+    # The remaining turns: "three" and "four".
+    assert len(conv.turns) == 3
+    assert conv.turns[0].role == "system"
+    assert conv.turns[0].content == "TL;DR: one & two"
+    assert conv.turns[1].content == "three"
+    assert conv.turns[2].content == "four"
+
+
+def test_conversation_summary_on_eviction_fallback() -> None:
+    def bad_summary(turns) -> str:
+        raise ValueError("Simulated summary error")
+
+    memory = ConversationMemory(
+        default_max_turns=3,
+        summary_on_eviction=True,
+        summary_fn=bad_summary,
+    )
+    conv = memory.get_or_create(1, 10)
+
+    conv.add_turn("user", "one")
+    conv.add_turn("user", "two")
+    conv.add_turn("user", "three")
+    conv.add_turn("user", "four")
+
+    # Should fall back to standard eviction, popping the oldest turn ("one")
+    # remaining turns should be "two", "three", "four"
+    assert len(conv.turns) == 3
+    assert conv.turns[0].content == "two"
+    assert conv.turns[1].content == "three"
+    assert conv.turns[2].content == "four"
+

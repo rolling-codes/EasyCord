@@ -529,6 +529,122 @@ async def invoke_message_command(
     return FakeContext(interaction)  # type: ignore[arg-type]
 
 
+class PluginTestSuite:
+    """Base class for plugin tests.
+
+    Provides a pre-wired in-memory bot, a ``make_plugin`` factory that follows
+    the EasyCord ``__new__`` / ``Plugin.__init__`` construction pattern, and a
+    set of assertion helpers that mirror ``FakeContext``'s own methods.
+
+    Usage (pytest)::
+
+        from easycord import Plugin, slash
+        from easycord.testing import PluginTestSuite
+
+        class PingPlugin(Plugin):
+            @slash(description="Ping")
+            async def ping(self, ctx):
+                await ctx.respond("Pong!")
+
+        class TestPingPlugin(PluginTestSuite):
+            def setup_method(self):
+                super().setup_method()
+                self.plugin = self.make_plugin(PingPlugin)
+
+            async def test_ping_responds_pong(self):
+                ctx = await self.invoke_command("ping")
+                self.assert_last_response(ctx, "Pong!")
+
+    The class also works as a ``unittest.TestCase`` base — override
+    ``setUp`` instead of ``setup_method``, calling ``super().setUp()``.
+    """
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def setup_method(self) -> None:
+        """pytest lifecycle hook — creates a fresh in-memory bot."""
+        from easycord import Bot
+
+        self.bot = Bot(auto_sync=False, db_backend="memory")
+
+    # unittest.TestCase compat alias
+    setUp = setup_method  # type: ignore[assignment]
+
+    # ------------------------------------------------------------------
+    # Plugin factory
+    # ------------------------------------------------------------------
+
+    def make_plugin(self, cls: "type[Any]", **attrs: Any) -> Any:
+        """Construct *cls* using the EasyCord test pattern and register it.
+
+        Calls ``cls.__new__(cls)``, runs ``Plugin.__init__`` to populate
+        base attributes, then calls ``self.bot.add_plugin()`` which wires
+        ``plugin._bot``.  Any *attrs* are applied via ``setattr`` after
+        base init but before registration.
+
+        Returns the registered plugin instance.
+        """
+        from .plugin import Plugin as _Plugin
+
+        plugin: _Plugin = object.__new__(cls)  # type: ignore[arg-type]
+        _Plugin.__init__(plugin)
+        for key, value in attrs.items():
+            setattr(plugin, key, value)
+        self.bot.add_plugin(plugin)  # type: ignore[arg-type]
+        return plugin
+
+    # ------------------------------------------------------------------
+    # Command invocation shorthand
+    # ------------------------------------------------------------------
+
+    async def invoke_command(
+        self,
+        command_name: str,
+        *,
+        user_id: int = 1,
+        guild_id: int | None = 100,
+        is_admin: bool = True,
+        **options: Any,
+    ) -> "FakeContext":
+        """Invoke a registered slash command and return the ``FakeContext``."""
+        return await invoke(
+            self.bot,
+            command_name,
+            user_id=user_id,
+            guild_id=guild_id,
+            is_admin=is_admin,
+            **options,
+        )
+
+    # ------------------------------------------------------------------
+    # Assertion helpers
+    # ------------------------------------------------------------------
+
+    def assert_last_response(self, ctx: "FakeContext", expected: str) -> None:
+        """Assert that *ctx.last_response* equals *expected*."""
+        assert ctx.last_response == expected, (
+            f"Expected {expected!r}, got {ctx.last_response!r}"
+        )
+
+    def assert_response_contains(self, ctx: "FakeContext", substring: str) -> None:
+        """Assert that *ctx.last_response* contains *substring*."""
+        assert substring in (ctx.last_response or ""), (
+            f"Expected {substring!r} in response, got {ctx.last_response!r}"
+        )
+
+    def assert_ephemeral(self, ctx: "FakeContext") -> None:
+        """Assert that the last response was sent as ephemeral."""
+        assert ctx.was_ephemeral, "Expected last response to be ephemeral, but it was not."
+
+    def assert_response_count(self, ctx: "FakeContext", count: int) -> None:
+        """Assert the exact number of responses captured on *ctx*."""
+        assert ctx.response_count == count, (
+            f"Expected {count} response(s), got {ctx.response_count}"
+        )
+
+
 __all__ = [
     "FakeContext",
     "FakeContextBuilder",
@@ -539,4 +655,5 @@ __all__ = [
     "invoke_message_command",
     "invoke_modal",
     "invoke_user_command",
+    "PluginTestSuite",
 ]

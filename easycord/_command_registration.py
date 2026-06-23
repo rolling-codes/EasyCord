@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import re
 from typing import Callable, Union
 
 import discord
@@ -12,6 +13,66 @@ from discord.app_commands import locale_str
 from ._command_callbacks import build_context_menu_callback
 
 logger = logging.getLogger("easycord")
+
+# Discord application command constraints
+_COMMAND_NAME_MAX = 32
+_COMMAND_DESC_MAX = 100
+_OPTIONS_MAX = 25
+_CHOICES_MAX = 25
+_VALID_NAME_RE = re.compile(r"^[-_a-z0-9]{1,32}$")
+
+
+def _validate_command(
+    name: str,
+    description: str,
+    func: Callable | None = None,
+    choices: dict[str, list] | None = None,
+) -> None:
+    """Raise ValueError with a specific message if any Discord constraint is violated.
+
+    Parameters
+    ----------
+    name:
+        The slash command name to register.
+    description:
+        The short description shown in Discord.
+    func:
+        Optional underlying function; its non-self parameters count as options.
+    choices:
+        Optional mapping of option name to list of choices.
+    """
+    if len(name) > _COMMAND_NAME_MAX:
+        raise ValueError(
+            f"Command name {name!r} exceeds Discord's {_COMMAND_NAME_MAX}-character"
+            f" limit (current: {len(name)} chars)"
+        )
+    if not _VALID_NAME_RE.match(name):
+        raise ValueError(
+            f"Command name {name!r} contains invalid characters."
+            f" Names must match [-_a-z0-9] and be 1-{_COMMAND_NAME_MAX} characters."
+        )
+    if len(description) > _COMMAND_DESC_MAX:
+        raise ValueError(
+            f"Command description for {name!r} exceeds Discord's"
+            f" {_COMMAND_DESC_MAX}-character limit (current: {len(description)} chars)"
+        )
+    if func is not None:
+        sig = inspect.signature(func)
+        # Skip `self` (index 0) — user-facing params are the rest
+        user_params = list(sig.parameters.values())[1:]
+        if len(user_params) > _OPTIONS_MAX:
+            raise ValueError(
+                f"Command {name!r} has {len(user_params)} options;"
+                f" Discord allows at most {_OPTIONS_MAX}"
+            )
+    if choices:
+        for param_name, choice_list in choices.items():
+            if len(choice_list) > _CHOICES_MAX:
+                raise ValueError(
+                    f"Option {param_name!r} of command {name!r} has"
+                    f" {len(choice_list)} choices;"
+                    f" Discord allows at most {_CHOICES_MAX}"
+                )
 
 
 def register_slash(
@@ -40,6 +101,7 @@ def register_slash(
     source_plugin: str | None = None,
 ) -> None:
     """Register a callable as a slash command."""
+    _validate_command(name, description, func=func, choices=choices)
     guild = discord.Object(id=guild_id) if guild_id else None
     callback = callback_builder(
         func,

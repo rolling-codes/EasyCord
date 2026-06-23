@@ -162,9 +162,9 @@ class InteractionRegistry:
         if custom_id in self.modals:
             existing = self.modals[custom_id]
             plugin = existing.source or "Bot"
-            func = existing.callback.__name__
+            existing_name = existing.callback.__name__
             raise ValueError(
-                f"Modal ID {custom_id!r} already registered by {plugin}:{func}. "
+                f"Modal ID {custom_id!r} already registered by {plugin}:{existing_name}. "
                 f"Ensure your modal IDs are unique across all plugins."
             )
         entry = InteractionEntry(
@@ -218,9 +218,9 @@ class InteractionRegistry:
         if key in bucket:
             existing = bucket[key]
             plugin = existing.source or "Bot"
-            func = existing.callback.__name__
+            existing_name = existing.callback.__name__
             raise ValueError(
-                f"{interaction_type.replace('_', ' ').title()} {name!r} already registered by {plugin}:{func}. "
+                f"{interaction_type.replace('_', ' ').title()} {name!r} already registered by {plugin}:{existing_name}. "
                 f"Slash commands and context menus must have unique names."
             )
         entry = InteractionEntry(

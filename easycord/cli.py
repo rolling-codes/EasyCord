@@ -569,7 +569,7 @@ def cmd_plugin_discover(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="easycord", description="EasyCord developer toolkit")
+    parser = argparse.ArgumentParser(prog="easycord", description="EasyCord")
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     new = subcommands.add_parser("new", help="Create a starter EasyCord bot project")

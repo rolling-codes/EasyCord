@@ -48,6 +48,7 @@ class _EventsMixin(_MixinBase):
         return decorator
 
     def dispatch(self, event: str, /, *args, **kwargs) -> None:
+        """Dispatch a Discord event, also fanning out to registered framework handlers."""
         super().dispatch(event, *args, **kwargs)
         for handler in list(self._event_handlers.get(event, [])):
             task = asyncio.create_task(handler(*args, **kwargs))
@@ -58,6 +59,7 @@ class _EventsMixin(_MixinBase):
             task.add_done_callback(self._log_task_exception)
 
     def _log_task_exception(self, task: asyncio.Task) -> None:
+        """Log any unhandled exception from a background event handler task."""
         if task.cancelled():
             return
         try:

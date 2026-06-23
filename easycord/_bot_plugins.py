@@ -143,6 +143,10 @@ class _PluginsMixin(_MixinBase):
                 if getattr(method, "_modal_scoped", True):
                     custom_id = plugin.id(custom_id)
                 self.registry.modals.pop(custom_id, None)
+            if getattr(method, "_is_subscription", False):
+                event_bus = getattr(self, "event_bus", None)
+                if event_bus is not None:
+                    event_bus.unsubscribe(method._subscription_event, method)
         self.registry.unregister_plugin(getattr(plugin, "_instance_id", str(id(plugin))))
         for handle in self._task_handles.pop(id(plugin), []):
             handle.cancel()
@@ -169,6 +173,75 @@ class _PluginsMixin(_MixinBase):
                 await plugin.on_load()
                 return
         raise ValueError(f"No plugin named {name!r} is loaded")
+
+    async def _hot_reload_plugin(self, plugin: Plugin) -> None:
+        """Reload a plugin's module code and reinstall it, replacing the running instance.
+
+        Plugins with ``__init__`` arguments cannot be re-instantiated automatically;
+        an error is logged and the original instance is kept intact.
+        """
+        import importlib
+
+        logger.debug("Hot-reload triggered for plugin: %s", plugin.name)
+        module = inspect.getmodule(type(plugin))
+        if module is None:
+            logger.error(
+                "Hot-reload failed for %s: cannot determine module", plugin.name
+            )
+            return
+        cls_name = type(plugin).__name__
+        try:
+            new_module = importlib.reload(module)
+            NewClass = getattr(new_module, cls_name)
+            init_sig = inspect.signature(NewClass.__init__)
+            required_params = [
+                name
+                for name, p in init_sig.parameters.items()
+                if name != "self"
+                and p.default is inspect.Parameter.empty
+                and p.kind not in (
+                    inspect.Parameter.VAR_POSITIONAL,
+                    inspect.Parameter.VAR_KEYWORD,
+                )
+            ]
+            if required_params:
+                logger.error(
+                    "Hot-reload skipped for %s: __init__ requires args %s — "
+                    "reload manually or use Plugin.on_reload() for state migration",
+                    plugin.name,
+                    required_params,
+                )
+                return
+            new_instance = NewClass()
+        except Exception as exc:
+            logger.error(
+                "Hot-reload failed for %s: %s: %s",
+                plugin.name, type(exc).__name__, exc,
+            )
+            return
+        await self.remove_plugin(plugin)
+        self.add_plugin(new_instance)
+        logger.info("Plugin reloaded: %s", plugin.name)
+        await new_instance.on_reload()
+
+    async def _hot_reload_loop(self) -> None:
+        """Poll plugin files every second and hot-reload any whose mtime changed."""
+        import os
+
+        mtimes: dict[str, float] = {}
+        while True:
+            await asyncio.sleep(3)
+            for plugin in list(self._plugins):
+                try:
+                    path = inspect.getfile(type(plugin))
+                    mtime = os.path.getmtime(path)
+                    if path not in mtimes:
+                        mtimes[path] = mtime  # seed on first pass — no reload
+                    elif mtimes[path] != mtime:
+                        mtimes[path] = mtime
+                        await self._hot_reload_plugin(plugin)
+                except Exception as exc:
+                    logger.warning("Hot-reload watcher error: %s", exc)
 
     # ── Background tasks ──────────────────────────────────────
 
@@ -247,3 +320,62 @@ class _PluginsMixin(_MixinBase):
             key: dict(value)
             for key, value in getattr(self, "_task_statuses", {}).items()
         }
+
+    def _validate_plugin_permissions(self, plugin: Plugin) -> None:
+        """Warn if the bot lacks Discord permissions required by the plugin's commands.
+
+        Iterates over every ``@slash``-decorated method on *plugin* and checks
+        whether the bot's member permissions in each relevant guild satisfy the
+        ``permissions=`` list declared on the command.  Called from ``on_ready``
+        once the guild list is populated.
+
+        Only runs when the bot is in at least one guild; skips silently otherwise.
+        """
+        guilds = list(getattr(self, "guilds", []))
+        if not guilds:
+            return
+
+        plugin_name = getattr(plugin, "name", type(plugin).__name__)
+
+        for _, method in _iter_methods(plugin):
+            if not getattr(method, "_is_slash", False):
+                continue
+
+            required_perms: list[str] | None = getattr(method, "_slash_permissions", None)
+            require_admin: bool = getattr(method, "_slash_require_admin", False)
+
+            # Build effective permission list
+            effective: list[str] = []
+            if require_admin:
+                effective.append("administrator")
+            if required_perms:
+                effective.extend(required_perms)
+            if not effective:
+                continue
+
+            command_name = getattr(method, "_slash_name", method.__name__)
+            guild_id: int | None = getattr(method, "_slash_guild", None)
+
+            # Determine which guilds to check
+            if guild_id is not None:
+                target_guilds = [g for g in guilds if g.id == guild_id]
+            else:
+                target_guilds = guilds
+
+            for guild in target_guilds:
+                # Retrieve the bot's Member object in this guild
+                me = guild.me
+                if me is None:
+                    continue
+                bot_perms: discord.Permissions = me.guild_permissions
+                for perm in effective:
+                    if not getattr(bot_perms, perm, False):
+                        logger.warning(
+                            "Plugin %r requires %r permission but bot lacks it "
+                            "in guild %r (ID: %s) — command /%s may not work as expected",
+                            plugin_name,
+                            perm,
+                            guild.name,
+                            guild.id,
+                            command_name,
+                        )

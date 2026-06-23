@@ -1,0 +1,14 @@
+{
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "standard",
+  "include": ["easycord", "tests", "examples"],
+  "exclude": ["**/__pycache__", "**/.claude", "**/worktrees", "build", "dist"],
+  "reportMissingImports": true,
+  "reportUndefinedVariable": true,
+  "reportAttributeAccessIssue": "warning",
+  "reportReturnType": true,
+  "reportMissingTypeArgument": "warning",
+  "reportUnknownMemberType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUnknownArgumentType": "none"
+}

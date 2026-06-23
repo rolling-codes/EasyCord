@@ -23,6 +23,7 @@ from ._bot_events import _EventsMixin
 from ._bot_guild import _GuildMixin
 from ._bot_plugins import _PluginsMixin
 from .registry import InteractionRegistry
+from .event_bus import EventBus
 from .tools import ToolRegistry
 from .builtin_tools import register_builtin_tools
 
@@ -81,6 +82,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         ai_provider=None,
         enable_conversation_memory: bool = False,
         enable_health_command: bool = False,
+        cooldown_cleanup_interval: float = 600.0,
         **kwargs,
     ) -> None:
         super().__init__(intents=intents or discord.Intents.default(), **kwargs)
@@ -94,12 +96,15 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self._task_statuses: dict[str, dict[str, Any]] = {}
         self._background_tasks: set[asyncio.Task] = set()
         self._webhooks: dict[int, discord.Webhook] = {}
+        self.cooldown_cleanup_interval = cooldown_cleanup_interval
+        self._cooldown_registries: list[tuple[dict[Any, list[float]], float]] = []
         self.registry = InteractionRegistry()
         self.ai_provider = ai_provider
         self.conversation_memory = (
             ConversationMemory() if enable_conversation_memory else None
         )
         self.ai_tools: dict[str, dict] = {}
+        self.event_bus = EventBus()
         self.tool_registry = ToolRegistry()
         try:
             register_builtin_tools(self.tool_registry)
@@ -284,7 +289,18 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             registry = self.registry.grouped()
             counts = [f"{k.title()}: {len(v)}" for k, v in registry.items()]
             embed.add_field(name="Registry", value="\n".join(counts))
-            embed.add_field(name="Database", value=type(self.db).__name__)
+            from .database import MemoryDatabase, SQLiteDatabase
+            try:
+                db_latency = await self.db.ping()
+                db_lines = [type(self.db).__name__, f"Latency: {db_latency:.1f}ms"]
+                if isinstance(self.db, SQLiteDatabase) and self.db.path:
+                    db_lines.append(f"Path: {self.db.path}")
+                if isinstance(self.db, MemoryDatabase):
+                    db_lines.append(f"Records: {self.db.record_count}")
+                db_value = "\n".join(db_lines)
+            except Exception as exc:
+                db_value = f"{type(self.db).__name__}\nError: {exc}"
+            embed.add_field(name="Database", value=db_value)
             embed.add_field(name="Version", value=f"v{__version__}")
 
             if self._plugins:
@@ -349,6 +365,38 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         for plugin in self._plugins:
             await plugin.on_load()
             self._start_plugin_tasks(plugin)
+        if getattr(self, "_dev_reload", False):
+            task = asyncio.create_task(self._hot_reload_loop())
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+            task.add_done_callback(self._log_task_exception)
+
+        cleanup_task = asyncio.create_task(self._cooldown_cleanup_loop())
+        self._background_tasks.add(cleanup_task)
+        cleanup_task.add_done_callback(self._background_tasks.discard)
+        cleanup_task.add_done_callback(self._log_task_exception)
+
+    def _prune_cooldown_registries(self, now: float) -> None:
+        """Prune expired timestamps from all cooldown registries."""
+        for cooldown_dict, window in self._cooldown_registries:
+            try:
+                for key in list(cooldown_dict.keys()):
+                    entry = cooldown_dict.get(key)
+                    if entry is None:
+                        continue
+                    valid = [ts for ts in entry if now - ts < window]
+                    if valid:
+                        cooldown_dict[key] = valid
+                    else:
+                        cooldown_dict.pop(key, None)
+            except Exception:
+                logger.exception("Error pruning cooldown registry; skipping")
+
+    async def _cooldown_cleanup_loop(self) -> None:
+        """Periodically prune expired cooldown entries to prevent memory leaks."""
+        while True:
+            await asyncio.sleep(self.cooldown_cleanup_interval)
+            self._prune_cooldown_registries(time.monotonic())
 
     async def on_ready(self) -> None:
         if self.db.auto_sync_guilds:
@@ -358,7 +406,13 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
                 await plugin.on_ready()
             except Exception:
                 logger.exception("Error calling on_ready for %s", plugin.__class__.__name__)
-        
+
+        for plugin in self._plugins:
+            try:
+                self._validate_plugin_permissions(plugin)
+            except Exception:
+                logger.debug("Permission validation failed for %s", plugin.__class__.__name__, exc_info=True)
+
         # Startup diagnostics summary
         from . import __version__
         diag = [
@@ -407,8 +461,35 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         finally:
             await super().close()
 
-    def run(self, token: str, **kwargs) -> None:  # type: ignore[override]
-        """Configure basic logging and start the bot."""
+    def run(self, token: str, *, reload: bool = False, **kwargs) -> None:  # type: ignore[override]
+        """Configure basic logging and start the bot.
+
+        Parameters
+        ----------
+        reload:
+            When ``True``, watch plugin files for changes and hot-reload any that
+            are modified without restarting the bot. Intended for development only.
+
+            Limitations: plugins with ``__init__`` arguments cannot be re-instantiated
+            automatically, and changes to shared helper modules are not detected.
+            ``sync_commands()`` is not called after a reload — do it manually if
+            command signatures change.
+
+        Example::
+
+            # Production
+            bot.run(os.environ["DISCORD_TOKEN"])
+
+            # Development — hot-reload plugins on file change
+            bot.run(os.environ["DISCORD_TOKEN"], reload=True)
+        """
+        self._dev_reload = reload
+        if reload and self._auto_sync:
+            logger.warning(
+                "bot.run(reload=True) is intended for development only. "
+                "Running with auto_sync=True suggests a production environment. "
+                "Guard with: if os.environ.get('EASYCORD_ENV') == 'development': bot.run(token, reload=True)"
+            )
         logging.basicConfig(level=logging.INFO)
         super().run(token, **kwargs)
 

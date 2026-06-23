@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import pytest
 
+from datetime import datetime
 from easycord.i18n import (
     DiagnosticMode,
     LocalizationDiagnostics,
     LocalizationManager,
     TranslationValidationReport,
     _normalize_locale,
+    format_number,
+    format_date,
 )
 
 
@@ -167,3 +170,126 @@ class TestTranslationValidationReport:
         text = r.report_text()
         assert "fr-FR" in text
         assert "missing" in text.lower()
+
+
+class TestLocalizationManagerPlurals:
+    def test_english_plurals(self) -> None:
+        m = LocalizationManager(
+            translations={
+                "en-US": {
+                    "items_one": "{count} item",
+                    "items_other": "{count} items",
+                    "simple": "Simple message",
+                }
+            }
+        )
+        assert m.format("items", count=1) == "1 item"
+        assert m.format("items", count=5) == "5 items"
+        # Fallback to base key
+        assert m.format("simple", count=5) == "Simple message"
+
+    def test_russian_plurals(self) -> None:
+        m = LocalizationManager(
+            translations={
+                "ru": {
+                    "items_one": "{count} товар",
+                    "items_few": "{count} товара",
+                    "items_many": "{count} товаров",
+                    "items_other": "{count} товара (другое)",
+                }
+            }
+        )
+        assert m.format("items", locale="ru", count=1) == "1 товар"
+        assert m.format("items", locale="ru", count=2) == "2 товара"
+        assert m.format("items", locale="ru", count=5) == "5 товаров"
+        assert m.format("items", locale="ru", count=11) == "11 товаров"
+        assert m.format("items", locale="ru", count=21) == "21 товар"
+        assert m.format("items", locale="ru", count=22) == "22 товара"
+
+    def test_french_plurals(self) -> None:
+        m = LocalizationManager(
+            translations={
+                "fr": {
+                    "items_one": "{count} article",
+                    "items_other": "{count} articles",
+                }
+            }
+        )
+        assert m.format("items", locale="fr", count=0) == "0 article"
+        assert m.format("items", locale="fr", count=1) == "1 article"
+        assert m.format("items", locale="fr", count=2) == "2 articles"
+
+    def test_arabic_plurals(self) -> None:
+        m = LocalizationManager(
+            translations={
+                "ar": {
+                    "items_zero": "صفر",
+                    "items_one": "واحد",
+                    "items_two": "اثنان",
+                    "items_few": "{count} قليل",
+                    "items_many": "{count} كثير",
+                    "items_other": "{count} آخر",
+                }
+            }
+        )
+        assert m.format("items", locale="ar", count=0) == "صفر"
+        assert m.format("items", locale="ar", count=1) == "واحد"
+        assert m.format("items", locale="ar", count=2) == "اثنان"
+        assert m.format("items", locale="ar", count=3) == "3 قليل"
+        assert m.format("items", locale="ar", count=11) == "11 كثير"
+        assert m.format("items", locale="ar", count=100) == "100 آخر"
+
+    def test_custom_plural_rule_evaluator(self) -> None:
+        def custom_rule(locale: str, count: float | int) -> str:
+            if count == 42:
+                return "answer"
+            return "other"
+
+        m = LocalizationManager(
+            plural_rule_evaluator=custom_rule,
+            translations={
+                "en-US": {
+                    "msg_answer": "The Answer!",
+                    "msg_other": "Normal message",
+                }
+            }
+        )
+        assert m.format("msg", count=42) == "The Answer!"
+        assert m.format("msg", count=10) == "Normal message"
+
+
+class TestFormatNumber:
+    def test_english_formatting(self) -> None:
+        assert format_number(1234567.89, "en") == "1,234,567.89"
+        assert format_number(1000, "en") == "1,000"
+
+    def test_german_formatting(self) -> None:
+        assert format_number(1234567.89, "de") == "1.234.567,89"
+        assert format_number(1000, "de") == "1.000"
+
+    def test_french_formatting(self) -> None:
+        assert format_number(1234567.89, "fr") == "1\xa0234\xa0567,89"
+
+    def test_negative_numbers(self) -> None:
+        assert format_number(-1234567.89, "de") == "-1.234.567,89"
+        assert format_number(-5, "en") == "-5"
+
+
+class TestFormatDate:
+    def test_default_date_formats(self) -> None:
+        dt = datetime(2026, 6, 22, 12, 34)
+        assert format_date(dt, "en-US") == "06/22/2026"
+        assert format_date(dt, "de-DE") == "22.06.2026"
+        assert format_date(dt, "fr-FR") == "22/06/2026"
+
+    def test_custom_pattern(self) -> None:
+        dt = datetime(2026, 6, 22, 12, 34)
+        assert format_date(dt, "en", "%Y-%m-%d %H:%M") == "2026-06-22 12:34"
+
+    def test_localized_names(self) -> None:
+        dt = datetime(2026, 6, 22)  # Monday, June 22
+        # French
+        assert format_date(dt, "fr", "%A, %d %B") == "lundi, 22 juin"
+        assert format_date(dt, "fr", "%a, %d %b") == "lun., 22 juin"
+        # German
+        assert format_date(dt, "de", "%A, %d. %B") == "Montag, 22. Juni"

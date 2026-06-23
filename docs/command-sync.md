@@ -1,47 +1,85 @@
 # Command Sync
 
-EasyCord v5.2 adds a command sync planner so developers can preview what would
-change before syncing with Discord.
+EasyCord separates command registration (writing to `InteractionRegistry`) from command sync (publishing to Discord via `discord.app_commands.CommandTree`). The sync planner lets you preview what would change before touching Discord.
+
+---
+
+## Preview a sync (no Discord connection)
 
 ```python
-plan = bot.plan_command_sync(remote_commands=["old_ping"])
-print(plan)
+plan = bot.plan_command_sync(remote_commands=["old_ping", "old_ban"])
 ```
 
-The plan contains:
+The plan is a dict with five keys:
 
-- `added`
-- `changed`
-- `removed`
-- `unchanged`
-- `warnings`
+| Key | Contents |
+|---|---|
+| `added` | Command names present locally but not in `remote_commands` |
+| `changed` | Command names present in both with a detected definition change |
+| `removed` | Command names in `remote_commands` but not registered locally |
+| `unchanged` | Command names matching exactly on both sides |
+| `warnings` | Diagnostic messages (e.g., duplicate names, scope conflicts) |
 
-Run a dry-run sync in tests or startup diagnostics:
+---
+
+## Dry-run sync
+
+Run the planner as a coroutine without writing to Discord:
 
 ```python
 plan = await bot.sync_commands(dry_run=True, remote_commands=["old_ping"])
 ```
 
-Actual sync still uses `discord.app_commands.CommandTree`:
+Use dry-run in startup diagnostics or test suites to confirm the expected diff before a real sync.
+
+---
+
+## Live sync
 
 ```python
 await bot.sync_commands()
 ```
 
-If a plan includes remote removals, EasyCord requires an explicit confirmation:
+Syncs all locally-registered commands globally via `discord.app_commands.CommandTree`.
 
-```python
-await bot.sync_commands(
-    remote_commands=["old_ping"],
-    confirm_removals=True,
-)
-```
-
-For development guild syncs:
+### Guild sync (instant, for development)
 
 ```python
 await bot.sync_commands(guild_id=123456789012345678)
 ```
 
-Guild sync copies global commands into the target guild before syncing so local
-iteration stays fast without publishing global commands.
+Copies global commands into the target guild before syncing. Guild-scoped commands update in seconds; global commands can take up to an hour to propagate.
+
+### Confirm removals explicitly
+
+If the plan includes commands to remove from Discord, EasyCord requires an explicit flag:
+
+```python
+await bot.sync_commands(
+    remote_commands=["old_ping", "old_ban"],
+    confirm_removals=True,
+)
+```
+
+Omitting `confirm_removals=True` when removals are present raises an error rather than silently deleting commands.
+
+---
+
+## Format the plan as text
+
+```python
+from easycord import format_sync_plan
+
+print(format_sync_plan(plan))
+```
+
+---
+
+## CLI
+
+```bash
+easycord sync-plan bot:bot --remote old_ping --remote old_ban
+easycord sync-plan bot:bot --remote old_ping --json
+```
+
+`sync-plan` never contacts Discord. Pass `--remote` once per remote command name you want to compare against. Use `--json` for stable output in CI or other tooling.

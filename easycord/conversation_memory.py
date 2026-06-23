@@ -1,9 +1,12 @@
 """Conversation memory management for multi-turn AI interactions."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     pass
@@ -35,6 +38,8 @@ class Conversation:
     )
     max_turns: int = 20  # Keep last N turns
     max_age_minutes: int = 60  # Expire after N minutes
+    summary_on_eviction: bool = False
+    summary_fn: Callable[[list[ConversationTurn]], str] | None = None
 
     def add_turn(self, role: str, content: str) -> None:
         """Add a turn to conversation."""
@@ -45,8 +50,36 @@ class Conversation:
     def _cleanup(self) -> None:
         """Remove old turns exceeding limits."""
         # Remove oldest turns if exceeding max
-        while len(self.turns) > self.max_turns:
-            self.turns.pop(0)
+        if self.max_turns > 0 and len(self.turns) > self.max_turns:
+            if self.summary_on_eviction and self.summary_fn is not None:
+                # We need to evict k turns such that after adding 1 summary turn,
+                # the total turns count is <= max_turns.
+                # len(turns) - k + 1 <= max_turns  =>  k >= len(turns) - max_turns + 1
+                k = len(self.turns) - self.max_turns + 1
+                if k > len(self.turns):
+                    k = len(self.turns)
+                if k > 0:
+                    evicted_turns = self.turns[:k]
+                    remaining_turns = self.turns[k:]
+                    try:
+                        summary_content = self.summary_fn(evicted_turns)
+                        summary_turn = ConversationTurn(
+                            role="system",
+                            content="TL;DR: " + summary_content
+                        )
+                        self.turns = [summary_turn] + remaining_turns
+                    except Exception as exc:
+                        logger.warning(
+                            "Conversation summary failed for user %s: %s",
+                            getattr(self, "user_id", "unknown"),
+                            exc,
+                        )
+                        self.turns = self.turns[len(self.turns) - self.max_turns:]
+            else:
+                while len(self.turns) > self.max_turns:
+                    self.turns.pop(0)
+        elif self.max_turns <= 0:
+            self.turns.clear()
 
         # Remove turns older than max_age
         cutoff = datetime.now(timezone.utc) - timedelta(
@@ -88,12 +121,16 @@ class ConversationMemory:
         max_conversations: int = 1000,
         default_max_turns: int = 20,
         default_max_age_minutes: int = 60,
+        summary_on_eviction: bool = False,
+        summary_fn: Callable[[list[ConversationTurn]], str] | None = None,
     ) -> None:
         if max_conversations < 1:
             raise ValueError("max_conversations must be at least 1")
         self.max_conversations = max_conversations
         self.default_max_turns = default_max_turns
         self.default_max_age_minutes = default_max_age_minutes
+        self.summary_on_eviction = summary_on_eviction
+        self.summary_fn = summary_fn
         self._conversations: dict[tuple[int, int | None], Conversation] = {}
 
     def get_or_create(
@@ -102,6 +139,8 @@ class ConversationMemory:
         guild_id: int | None = None,
         max_turns: int | None = None,
         max_age_minutes: int | None = None,
+        summary_on_eviction: bool | None = None,
+        summary_fn: Callable[[list[ConversationTurn]], str] | None = None,
     ) -> Conversation:
         """Get or create conversation for user/guild."""
         max_turns = self.default_max_turns if max_turns is None else max_turns
@@ -109,6 +148,16 @@ class ConversationMemory:
             self.default_max_age_minutes
             if max_age_minutes is None
             else max_age_minutes
+        )
+        summary_on_eviction = (
+            self.summary_on_eviction
+            if summary_on_eviction is None
+            else summary_on_eviction
+        )
+        summary_fn = (
+            self.summary_fn
+            if summary_fn is None
+            else summary_fn
         )
         key = (user_id, guild_id)
         self.cleanup_expired()
@@ -125,6 +174,8 @@ class ConversationMemory:
             guild_id=guild_id,
             max_turns=max_turns,
             max_age_minutes=max_age_minutes,
+            summary_on_eviction=summary_on_eviction,
+            summary_fn=summary_fn,
         )
         self._conversations[key] = conv
         self._evict_oldest_if_needed()
