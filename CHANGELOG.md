@@ -1,5 +1,23 @@
 # Changelog
 
+## EasyCord v5.50.1 - 2026-06-23
+
+### Fixed
+
+**AIModeratorPlugin governance** (`easycord/plugins/ai_moderator.py`):
+- The live `on_message` moderation path now routes destructive actions through the governed `_execute_action` helper. Previously that helper — which holds the per-user rate limiters and Discord error handling — was defined but never called; the live path used inline calls instead.
+- `auto_delete` no longer performs an unguarded `message.delete()`; a failed delete (race / missing permission) is caught rather than escaping into the event dispatcher.
+- Warnings and timeouts now go through the per-user rate limiters that were previously bypassed.
+- Behavior change: a warning is now posted in-channel (rate-limited) instead of a best-effort DM, matching the governed action path.
+
+**Documentation drift**:
+- `docs/builtin-plugins.md`: removed `/purge` from `ModerationPlugin` — the command is not implemented.
+- `context/architecture.md`: corrected the OpenClaw slash command names to the registered `/openclaw`, `/openclaw-task`, `/openclaw-status`, `/openclaw-stop`, `/openclaw-history` (previously listed as `/openclaw_task` / `/openclaw_stop`).
+
+### Tests
+
+- Added `tests/test_ai_moderator.py` (7 tests): auto-delete guarding, warn rate-limiting, timeout rate-limiting and `discord.Forbidden` handling, and malformed-model-output resilience.
+
 ## EasyCord v5.50.0 - 2026-06-23
 
 ### Added

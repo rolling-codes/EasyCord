@@ -68,7 +68,7 @@ bot.add_plugin(GiveawayPlugin())
 
 ### Moderation & safety
 
-**`ModerationPlugin`** — `/kick`, `/ban`, `/unban`, `/timeout`, `/purge`, `/warn` — standard moderation toolkit. Requires `kick_members` and `ban_members` permissions.
+**`ModerationPlugin`** — `/kick`, `/ban`, `/unban`, `/timeout`, `/warn` — standard moderation toolkit. Requires `kick_members` and `ban_members` permissions.
 ```python
 from easycord.plugins import ModerationPlugin
 bot.add_plugin(ModerationPlugin())

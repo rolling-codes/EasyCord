@@ -137,50 +137,54 @@ class AIModeratorPlugin(Plugin):
         return None, 0.0, "Analysis failed"
 
     async def _execute_action(
-        self, ctx: Context, action: ModerationAction, user: discord.User, reason: str, message: discord.Message | None = None
+        self, message: discord.Message, action: ModerationAction, reason: str
     ) -> bool:
-        """Execute moderation action. Return True if successful."""
-        if ctx.guild is None:
+        """Execute a moderation action through the governed path. Return True on success.
+
+        This is the single place destructive moderation runs: it owns rate
+        limiting (`warn_limiter` / `timeout_limiter`), channel narrowing, and
+        Discord error handling. Called from the ``on_message`` event path, so it
+        must never let a Discord failure escape into the event dispatcher.
+        """
+        guild = message.guild
+        if guild is None:
             return False
+        user = message.author
+        channel = message.channel
         try:
-            if action == "delete" and message:
+            if action == "delete":
                 await message.delete()
                 logger.info("Deleted message from %s: %s", user, reason)
                 return True
 
-            elif action == "warn":
+            if action == "warn":
                 warn_limit = RateLimit(max_calls=10, window_minutes=60)
-                allowed, msg = await self.warn_limiter.check_limit(user.id, "warn", warn_limit)
+                allowed, _ = await self.warn_limiter.check_limit(user.id, "warn", warn_limit)
                 if not allowed:
                     logger.warning("Warn rate limit exceeded for %s", user)
                     return False
-                await ctx.send(f"⚠️ {user.mention} warned: {reason}")
+                if isinstance(channel, SENDABLE_CHANNEL_TYPES):
+                    await channel.send(f"⚠️ {user.mention} warned: {reason}")
                 logger.info("Warned user %s: %s", user, reason)
                 return True
 
-            elif action == "timeout":
+            if action == "timeout":
                 timeout_limit = RateLimit(max_calls=5, window_minutes=60)
-                allowed, msg = await self.timeout_limiter.check_limit(user.id, "timeout", timeout_limit)
+                allowed, _ = await self.timeout_limiter.check_limit(user.id, "timeout", timeout_limit)
                 if not allowed:
                     logger.warning("Timeout rate limit exceeded for %s", user)
                     return False
-                member = ctx.guild.get_member(user.id)
+                member = guild.get_member(user.id)
                 if member:
                     await member.timeout(discord.utils.utcnow() + timedelta(minutes=5), reason=reason)
                     logger.info("Timed out user %s: %s", user, reason)
                     return True
 
-            elif action == "mute":
-                # Find or create mute role
-                mute_role = discord.utils.get(ctx.guild.roles, name="Muted")
+            if action == "mute":
+                mute_role = discord.utils.get(guild.roles, name="Muted")
                 if not mute_role:
-                    try:
-                        mute_role = await ctx.guild.create_role(name="Muted", reason="AIModeratorPlugin auto-created")
-                    except discord.Forbidden:
-                        logger.error("Cannot create mute role")
-                        return False
-
-                member = ctx.guild.get_member(user.id)
+                    mute_role = await guild.create_role(name="Muted", reason="AIModeratorPlugin auto-created")
+                member = guild.get_member(user.id)
                 if member and mute_role:
                     await member.add_roles(mute_role, reason=reason)
                     logger.info("Muted user %s: %s", user, reason)
@@ -188,7 +192,7 @@ class AIModeratorPlugin(Plugin):
 
         except discord.Forbidden:
             logger.error("Permission denied executing action %s for %s", action, user)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - event path must not raise into the dispatcher
             logger.error("Failed to execute action %s: %s", action, e, exc_info=True)
 
         return False
@@ -209,34 +213,32 @@ class AIModeratorPlugin(Plugin):
         threshold = cfg.get("confidence_threshold", 0.85)
         action_level = cfg.get("action_level", "notify_only")
 
-        if action and confidence >= threshold:
-            # Take action based on confidence
-            if action_level == "auto_delete" and confidence >= 0.95:
-                await message.delete()
-                logger.info("Auto-deleted message from %s: %s (%.2f%%)", message.author, reason, confidence * 100)
+        if not action or confidence < threshold:
+            return
 
-            elif action_level == "warn" or action_level == "auto_delete":
-                # Warn user
-                try:
-                    await message.author.send(f"⚠️ Your message was flagged: {reason} ({confidence*100:.0f}% confidence)")
-                except discord.Forbidden:
-                    pass  # user has DMs disabled or has blocked the bot; nothing else to do
+        # All destructive moderation routes through the governed _execute_action
+        # path (rate limiting + Discord error handling). notify_only is the only
+        # non-destructive branch and stays inline.
+        if action_level == "auto_delete" and confidence >= 0.95:
+            await self._execute_action(message, "delete", reason)
 
-            elif action_level == "notify_only":
-                # Log to review channel
-                review_channel_id = cfg.get("mod_review_channel")
-                if review_channel_id:
-                    channel = message.guild.get_channel(review_channel_id)
-                    if isinstance(channel, SENDABLE_CHANNEL_TYPES):
-                        embed = discord.Embed(
-                            title="Message Flagged",
-                            description=f"User: {message.author.mention}\nMessage: {message.content[:500]}",
-                            color=discord.Color.orange(),
-                        )
-                        embed.add_field(name="Action", value=action, inline=True)
-                        embed.add_field(name="Confidence", value=f"{confidence*100:.1f}%", inline=True)
-                        embed.add_field(name="Reason", value=reason, inline=False)
-                        await channel.send(embed=embed)
+        elif action_level == "warn" or action_level == "auto_delete":
+            await self._execute_action(message, "warn", reason)
+
+        elif action_level == "notify_only":
+            review_channel_id = cfg.get("mod_review_channel")
+            if review_channel_id:
+                channel = message.guild.get_channel(review_channel_id)
+                if isinstance(channel, SENDABLE_CHANNEL_TYPES):
+                    embed = discord.Embed(
+                        title="Message Flagged",
+                        description=f"User: {message.author.mention}\nMessage: {message.content[:500]}",
+                        color=discord.Color.orange(),
+                    )
+                    embed.add_field(name="Action", value=action, inline=True)
+                    embed.add_field(name="Confidence", value=f"{confidence*100:.1f}%", inline=True)
+                    embed.add_field(name="Reason", value=reason, inline=False)
+                    await channel.send(embed=embed)
 
     # ────────────────────────────────────────────────────────────
     # Slash commands for config
