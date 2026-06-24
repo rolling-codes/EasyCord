@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
 from typing import TYPE_CHECKING, Literal
 
 import discord
@@ -23,7 +22,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-ModerationAction = Literal["delete", "warn", "timeout", "mute"]
+ModerationAction = Literal["delete", "warn"]
 
 _DEFAULTS = {
     "enabled": False,
@@ -67,7 +66,6 @@ class AIModeratorPlugin(Plugin):
         self.config = PluginConfigManager(".easycord/moderation")
         self.conversation_memory = ConversationMemory()
         self.warn_limiter = ToolLimiter()
-        self.timeout_limiter = ToolLimiter()
 
     async def on_load(self) -> None:
         """Initialize moderation plugin."""
@@ -97,7 +95,7 @@ class AIModeratorPlugin(Plugin):
             f"Analyze this Discord message for policy violations. Check for: {rules_text}.\n"
             f"<message>{message.content}</message>\n"
             f"<author>{message.author.name}</author>\n"
-            f"Reply with JSON: {{'action': 'delete|warn|timeout|none', 'confidence': 0.0-1.0, 'reason': 'brief reason'}}"
+            f"Reply with JSON: {{'action': 'delete|warn|none', 'confidence': 0.0-1.0, 'reason': 'brief reason'}}"
         )
 
         # Get conversation context for user
@@ -126,7 +124,7 @@ class AIModeratorPlugin(Plugin):
                 reason = data.get("reason", "No reason provided")
 
                 # Clamp action to valid values
-                if action not in ("delete", "warn", "timeout", "mute", "none"):
+                if action not in ("delete", "warn", "none"):
                     action = "none"
 
                 return action if action != "none" else None, confidence, reason
@@ -167,28 +165,6 @@ class AIModeratorPlugin(Plugin):
                     await channel.send(f"⚠️ {user.mention} warned: {reason}")
                 logger.info("Warned user %s: %s", user, reason)
                 return True
-
-            if action == "timeout":
-                timeout_limit = RateLimit(max_calls=5, window_minutes=60)
-                allowed, _ = await self.timeout_limiter.check_limit(user.id, "timeout", timeout_limit)
-                if not allowed:
-                    logger.warning("Timeout rate limit exceeded for %s", user)
-                    return False
-                member = guild.get_member(user.id)
-                if member:
-                    await member.timeout(discord.utils.utcnow() + timedelta(minutes=5), reason=reason)
-                    logger.info("Timed out user %s: %s", user, reason)
-                    return True
-
-            if action == "mute":
-                mute_role = discord.utils.get(guild.roles, name="Muted")
-                if not mute_role:
-                    mute_role = await guild.create_role(name="Muted", reason="AIModeratorPlugin auto-created")
-                member = guild.get_member(user.id)
-                if member and mute_role:
-                    await member.add_roles(mute_role, reason=reason)
-                    logger.info("Muted user %s: %s", user, reason)
-                    return True
 
         except discord.Forbidden:
             logger.error("Permission denied executing action %s for %s", action, user)

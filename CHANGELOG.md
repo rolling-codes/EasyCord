@@ -7,7 +7,8 @@
 **AIModeratorPlugin governance** (`easycord/plugins/ai_moderator.py`):
 - The live `on_message` moderation path now routes destructive actions through the governed `_execute_action` helper. Previously that helper — which holds the per-user rate limiters and Discord error handling — was defined but never called; the live path used inline calls instead.
 - `auto_delete` no longer performs an unguarded `message.delete()`; a failed delete (race / missing permission) is caught rather than escaping into the event dispatcher.
-- Warnings and timeouts now go through the per-user rate limiters that were previously bypassed.
+- Warnings now go through the per-user rate limiter that was previously bypassed.
+- Removed the unreachable `timeout`/`mute` branches from `_execute_action` (dead code — `mute` created a role with no permission overwrites and would not have muted anyone).
 - Behavior change: a warning is now posted in-channel (rate-limited) instead of a best-effort DM, matching the governed action path.
 
 **Documentation drift**:
@@ -16,7 +17,7 @@
 
 ### Tests
 
-- Added `tests/test_ai_moderator.py` (7 tests): auto-delete guarding, warn rate-limiting, timeout rate-limiting and `discord.Forbidden` handling, and malformed-model-output resilience.
+- Added `tests/test_ai_moderator.py` (12 tests): auto-delete guarding (success + `Forbidden`/`HTTPException`), warn rate-limiting, dispatch guards (bot author, disabled guild, below-threshold), the notify-only review embed, and malformed/invalid model-output resilience.
 
 ## EasyCord v5.50.0 - 2026-06-23
 

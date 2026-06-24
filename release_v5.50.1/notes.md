@@ -25,6 +25,8 @@ elif action_level == "warn" or action_level == "auto_delete":
 
 **Behavior change:** a warning is now posted **in-channel** (rate-limited) instead of a best-effort DM, matching the governed action path.
 
+The unreachable `timeout` and `mute` branches were removed from `_execute_action` as part of this — no configuration path selected them, and the `mute` role was created without permission overwrites (so it never actually muted).
+
 ### Documentation drift
 
 - `docs/builtin-plugins.md` listed a `/purge` command for `ModerationPlugin` that is not implemented — removed.
@@ -34,7 +36,7 @@ elif action_level == "warn" or action_level == "auto_delete":
 
 ## Tests
 
-Added [`tests/test_ai_moderator.py`](https://github.com/rolling-codes/EasyCord/blob/main/tests/test_ai_moderator.py) — the plugin's first behavioral coverage (7 tests): auto-delete guarding, warn rate-limiting, timeout rate-limiting and `discord.Forbidden` handling, and malformed-model-output resilience.
+Added [`tests/test_ai_moderator.py`](https://github.com/rolling-codes/EasyCord/blob/main/tests/test_ai_moderator.py) — the plugin's first behavioral coverage (12 tests): auto-delete guarding (success + `Forbidden`/`HTTPException`), warn rate-limiting, dispatch guards, the notify-only review embed, and malformed/invalid model-output resilience.
 
 ```python
 async def test_warn_blocked_when_limiter_exhausted(tmp_path):

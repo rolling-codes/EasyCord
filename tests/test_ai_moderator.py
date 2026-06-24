@@ -52,7 +52,6 @@ def _make_plugin(tmp_path, orchestrator: MagicMock) -> AIModeratorPlugin:
     p.config = PluginConfigManager(str(tmp_path / "moderation"))
     p.conversation_memory = ConversationMemory()
     p.warn_limiter = ToolLimiter()
-    p.timeout_limiter = ToolLimiter()
     return p
 
 
@@ -93,6 +92,30 @@ class TestAutoDeleteIsGuarded:
         except discord.HTTPException:
             pytest.fail("a failed delete escaped _on_message (delete is unguarded)")
 
+    @pytest.mark.asyncio
+    async def test_forbidden_delete_does_not_escape_handler(self, tmp_path) -> None:
+        plugin = _make_plugin(tmp_path, _orchestrator("delete", 0.99))
+        await plugin._update_config(GUILD, enabled=True, action_level="auto_delete")
+        msg = _make_message()
+        msg.delete = AsyncMock(
+            side_effect=discord.Forbidden(MagicMock(), "missing permissions")
+        )
+
+        try:
+            await plugin._on_message(msg)
+        except discord.Forbidden:
+            pytest.fail("a Forbidden delete escaped _on_message")
+
+    @pytest.mark.asyncio
+    async def test_successful_auto_delete_removes_message(self, tmp_path) -> None:
+        plugin = _make_plugin(tmp_path, _orchestrator("delete", 0.99))
+        await plugin._update_config(GUILD, enabled=True, action_level="auto_delete")
+        msg = _make_message()
+
+        await plugin._on_message(msg)
+
+        msg.delete.assert_awaited_once()
+
 
 # ---------------------------------------------------------------------------
 # Defect 2 — destructive actions bypass the rate limiter
@@ -129,53 +152,77 @@ class TestWarnIsRateLimited:
 
 
 # ---------------------------------------------------------------------------
-# Governed destructive path — timeout (rate-limited + guarded)
+# notify_only — non-destructive review embed
 # ---------------------------------------------------------------------------
 
-class TestTimeoutIsGoverned:
+class TestNotifyOnly:
     @pytest.mark.asyncio
-    async def test_timeout_applied_when_under_limit(self, tmp_path) -> None:
-        plugin = _make_plugin(tmp_path, _orchestrator("timeout", 0.99))
+    async def test_flagged_message_posts_review_embed(self, tmp_path) -> None:
+        plugin = _make_plugin(tmp_path, _orchestrator("warn", 0.9))
+        await plugin._update_config(
+            GUILD, enabled=True, action_level="notify_only", mod_review_channel=555
+        )
         msg = _make_message()
-        member = MagicMock()
-        member.timeout = AsyncMock()
-        msg.guild.get_member = MagicMock(return_value=member)
+        review_channel = MagicMock(spec=discord.TextChannel)
+        review_channel.send = AsyncMock()
+        msg.guild.get_channel = MagicMock(return_value=review_channel)
 
-        result = await plugin._execute_action(msg, "timeout", "spam")
+        await plugin._on_message(msg)
 
-        assert result is True
-        member.timeout.assert_awaited_once()
+        review_channel.send.assert_called_once()
+        assert "embed" in review_channel.send.call_args.kwargs
+
+
+# ---------------------------------------------------------------------------
+# Dispatch guards — messages that must produce no action
+# ---------------------------------------------------------------------------
+
+class TestNoActionPaths:
+    @pytest.mark.asyncio
+    async def test_bot_authored_message_is_ignored(self, tmp_path) -> None:
+        plugin = _make_plugin(tmp_path, _orchestrator("delete", 0.99))
+        await plugin._update_config(GUILD, enabled=True, action_level="auto_delete")
+        msg = _make_message()
+        msg.author.bot = True
+
+        await plugin._on_message(msg)
+
+        msg.delete.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_timeout_blocked_when_limiter_exhausted(self, tmp_path) -> None:
-        plugin = _make_plugin(tmp_path, _orchestrator("timeout", 0.99))
+    async def test_disabled_guild_takes_no_action(self, tmp_path) -> None:
+        orch = _orchestrator("delete", 0.99)
+        plugin = _make_plugin(tmp_path, orch)
+        await plugin._update_config(GUILD, enabled=False, action_level="auto_delete")
         msg = _make_message()
-        member = MagicMock()
-        member.timeout = AsyncMock()
-        msg.guild.get_member = MagicMock(return_value=member)
 
-        limit = RateLimit(max_calls=5, window_minutes=60)
-        for _ in range(5):
-            await plugin.timeout_limiter.check_limit(AUTHOR, "timeout", limit)
+        await plugin._on_message(msg)
 
-        result = await plugin._execute_action(msg, "timeout", "spam")
+        orch.run.assert_not_called()
+        msg.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_below_threshold_takes_no_action(self, tmp_path) -> None:
+        plugin = _make_plugin(tmp_path, _orchestrator("warn", 0.1))
+        await plugin._update_config(
+            GUILD, enabled=True, action_level="warn", confidence_threshold=0.85
+        )
+        msg = _make_message()
+
+        await plugin._on_message(msg)
+
+        assert msg.channel.send.call_count == 0
+        assert msg.author.send.call_count == 0
+
+    @pytest.mark.asyncio
+    async def test_execute_action_without_guild_is_noop(self, tmp_path) -> None:
+        plugin = _make_plugin(tmp_path, _orchestrator("delete", 0.99))
+        msg = _make_message()
+        msg.guild = None
+
+        result = await plugin._execute_action(msg, "delete", "spam")
 
         assert result is False
-        member.timeout.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_forbidden_timeout_does_not_escape(self, tmp_path) -> None:
-        plugin = _make_plugin(tmp_path, _orchestrator("timeout", 0.99))
-        msg = _make_message()
-        member = MagicMock()
-        member.timeout = AsyncMock(
-            side_effect=discord.Forbidden(MagicMock(), "missing permissions")
-        )
-        msg.guild.get_member = MagicMock(return_value=member)
-
-        result = await plugin._execute_action(msg, "timeout", "spam")
-
-        assert result is False  # swallowed, not raised
 
 
 # ---------------------------------------------------------------------------
@@ -192,3 +239,12 @@ class TestAnalyzeRobustness:
 
         assert action is None
         assert confidence == 0.0
+
+    @pytest.mark.asyncio
+    async def test_invalid_action_is_clamped_to_none(self, tmp_path) -> None:
+        plugin = _make_plugin(tmp_path, _orchestrator("banana", 0.9))
+        msg = _make_message()
+
+        action, _, _ = await plugin._analyze_message(GUILD, msg)
+
+        assert action is None
