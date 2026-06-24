@@ -338,7 +338,7 @@ class InteractionRegistry:
     def _entry_active(entry: InteractionEntry) -> bool:
         if not entry.enabled:
             return False
-        return entry.expires_at is None or entry.expires_at >= time.time()
+        return entry.expires_at is None or entry.expires_at > time.time()
 
     # ── Inventory ────────────────────────────────────────────
 
