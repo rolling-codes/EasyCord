@@ -2,20 +2,33 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+The following versions of EasyCord are currently being supported with active security patches.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
+| 5.x.x   | :white_check_mark: |
+| 4.x.x   | :x:                |
 | < 4.0   | :x:                |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+If you discover a security vulnerability, please report it via our private disclosure pipeline by emailing **security@example.com**. 
+We aim to acknowledge all reports within **48 hours**. Please do not disclose the vulnerability publicly until we have had a chance to investigate and release a patch.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+## Scope & Vulnerability Taxonomy
+
+### In-scope:
+* Prompt injection vectors
+* Privilege escalation
+* Unauthorized data exposure
+
+### Out-of-scope:
+* Standard bugs
+* Feature requests
+* Intended administrative overrides
+
+## Historical Baselines
+
+To anchor expectations, here are some recent security fixes:
+* **v5.48.0**: Resolved prompt injection vectors in `ai_moderator.py`.
+* **v5.50.1**: Implemented AI Moderator governance (action guarding, rate limiting).

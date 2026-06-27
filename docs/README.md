@@ -99,3 +99,6 @@ Pick a goal below to jump straight to what you need, or browse the [complete ind
 | [Plugin Authoring](plugin-authoring.md) | Build and distribute reusable plugin packages |
 | [Deprecation Helpers](deprecation.md) | `@deprecated`, `@version_introduced` decorators |
 | [Type Checking](type-checking.md) | Pyright config and plugin typing patterns |
+| [Troubleshooting](troubleshooting.md) | Common day-one friction points with diagnostic fixes |
+| [Database Guide](database-guide.md) | Concurrency model, guild sync, backend choices, production setup |
+| [Plugin Ecosystem Health](plugin-ecosystem-health.md) | Profiling startup, memory, and test scaling at 50+ plugins |

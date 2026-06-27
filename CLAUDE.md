@@ -21,6 +21,7 @@ The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easyco
 
 ## Context
 
+- [Documentation index](docs/README.md) — goal-based entry to all 21 user-facing guides; start here when a topic isn't listed below
 - [Architecture](context/architecture.md) — layers, mixins, module map
 - [Conventions](context/conventions.md) — naming rules, key invariants
 - [Hot-Reload Development](docs/hot-reload-development.md) — `bot.run(reload=True)`, `on_reload()` hook
@@ -28,13 +29,17 @@ The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easyco
 - [Error Handling](docs/error-handling.md) — command error waterfall, per-command/plugin/global handlers
 - [Type Checking](docs/type-checking.md) — pyright config, discord.py gaps, plugin typing patterns
 
+A root `AGENTS.md` is the Codex-facing twin of this file, maintained by hand — keep the two in sync when changing shared guidance.
+
 ## Architecture quick-reference
+
+**Public API boundary** — `easycord/__init__.py` is the stable public surface; every `_`-prefixed module (`_bot_*.py`, `_context_*.py`, `_i18n_*.py`, `_command_*.py`, `_plugin_scanner.py`, plugin `_*.py` helpers) is internal and may change without notice. Import from `easycord`, never from `easycord._*`. AI provider classes are re-exported lazily from the top level via `easycord.__getattr__`. Targets Python 3.10+ / `discord.py>=2.7.1,<3`.
 
 **Bot** (`bot.py`) composes `discord.Client` with four mixins — `_bot_commands.py`, `_bot_events.py`, `_bot_guild.py`, `_bot_plugins.py`. Each mixin imports `_BotBase` only under `TYPE_CHECKING` using a per-module `_MixinBase = _BotBase` alias so static checkers see the full `Bot` surface but no runtime import cycle is created. Never instantiate `_BotBase`; it is a phantom type only.
 
 **Context** (`context.py` + `_context_*.py`) — use `ctx.user` / `ctx.member`. `ctx.author` does not exist. `ctx.is_admin` is a property, not a method.
 
-**Plugin** (`plugin.py`) — subclass `Plugin`, decorate methods with `@slash` / `@on`, then call `bot.add_plugin(plugin_instance)`. The plugin scanner (`_plugin_scanner.py`) wires commands automatically. Per-guild state belongs in the database layer, never on `self` (the Plugin instance).
+**Plugin** (`plugin.py`) — subclass `Plugin`, decorate methods with `@slash` / `@on`, then call `bot.add_plugin(plugin_instance)`. The plugin scanner (`_plugin_scanner.py`) wires commands automatically. Per-guild state belongs in the database layer (`database.py` — `SQLiteDatabase` / `MemoryDatabase`, per-guild namespaced, typed `GuildRecord` rows), never on `self` (the Plugin instance). Authoring decorators live in `decorators.py`: `@slash`/`@slash_command`, `@on`, `@autocomplete`, `@component`, `@modal`, `@message_command`, `@user_command`, `@task`, `@ai_tool`, `@cooldown`, `@require_permissions`, `@install_type`, `@premium_required`. `bot.load_builtin_plugins()` loads the starter set (welcome, tags, polls, levels) from `builtin_plugins.py`.
 
 **i18n** — `LocalizationManager` in `i18n.py`, split across `_i18n_locale.py`, `_i18n_diagnostics.py`, `_i18n_validation.py`. Diagnostic modes: `SILENT`, `WARN`, `STRICT`. Never hardcode response strings in plugins; always look them up via `ctx.t(...)`.
 
@@ -105,3 +110,4 @@ if isinstance(channel, SENDABLE_CHANNEL_TYPES):
 - `Plugin.on_reload()` fires on the **new** instance after a hot-reload swap, not the old one; `self.bot` is available when it fires. Only fires on success — never on failure.
 - `bot.run(reload=True)` is dev-only — the mtime watcher runs as a background task in `_background_tasks` and is cancelled by `close()`.
 - `_MixinBase` pattern — every `_bot_*.py` mixin uses `if TYPE_CHECKING: from ._bot_base import _BotBase; _MixinBase = _BotBase` so Pylance sees the full `Bot` surface without a runtime import cycle. Never set `_MixinBase = object` without the `TYPE_CHECKING` guard.
+- Event-path plugins (`@on("message")` and friends) must route every destructive action through one governed method that owns rate limiting, channel narrowing, and Discord error handling, and must never let a Discord exception escape into the dispatcher — see `AIModeratorPlugin._execute_action`. The broad `except Exception` there is intentional (`# noqa: BLE001`); only non-destructive branches (e.g. `notify_only`) stay inline.
