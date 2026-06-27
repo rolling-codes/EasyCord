@@ -29,5 +29,7 @@ jobs:
         if: always()
       - name: Check release metadata
         run: python scripts/check_release_metadata.py
+      - name: Verify plugin test coverage thresholds
+        run: python scripts/verify_plugin_tests.py
       - name: Test (pytest)
         run: pytest

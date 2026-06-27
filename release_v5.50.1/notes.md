@@ -8,7 +8,7 @@ Bugfix release. Closes a governance gap in `AIModeratorPlugin` where the live mo
 
 ### AIModeratorPlugin — destructive actions now run through the governed path
 
-`AIModeratorPlugin` defined a `_execute_action` helper that owns per-user warn rate limiting and `discord.Forbidden` handling — but the live `on_message` handler never called it. It performed inline Discord calls instead, so warnings were never rate-limited and an `auto_delete` could raise a failed `message.delete()` straight into the event dispatcher.
+`AIModeratorPlugin` defined a `_execute_action` helper that owns per-user rate limiting (warn / timeout) and `discord.Forbidden` handling — but the live `on_message` handler never called it. It performed inline Discord calls instead, so warnings/timeouts were never rate-limited and an `auto_delete` could raise a failed `message.delete()` straight into the event dispatcher.
 
 The event path now routes every destructive action through `_execute_action`:
 
@@ -18,7 +18,7 @@ The event path now routes every destructive action through `_execute_action`:
 if action_level == "auto_delete" and confidence >= 0.95:
     await self._execute_action(message, "delete", reason)
 
-# Warnings are subject to the per-user limiter that was bypassed before:
+# Warnings/timeouts are subject to the per-user limiters that were bypassed before:
 elif action_level == "warn" or action_level == "auto_delete":
     await self._execute_action(message, "warn", reason)
 ```

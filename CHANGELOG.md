@@ -1,5 +1,12 @@
 # Changelog
 
+## EasyCord v5.50.2 - 2026-06-24
+
+### Fixed
+
+**Interaction component TTL boundary** (`easycord/registry.py`):
+- `InteractionRegistry._entry_active` treated an entry as active while `expires_at >= now`, so a component registered with `ttl=0` (whose `expires_at` equals its registration time) still resolved as active when looked up within the same clock tick. The check is now strict — `expires_at > now` — so a component is inactive at and after its expiry instant. This makes `resolve_component` deterministic across platforms: the off-by-one was latent on fine-grained clocks (Linux CI) but surfaced on coarse-resolution clocks (Windows `time.time()`, ~15 ms), where registration and resolution land in the same tick and a just-expired component was wrongly returned.
+
 ## EasyCord v5.50.1 - 2026-06-23
 
 ### Fixed
