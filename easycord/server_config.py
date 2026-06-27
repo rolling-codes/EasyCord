@@ -152,32 +152,48 @@ class ServerConfigStore:
         self._base = Path(base_dir)
         self._base.mkdir(parents=True, exist_ok=True)
         self._locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+        # In-memory cache of parsed config keyed by guild_id. ``None`` marks a
+        # guild that is known to have no config file (so repeated hot-path
+        # reads for disabled features never touch disk). The bot is the sole
+        # writer; ``save``/``delete`` keep this coherent with disk.
+        self._cache: dict[int, dict | None] = {}
 
     def _path(self, guild_id: int) -> Path:
         return self._base / f"{guild_id}.json"
 
     async def load(self, guild_id: int) -> ServerConfig:
-        """Load config for a guild; returns an empty config if none exists."""
+        """Load config for a guild; returns an empty config if none exists.
+
+        Parsed data is cached in memory after the first read. ``ServerConfig``
+        deep-copies its data on construction, so each call still returns an
+        independent, freely-mutable object.
+        """
         async with self._locks[guild_id]:
+            if guild_id in self._cache:
+                return ServerConfig(guild_id, self._cache[guild_id])
             path = self._path(guild_id)
             if not path.exists():
+                self._cache[guild_id] = None
                 return ServerConfig(guild_id)
             try:
                 with open(path, "r", encoding="utf-8") as f:
-                    return ServerConfig(guild_id, json.load(f))
+                    data = json.load(f)
             except (json.JSONDecodeError, OSError) as exc:
                 raise RuntimeError(
                     f"Failed to load config for guild {guild_id}: {exc}"
                 ) from exc
+            self._cache[guild_id] = data
+            return ServerConfig(guild_id, data)
 
     async def save(self, config: ServerConfig) -> None:
         """Persist a guild's config to disk atomically."""
         async with self._locks[config.guild_id]:
             path = self._path(config.guild_id)
             tmp = path.with_suffix(".tmp")
+            data = config.to_dict()
             try:
                 with open(tmp, "w", encoding="utf-8") as f:
-                    json.dump(config.to_dict(), f, indent=2)
+                    json.dump(data, f, indent=2)
                 os.replace(tmp, path)
             except (OSError, TypeError, ValueError) as exc:
                 with contextlib.suppress(OSError):
@@ -186,6 +202,7 @@ class ServerConfigStore:
                 raise RuntimeError(
                     f"Failed to save config for guild {config.guild_id}: {exc}"
                 ) from exc
+            self._cache[config.guild_id] = data
 
     async def delete(self, guild_id: int) -> None:
         """Remove a guild's config file."""
@@ -193,6 +210,7 @@ class ServerConfigStore:
             path = self._path(guild_id)
             if path.exists():
                 os.remove(path)
+            self._cache[guild_id] = None
 
     async def exists(self, guild_id: int) -> bool:
         """Return ``True`` if a config file exists for this guild."""
