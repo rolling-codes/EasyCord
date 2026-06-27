@@ -4,8 +4,14 @@ from __future__ import annotations
 import asyncio
 import os
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Protocol, runtime_checkable
 
+@runtime_checkable
+class AIProviderProtocol(Protocol):
+    """Structural type for AI providers."""
+    
+    async def query(self, prompt: str, **kwargs) -> str:
+        """Send prompt to AI, return response text."""
 
 class AIProvider(ABC):
     """Abstract base for AI API providers."""
@@ -122,7 +128,7 @@ class GeminiProvider(AIProvider):
     def _init_client(self) -> None:
         if self._client is None:
             try:
-                import google.generativeai as genai
+                import google.generativeai as genai  # pyright: ignore[reportMissingImports]
             except ImportError:
                 raise ImportError(
                     "google-generativeai package required. "
@@ -196,7 +202,7 @@ class MistralProvider(AIProvider):
     def _init_client(self) -> None:
         if self._client is None:
             try:
-                from mistralai.client import MistralClient
+                from mistralai.client import MistralClient  # pyright: ignore[reportMissingImports]
             except ImportError:
                 raise ImportError(
                     "mistralai package required. Install with: pip install mistralai"
@@ -235,7 +241,7 @@ class GroqProvider(AIProvider):
     def _init_client(self) -> None:
         if self._client is None:
             try:
-                from groq import Groq
+                from groq import Groq  # pyright: ignore[reportMissingImports]
             except ImportError:
                 raise ImportError(
                     "groq package required. Install with: pip install groq"
@@ -314,7 +320,7 @@ class TogetherAIProvider(AIProvider):
     def _init_client(self) -> None:
         if self._client is None:
             try:
-                import together
+                import together  # pyright: ignore[reportMissingImports]
             except ImportError:
                 raise ImportError(
                     "together package required. Install with: pip install together"
@@ -355,7 +361,7 @@ class LiteLLMProvider(AIProvider):
     def _init_client(self) -> None:
         if self._client is None:
             try:
-                from litellm import completion
+                from litellm import completion  # pyright: ignore[reportMissingImports]
             except ImportError:
                 raise ImportError(
                     "litellm package required. Install with: pip install litellm"

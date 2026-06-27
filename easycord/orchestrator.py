@@ -5,7 +5,7 @@ import logging
 import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 
 from easycord.tools import ToolRegistry
 
@@ -13,7 +13,7 @@ logger = logging.getLogger("easycord.orchestrator")
 
 if TYPE_CHECKING:
     from easycord.context import Context
-    from easycord.plugins._ai_providers import AIProvider
+    from easycord.plugins._ai_providers import AIProviderProtocol
     from easycord.conversation_memory import ConversationMemory
 
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class RunContext:
     """Context for orchestrator.run()."""
 
-    messages: list[dict]
+    messages: list[dict[str, Any]]
     ctx: Context | None  # Discord context for permission checks
     max_steps: int = 5
     timeout_ms: int = 30000
@@ -34,7 +34,7 @@ class FinalResponse:
     """Result from orchestrator."""
 
     text: str
-    provider: Optional[AIProvider] = None
+    provider: Optional["AIProviderProtocol"] = None
     steps: int = 0
 
 
@@ -44,17 +44,17 @@ class ProviderStrategy(ABC):
     @abstractmethod
     def select(
         self, run_ctx: RunContext, attempt: int
-    ) -> AIProvider:
+    ) -> "AIProviderProtocol":
         """Select provider for this attempt. Raise on no more options."""
 
 
 class FallbackStrategy(ProviderStrategy):
     """Try providers in chain; move to next on failure."""
 
-    def __init__(self, providers: list[AIProvider]):
+    def __init__(self, providers: list["AIProviderProtocol"]):
         self.providers = providers
 
-    def select(self, run_ctx: RunContext, attempt: int) -> AIProvider:
+    def select(self, run_ctx: RunContext, attempt: int) -> "AIProviderProtocol":
         if attempt >= len(self.providers):
             raise IndexError("No more providers to try")
         return self.providers[attempt]
@@ -220,9 +220,9 @@ class Orchestrator:
 
     async def _query_provider(
         self,
-        provider: AIProvider,
+        provider: "AIProviderProtocol",
         prompt: str,
-        tools_schema: list[dict] | None,
+        tools_schema: list[dict[str, Any]] | None,
     ):
         """Call providers with tools only when their query signature supports it."""
         # Cache signature support in provider instance to avoid repeated inspection
@@ -233,10 +233,10 @@ class Orchestrator:
                 p.kind is inspect.Parameter.VAR_KEYWORD or name == "tools"
                 for name, p in signature.parameters.items()
             )
-            provider._cached_supports_tools = supports_tools  # type: ignore[attr-defined]
+            setattr(provider, "_cached_supports_tools", supports_tools)
 
-        if provider._cached_supports_tools:  # type: ignore[attr-defined]
-            return await provider.query(prompt=prompt, tools=tools_schema)  # type: ignore[call-arg]
+        if getattr(provider, "_cached_supports_tools", False):
+            return await provider.query(prompt=prompt, tools=tools_schema)
         return await provider.query(prompt)
 
     @staticmethod

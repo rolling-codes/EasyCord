@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
     from .conversation_memory import ConversationMemory
     from .database import EasyCordDatabase
+    from .event_bus import EventBus
     from .i18n import LocalizationManager
     from .middleware import MiddlewareFn
     from .plugin import Plugin
@@ -45,6 +46,7 @@ class _BotBase:
     tree: app_commands.CommandTree[Any]
     registry: InteractionRegistry
     tool_registry: ToolRegistry
+    event_bus: EventBus
     db: EasyCordDatabase
     localization: LocalizationManager | None
     conversation_memory: ConversationMemory | None

@@ -6,7 +6,10 @@ import math
 import os
 import time
 import logging
-from typing import Callable, Any
+from typing import Callable, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .plugins._ai_providers import AIProviderProtocol
 
 import discord
 from discord import app_commands
@@ -79,7 +82,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         default_locale: str = "en-US",
         translations: dict | None = None,
         auto_translator: Callable[[str, str, str], str | None] | None = None,
-        ai_provider=None,
+        ai_provider: "AIProviderProtocol | None" = None,
         enable_conversation_memory: bool = False,
         enable_health_command: bool = False,
         cooldown_cleanup_interval: float = 600.0,
