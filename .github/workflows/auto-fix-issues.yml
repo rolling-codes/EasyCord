@@ -88,7 +88,7 @@ jobs:
             core.setOutput("commit_message", `chore: auto-fix PR #${issue.number} issue triage`);
 
       - name: Check out target branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.target.outputs.branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
