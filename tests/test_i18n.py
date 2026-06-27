@@ -293,3 +293,47 @@ class TestFormatDate:
         assert format_date(dt, "fr", "%a, %d %b") == "lun., 22 juin"
         # German
         assert format_date(dt, "de", "%A, %d. %B") == "Montag, 22. Juni"
+
+
+class TestMetricsThreadSafety:
+    """Metrics counters must not lose updates under concurrent thread access.
+
+    Regression guard for the sharded-bot data-corruption bug: before the
+    internal ``threading.Lock``, the non-atomic ``+=`` on ``_metrics`` could
+    drop updates when multiple OS threads resolved locales concurrently.
+    """
+
+    def test_concurrent_cache_hits_are_not_lost(self) -> None:
+        import threading
+
+        manager = LocalizationManager(default_locale="en-US", track_metrics=True)
+        manager.register("en-US", {"greeting": "hi"})
+
+        threads_count = 8
+        per_thread = 3000
+        barrier = threading.Barrier(threads_count)
+
+        def worker() -> None:
+            barrier.wait()  # release all threads together to maximize contention
+            for _ in range(per_thread):
+                manager.get("greeting", locale="en-US")
+
+        threads = [threading.Thread(target=worker) for _ in range(threads_count)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        expected = threads_count * per_thread
+        metrics = manager.get_metrics()
+        assert metrics["cache_hits"] == expected
+        # Every hit also bumps locale frequency for the resolved locale.
+        freq = metrics["locale_frequency"]
+        assert isinstance(freq, dict)
+        assert freq["en-US"] == expected
+
+    def test_record_metric_is_noop_when_disabled(self) -> None:
+        manager = LocalizationManager(default_locale="en-US", track_metrics=False)
+        manager.register("en-US", {"greeting": "hi"})
+        manager.get("greeting", locale="en-US")
+        assert manager.get_metrics() == {}

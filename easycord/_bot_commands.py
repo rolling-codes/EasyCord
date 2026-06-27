@@ -44,6 +44,7 @@ class _CommandsMixin(_MixinBase):
         require_admin: bool = False,
         ephemeral: bool = False,
         permissions: list[str] | None = None,
+        bot_permissions: list[str] | None = None,
         cooldown: float | None = None,
         cooldown_rate: int = 1,
         cooldown_bucket: str = "user",
@@ -70,6 +71,9 @@ class _CommandsMixin(_MixinBase):
                     permissions=permissions
                     if permissions is not None
                     else getattr(func, "_slash_permissions", None),
+                    bot_permissions=bot_permissions
+                    if bot_permissions is not None
+                    else getattr(func, "_slash_bot_permissions", None),
                     cooldown=cooldown
                     if cooldown is not None
                     else getattr(func, "_slash_cooldown", None),
@@ -128,6 +132,7 @@ class _CommandsMixin(_MixinBase):
         require_admin: bool = False,
         ephemeral: bool = False,
         permissions: list[str] | None = None,
+        bot_permissions: list[str] | None = None,
         cooldown: float | None = None,
         cooldown_rate: int = 1,
         cooldown_bucket: str = "user",
@@ -148,6 +153,7 @@ class _CommandsMixin(_MixinBase):
             require_admin=require_admin,
             ephemeral=ephemeral,
             permissions=permissions,
+            bot_permissions=bot_permissions,
             cooldown=cooldown,
             cooldown_rate=cooldown_rate,
             cooldown_bucket=cooldown_bucket,
@@ -166,6 +172,7 @@ class _CommandsMixin(_MixinBase):
         require_admin: bool = False,
         ephemeral: bool = False,
         permissions: list[str] | None = None,
+        bot_permissions: list[str] | None = None,
         cooldown: float | None = None,
         cooldown_rate: int = 1,
         cooldown_bucket: str = "user",
@@ -191,6 +198,7 @@ class _CommandsMixin(_MixinBase):
             require_admin=require_admin,
             ephemeral=ephemeral,
             permissions=permissions,
+            bot_permissions=bot_permissions,
             cooldown=cooldown,
             cooldown_rate=cooldown_rate,
             cooldown_bucket=cooldown_bucket,

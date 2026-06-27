@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
+import threading
 from collections.abc import Mapping
 from typing import Callable
 from typing import Any
@@ -30,10 +31,12 @@ class LocalizationManager:
     (for example ``pt-BR`` → ``pt``).
 
     Thread Safety:
-    This class is NOT thread-safe. It assumes single-threaded access within
-    a request/event scope. Metrics and diagnostics state use non-atomic counters.
-    For concurrent access (e.g., sharded deployments, async locale providers),
-    external synchronization is required.
+    Metrics state (``track_metrics=True``) is guarded by an internal
+    ``threading.Lock`` so counter updates stay consistent under concurrent
+    access from multiple OS threads (e.g. sharded deployments running each
+    shard on its own thread). Mutate metrics only through ``_record_metric``,
+    never with inline ``+=``. Catalog registration and diagnostics state are
+    still assumed to be set up single-threaded at startup.
     """
 
     def __init__(
@@ -62,6 +65,7 @@ class LocalizationManager:
         self._max_tracked_locales = max_tracked_locales
         self._auto_translated_count = 0
         self._plural_rule_evaluator = plural_rule_evaluator or default_plural_rule
+        self._metrics_lock = threading.Lock()
         self._metrics: dict[str, Any] = {
             "cache_hits": 0,
             "cache_misses": 0,
@@ -117,26 +121,44 @@ class LocalizationManager:
         """
         if not self.track_metrics:
             return {}
-        # Return deep copy to prevent caller from mutating internal state
-        return {
-            "cache_hits": self._metrics["cache_hits"],
-            "cache_misses": self._metrics["cache_misses"],
-            "fallback_resolution": self._metrics["fallback_resolution"],
-            "auto_translated": self._metrics["auto_translated"],
-            "missing_keys": self._metrics["missing_keys"],
-            "locale_frequency": dict(self._metrics["locale_frequency"]),
-        }
+        # Return deep copy to prevent caller from mutating internal state.
+        # Locked so the snapshot is consistent w.r.t. concurrent _record_metric.
+        with self._metrics_lock:
+            return {
+                "cache_hits": self._metrics["cache_hits"],
+                "cache_misses": self._metrics["cache_misses"],
+                "fallback_resolution": self._metrics["fallback_resolution"],
+                "auto_translated": self._metrics["auto_translated"],
+                "missing_keys": self._metrics["missing_keys"],
+                "locale_frequency": dict(self._metrics["locale_frequency"]),
+            }
 
     def reset_metrics(self) -> None:
         """Reset all metrics to zero (for per-session tracking)."""
         if self.track_metrics:
-            self._metrics["cache_hits"] = 0
-            self._metrics["cache_misses"] = 0
-            self._metrics["fallback_resolution"] = 0
-            self._metrics["auto_translated"] = 0
-            self._metrics["missing_keys"] = 0
-            self._metrics["locale_frequency"] = {}
+            with self._metrics_lock:
+                self._metrics["cache_hits"] = 0
+                self._metrics["cache_misses"] = 0
+                self._metrics["fallback_resolution"] = 0
+                self._metrics["auto_translated"] = 0
+                self._metrics["missing_keys"] = 0
+                self._metrics["locale_frequency"] = {}
         self._auto_translated_count = 0
+
+    def _record_metric(self, field: str, locale: str | None = None) -> None:
+        """Atomically increment a metric counter (and optional locale frequency).
+
+        No-op when ``track_metrics`` is disabled. The lock makes the
+        read-modify-write safe across OS threads; ``_update_locale_frequency``
+        is intentionally lock-free since it is only ever called from here,
+        already holding ``_metrics_lock``.
+        """
+        if not self.track_metrics:
+            return
+        with self._metrics_lock:
+            self._metrics[field] += 1
+            if locale is not None:
+                self._update_locale_frequency(locale)
 
     def resolve_chain(
         self,
@@ -314,9 +336,7 @@ class LocalizationManager:
             if catalog:
                 val = self._lookup_in_catalog(catalog, candidate, key, count)
                 if val is not None:
-                    if self.track_metrics:
-                        self._metrics["cache_hits"] += 1
-                        self._update_locale_frequency(candidate)
+                    self._record_metric("cache_hits", candidate)
                     self._trace_resolution(
                         key, locale, requested_locale, guild_locale, candidate,
                         preferred_chain, candidate, True
@@ -324,8 +344,7 @@ class LocalizationManager:
                     return val
 
         # Try auto-translation if enabled and key not found in preferred chain
-        if self.track_metrics:
-            self._metrics["cache_misses"] += 1
+        self._record_metric("cache_misses")
 
         auto_translated = self._auto_translate_missing(
             key,
@@ -335,10 +354,7 @@ class LocalizationManager:
             count=count,
         )
         if auto_translated is not None:
-            if self.track_metrics:
-                self._metrics["auto_translated"] += 1
-                if requested_locale:
-                    self._update_locale_frequency(requested_locale)
+            self._record_metric("auto_translated", requested_locale or None)
             self._trace_resolution(
                 key, locale, requested_locale, guild_locale, requested_locale,
                 preferred_chain, "auto_translator", False
@@ -352,9 +368,7 @@ class LocalizationManager:
             if catalog:
                 val = self._lookup_in_catalog(catalog, candidate, key, count)
                 if val is not None:
-                    if self.track_metrics:
-                        self._metrics["fallback_resolution"] += 1
-                        self._update_locale_frequency(candidate)
+                    self._record_metric("fallback_resolution", candidate)
                     if requested_locale:
                         self.diagnostics.report_missing_key(
                             key, requested_locale, fallback_locale=candidate
@@ -366,8 +380,7 @@ class LocalizationManager:
                     return val
 
         # Not found anywhere
-        if self.track_metrics:
-            self._metrics["missing_keys"] += 1
+        self._record_metric("missing_keys")
         if requested_locale:
             self.diagnostics.report_missing_key(key, requested_locale)
         self._trace_resolution(

@@ -243,6 +243,12 @@ class EconomyPlugin(Plugin):
         assert ctx.guild is not None  # guaranteed by guild_only=True
         # Decide and persist the outcome under the lock; do all Discord I/O
         # after releasing it so response latency never stalls the guild.
+        # Seed the success-message fields so they are always bound on the path
+        # that reaches the response below (only taken when not already_claimed).
+        reward = 100
+        currency = "Credits"
+        symbol = "💰"
+        new_balance = 0
         async with self._balance_lock(ctx.guild.id):
             cfg_obj = await self.config.store.load(ctx.guild.id)
 

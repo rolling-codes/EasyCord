@@ -174,6 +174,21 @@ class _PluginsMixin(_MixinBase):
                 return
         raise ValueError(f"No plugin named {name!r} is loaded")
 
+    def _get_reload_lock(self) -> asyncio.Lock:
+        """Return the bot-wide hot-reload lock, creating it on first use.
+
+        The lock serializes a plugin swap (``remove_plugin`` → ``add_plugin`` →
+        ``on_reload``) against command dispatch so an interaction can never land
+        in the window where the old plugin's commands are unregistered but the
+        new ones are not yet installed. ``asyncio.Lock`` does not bind to a loop
+        at construction (3.10+), so lazy creation here is safe.
+        """
+        lock = getattr(self, "_reload_lock", None)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._reload_lock = lock
+        return lock
+
     async def _hot_reload_plugin(self, plugin: Plugin) -> None:
         """Reload a plugin's module code and reinstall it, replacing the running instance.
 
@@ -219,15 +234,24 @@ class _PluginsMixin(_MixinBase):
                 plugin.name, type(exc).__name__, exc,
             )
             return
-        await self.remove_plugin(plugin)
-        self.add_plugin(new_instance)
-        logger.info("Plugin reloaded: %s", plugin.name)
-        await new_instance.on_reload()
+        # Serialize the swap against command dispatch: while this lock is held,
+        # callbacks gated on it (see build_slash_callback) wait, so no
+        # interaction runs against the half-removed registry.
+        async with self._get_reload_lock():
+            await self.remove_plugin(plugin)
+            self.add_plugin(new_instance)
+            logger.info("Plugin reloaded: %s", plugin.name)
+            await new_instance.on_reload()
 
     async def _hot_reload_loop(self) -> None:
         """Poll plugin files every second and hot-reload any whose mtime changed."""
         import os
 
+        # Mark hot-reload as active so command dispatch acquires the reload lock
+        # (cheap, uncontended). When the loop never runs — i.e. production — the
+        # flag stays falsy and dispatch keeps its lock-free fast path.
+        self._hot_reload_active = True
+        self._get_reload_lock()  # ensure the lock exists before any dispatch
         mtimes: dict[str, float] = {}
         while True:
             await asyncio.sleep(3)
@@ -343,13 +367,19 @@ class _PluginsMixin(_MixinBase):
 
             required_perms: list[str] | None = getattr(method, "_slash_permissions", None)
             require_admin: bool = getattr(method, "_slash_require_admin", False)
+            bot_required: list[str] | None = getattr(method, "_slash_bot_permissions", None)
 
-            # Build effective permission list
+            # Build effective permission list — the perms the bot must hold for the
+            # command to work. Includes user-declared perms (legacy behavior) plus
+            # any explicit bot_permissions=, so this startup warning stays aligned
+            # with the dispatch-time block in build_slash_callback.
             effective: list[str] = []
             if require_admin:
                 effective.append("administrator")
             if required_perms:
                 effective.extend(required_perms)
+            if bot_required:
+                effective.extend(p for p in bot_required if p not in effective)
             if not effective:
                 continue
 

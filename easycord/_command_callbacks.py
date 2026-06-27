@@ -56,6 +56,7 @@ def build_slash_callback(
     require_admin: bool = False,
     ephemeral: bool = False,
     permissions: list[str] | None = None,
+    bot_permissions: list[str] | None = None,
     cooldown: float | None = None,
     cooldown_rate: int = 1,
     cooldown_bucket: str = "user",
@@ -147,6 +148,34 @@ def build_slash_callback(
                         ephemeral=True,
                     )
                     return
+            if bot_permissions:
+                # Validate the *bot's* own permissions before running, so a
+                # command that calls a privileged API (member.kick(), etc.) fails
+                # fast with a clear message instead of executing and raising
+                # Forbidden partway through. Distinct from the user check above.
+                if not ctx.guild:
+                    await ctx.respond(
+                        ctx.t(
+                            "errors.guild_only",
+                            default="This command can only be used inside a server.",
+                        ),
+                        ephemeral=True,
+                    )
+                    return
+                bot_perms = ctx.bot_permissions
+                missing_bot = [
+                    p for p in bot_permissions if not getattr(bot_perms, p, False)
+                ]
+                if missing_bot:
+                    await ctx.respond(
+                        ctx.t(
+                            "errors.bot_permissions_missing",
+                            default="I'm missing the following permission(s): {permissions}.",
+                            permissions=", ".join(missing_bot),
+                        ),
+                        ephemeral=True,
+                    )
+                    return
             if premium_required and not ctx.entitlements:
                 await ctx.respond(
                     ctx.t(
@@ -212,7 +241,15 @@ def build_slash_callback(
                 else:
                     raise
 
-        await chain_builder(ctx, invoke, bot._middleware)()
+        # When dev hot-reload is active, serialize against plugin swaps so a
+        # command never executes against a half-removed registry. In production
+        # the flag is falsy and this stays a lock-free fast path.
+        reload_lock = getattr(bot, "_reload_lock", None)
+        if reload_lock is not None and getattr(bot, "_hot_reload_active", False):
+            async with reload_lock:
+                await chain_builder(ctx, invoke, bot._middleware)()
+        else:
+            await chain_builder(ctx, invoke, bot._middleware)()
 
     interaction_param = inspect.Parameter(
         "interaction",

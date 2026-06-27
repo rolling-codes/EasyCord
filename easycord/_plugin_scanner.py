@@ -1,17 +1,21 @@
 """Plugin method scanning and registration helpers."""
 from __future__ import annotations
 
-from typing import Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import discord
 
 from .tool_limits import RateLimit
 from .tools import ToolSafety
 
+if TYPE_CHECKING:
+    from ._bot_base import _BotBase
+    from .plugin import Plugin
+
 
 def scan_plugin_methods(
-    bot: object,
-    plugin: object,
+    bot: "_BotBase",
+    plugin: "Plugin",
     *,
     iter_methods: Callable[[object], list[tuple[str, Any]]],
     parent=None,
@@ -83,7 +87,7 @@ def _collect_standalone_autocomplete(
 
 
 def _register_slash_methods(
-    bot: object,
+    bot: "_BotBase",
     method: Callable,
     *,
     plugin_name: str,
@@ -106,6 +110,7 @@ def _register_slash_methods(
             require_admin=getattr(method, "_slash_require_admin", False),
             ephemeral=getattr(method, "_slash_ephemeral", False),
             permissions=getattr(method, "_slash_permissions", None),
+            bot_permissions=getattr(method, "_slash_bot_permissions", None),
             cooldown=getattr(method, "_slash_cooldown", None),
             cooldown_rate=getattr(method, "_slash_cooldown_rate", 1),
             cooldown_bucket=getattr(method, "_slash_cooldown_bucket", "user"),
@@ -121,7 +126,7 @@ def _register_slash_methods(
 
 
 def _register_context_menu(
-    bot: object,
+    bot: "_BotBase",
     method: Callable,
     *,
     plugin_name: str,
@@ -139,7 +144,7 @@ def _register_context_menu(
     )
 
 
-def _register_ai_tool(bot: object, method: Callable) -> None:
+def _register_ai_tool(bot: "_BotBase", method: Callable) -> None:
     tool_name = cast(str, getattr(method, "_ai_tool_name"))
     description = cast(str, getattr(method, "_ai_tool_description"))
     parameters = cast(dict[str, Any], getattr(method, "_ai_tool_parameters"))
