@@ -248,3 +248,20 @@ class TestAnalyzeRobustness:
         action, _, _ = await plugin._analyze_message(GUILD, msg)
 
         assert action is None
+
+
+# ---------------------------------------------------------------------------
+# Config mutators must be admin-gated — any member flipping action_level to
+# auto_delete (or disabling moderation) is a privilege-escalation surface.
+# ---------------------------------------------------------------------------
+
+class TestConfigMutatorsRequireManageGuild:
+    @pytest.mark.parametrize(
+        "command",
+        ["mod_enable", "mod_threshold", "mod_action_level", "mod_add_rule", "mod_remove_rule"],
+    )
+    def test_mutator_requires_manage_guild(self, command: str) -> None:
+        func = getattr(AIModeratorPlugin, command)
+        assert func._slash_permissions == ["manage_guild"], (
+            f"/{command} mutates moderation config and must require manage_guild"
+        )
