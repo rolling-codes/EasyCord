@@ -67,20 +67,22 @@ class StarboardPlugin(Plugin):
         return cfg_obj.get_other("archived_messages", {})
 
     async def _set_archived(self, guild_id: int, message_id: int, post_id: int) -> None:
-        """Store archived message mapping."""
-        cfg_obj = await self.config.store.load(guild_id)
-        archived = cfg_obj.get_other("archived_messages", {})
-        archived[str(message_id)] = post_id
-        cfg_obj.set_other("archived_messages", archived)
-        await self.config.store.save(cfg_obj)
+        """Store archived message mapping atomically."""
+        def _apply(cfg) -> None:
+            archived = cfg.get_other("archived_messages", {})
+            archived[str(message_id)] = post_id
+            cfg.set_other("archived_messages", archived)
+
+        await self.config.store.mutate(guild_id, _apply)
 
     async def _remove_archived(self, guild_id: int, message_id: int) -> None:
-        """Remove archived message mapping."""
-        cfg_obj = await self.config.store.load(guild_id)
-        archived = cfg_obj.get_other("archived_messages", {})
-        archived.pop(str(message_id), None)
-        cfg_obj.set_other("archived_messages", archived)
-        await self.config.store.save(cfg_obj)
+        """Remove archived message mapping atomically."""
+        def _apply(cfg) -> None:
+            archived = cfg.get_other("archived_messages", {})
+            archived.pop(str(message_id), None)
+            cfg.set_other("archived_messages", archived)
+
+        await self.config.store.mutate(guild_id, _apply)
 
     async def _archive_message(self, message: discord.Message, reaction_count: int) -> None:
         """Post or update message on starboard."""

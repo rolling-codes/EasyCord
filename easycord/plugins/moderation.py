@@ -252,23 +252,19 @@ class ModerationPlugin(Plugin):
             await ctx.respond(f"⏳ {msg}")
             return
 
-        # Load warnings for user
-        cfg_obj = await self.config.store.load(guild.id)
-        warnings = cfg_obj.get_other("warnings", {})
+        # Append the warning atomically so concurrent /warn calls don't lose one
         user_id_str = str(user.id)
 
-        if user_id_str not in warnings:
-            warnings[user_id_str] = []
+        def _apply(cfg) -> int:
+            warnings = cfg.get_other("warnings", {})
+            warnings.setdefault(user_id_str, []).append({
+                "reason": reason or "No reason provided",
+                "moderator": str(ctx.user.id),
+            })
+            cfg.set_other("warnings", warnings)
+            return len(warnings[user_id_str])
 
-        warnings[user_id_str].append({
-            "reason": reason or "No reason provided",
-            "moderator": str(ctx.user.id),
-        })
-
-        cfg_obj.set_other("warnings", warnings)
-        await self.config.store.save(cfg_obj)
-
-        warn_count = len(warnings[user_id_str])
+        warn_count = await self.config.store.mutate(guild.id, _apply)
         auto_mute_threshold = cfg.get("auto_warn_threshold", 3)
 
         await ctx.respond(f"⚠️ Warned {user.mention}. Warning #{warn_count}")
