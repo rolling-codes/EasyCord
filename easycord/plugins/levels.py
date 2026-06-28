@@ -165,6 +165,32 @@ class LevelsPlugin(Plugin):
 
         return await self._store.update_config(guild_id, updater)
 
+    async def _grant_level_reward(
+        self,
+        member: discord.Member,
+        guild: discord.Guild,
+        level: int,
+        config: dict,
+    ) -> discord.Role | None:
+        """Grant the role reward configured for *level*, if any.
+
+        Shared by organic leveling (`_award_xp`) and the admin `/give_xp` command
+        so both apply role rewards identically. Returns the granted role (for
+        surfacing to the user), or None when no reward is configured, the role is
+        missing, or the add fails.
+        """
+        role_id = config.get("role_rewards", {}).get(str(level))
+        if not role_id:
+            return None
+        role = guild.get_role(role_id)
+        if role is None:
+            return None
+        try:
+            await member.add_roles(role, reason=f"Reached level {level}")
+            return role
+        except discord.HTTPException:
+            return None  # bot may lack manage_roles or the role may be above its top role
+
     # ── Event: award XP on message ────────────────────────────
 
     @on("message")
@@ -211,17 +237,12 @@ class LevelsPlugin(Plugin):
         )
         embed.set_footer(text=f"Total XP: {xp}")
 
-        role_rewards: dict[str, int] = config.get("role_rewards", {})
-        role_id = role_rewards.get(str(level))
-        if role_id and isinstance(message.author, discord.Member):
-            role = message.guild.get_role(role_id)
-            if role:
-                try:
-                    await message.author.add_roles(role, reason=f"Reached level {level}")
-                    # Note: ctx not available in event handler; use bot's LocalizationManager if needed
-                    embed.add_field(name="Role awarded", value=role.mention, inline=False)
-                except discord.HTTPException:
-                    pass  # bot may lack manage_roles or the role may be above its top role
+        if isinstance(message.author, discord.Member):
+            awarded = await self._grant_level_reward(
+                message.author, message.guild, level, config
+            )
+            if awarded:
+                embed.add_field(name="Role awarded", value=awarded.mention, inline=False)
 
         await message.channel.send(embed=embed)
 
@@ -252,6 +273,11 @@ class LevelsPlugin(Plugin):
         msg = f"Gave **{amount:,} XP** to {member.mention}. They now have **{xp:,} XP** (Level {level})."
         if leveled_up:
             msg += " 🎉 Level up!"
+            # Apply the level's role reward, matching organic leveling (_award_xp).
+            config = self._store.read_config(ctx.guild.id)
+            awarded = await self._grant_level_reward(member, ctx.guild, level, config)
+            if awarded:
+                msg += f" Role awarded: {awarded.mention}"
         await ctx.respond(msg)
 
     @slash(description="Name a rank for a specific level.", permissions=["manage_guild"], guild_only=True)

@@ -99,6 +99,28 @@ class TestPureFunctions:
         today = datetime.date(2026, 6, 15)
         assert _days_until(7, 15, today) == 30
 
+    def test_days_until_feb29_when_next_year_also_non_leap(self) -> None:
+        # 2026 and 2027 are both non-leap; the next Feb 29 is in 2028.
+        # Previously raised an uncaught ValueError on date(2027, 2, 29).
+        today = datetime.date(2026, 6, 28)
+        expected = (datetime.date(2028, 2, 29) - today).days
+        assert _days_until(2, 29, today) == expected
+
+    def test_days_until_feb29_earlier_in_a_leap_year(self) -> None:
+        # In a leap year, before Feb 29 -> the upcoming Feb 29 is this year.
+        today = datetime.date(2028, 1, 1)
+        assert _days_until(2, 29, today) == (datetime.date(2028, 2, 29) - today).days
+
+    def test_sort_upcoming_with_feb29_entry_does_not_crash(self) -> None:
+        today = datetime.date(2026, 6, 28)
+        birthdays = {
+            "1": {"month": 2, "day": 29},
+            "2": {"month": 7, "day": 1},
+        }
+        result = _sort_upcoming(birthdays, today)
+        # July 1 (a few days out) sorts ahead of Feb 29 2028 (~600 days out).
+        assert [t[0] for t in result] == [2, 1]
+
     # _sort_upcoming
 
     def test_sort_upcoming_orders_correctly(self) -> None:

@@ -399,6 +399,25 @@ async def test_give_xp_announces_levelup(plugin):
     assert "Level up" in response
 
 
+async def test_give_xp_assigns_role_reward_on_levelup(plugin):
+    await plugin._store.update_config(1, lambda c: c.update({"role_rewards": {str(1): 999}}))
+    role = MagicMock(spec=discord.Role)
+    role.mention = "@Member"
+    ctx = _make_ctx(guild_id=1, user_id=1)
+    ctx.guild.get_role = MagicMock(return_value=role)
+    member = _make_member(user_id=2)
+    await plugin.give_xp(ctx, member, 150)  # crosses into level 1
+    member.add_roles.assert_called_once_with(role, reason="Reached level 1")
+    assert role.mention in ctx.respond.call_args[0][0]
+
+
+async def test_give_xp_no_role_when_no_reward_configured(plugin):
+    ctx = _make_ctx(guild_id=1, user_id=1)
+    member = _make_member(user_id=2)
+    await plugin.give_xp(ctx, member, 150)  # levels up, but no rewards configured
+    member.add_roles.assert_not_called()
+
+
 # ── /set_rank and /remove_rank slash commands ─────────────────────────────────
 
 async def test_set_rank_saves_config(plugin, tmp_path):

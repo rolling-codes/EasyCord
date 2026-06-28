@@ -229,8 +229,12 @@ class TicketsPlugin(Plugin):
         )
 
         try:
+            # Capture the most recent 100 messages (the resolution), not the
+            # oldest 100. _format_transcript re-sorts by created_at, so the
+            # transcript stays chronological and the [-3800:] tail keeps the end
+            # of the conversation.
             raw: list[discord.Message] = [
-                msg async for msg in thread.history(limit=100, oldest_first=True)
+                msg async for msg in thread.history(limit=100, oldest_first=False)
             ]
         except discord.HTTPException:
             raw = []
