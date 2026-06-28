@@ -1,10 +1,10 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.43.2-blue)
+![Version](https://img.shields.io/badge/v-5.43.3-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 
-**[→ Release v5.43.2](https://github.com/rolling-codes/EasyCord/releases/tag/v5.43.2)**
+**[→ Release v5.43.3](https://github.com/rolling-codes/EasyCord/releases/tag/v5.43.3)**
 
 > A modern Discord bot framework for production bots. **No AI required.** Commands, events, moderation, leveling, per-guild configuration, and optional AI orchestration — all with minimal boilerplate. Start simple with slash commands. Add bundled plugins for features (moderation, roles, logging, leveling). Optionally add intelligent agents with multi-provider LLM support and permission-gated tool calling.
 
@@ -104,9 +104,9 @@ async def test_my_logic():
 For more, see [examples/](examples/) and [docs/](docs/).
 Refer to [AGENTS.md](AGENTS.md) for detailed framework conventions.
 
-Release links: [v5.43.2 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.43.2) · [Changelog](CHANGELOG.md)
+Release links: [v5.43.3 release](https://github.com/rolling-codes/EasyCord/releases/tag/v5.43.3) · [Changelog](CHANGELOG.md)
 
-## New in v5.43.2 (Current Release)
+## New in v5.43.3 (Current Release)
 
 This combined release brings together v5.43.0 (plugin authoring system) and v5.43.1 (Phase 1 AI orchestration). See CHANGELOG.md for detailed feature descriptions.
 
@@ -296,7 +296,7 @@ bot = (
 ### From GitHub (via pip)
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.43.2/easycord-5.43.2-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.43.3/easycord-5.43.3-py3-none-any.whl"
 ```
 
 ### Clone and install locally

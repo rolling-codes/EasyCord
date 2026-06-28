@@ -1,5 +1,18 @@
 # Changelog
 
+## EasyCord v5.43.3 - 2026-06-27
+
+### Fixed
+- Serialized `EconomyPlugin` balance mutations under a per-guild lock. Concurrent `/transfer`, `/daily`, and message rewards could previously interleave their load → modify → save sequences and lose updates; `/transfer` now applies both legs under one lock so a sender can no longer be overdrawn or currency lost between the debit and credit.
+- Resolved a `/leaderboard` slash-command name collision between the economy and levels plugins (economy now registers `/economy_leaderboard`).
+- Removed dead code in `StarboardPlugin`.
+
+### Verification
+- `python scripts/check_release_metadata.py` - passed.
+- `pytest tests/` - 606 passed.
+
+---
+
 ## EasyCord v5.43.2 - 2026-05-30
 
 ### Release Notice
