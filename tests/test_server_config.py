@@ -282,3 +282,12 @@ class TestAtomicMutate:
         await store.mutate(2, lambda cfg: cfg.set_other("k", "g2"))
         assert (await store.load(1)).get_other("k") == "g1"
         assert (await store.load(2)).get_other("k") == "g2"
+
+    @pytest.mark.asyncio
+    async def test_save_unlocked_failure_raises_runtime_error(self, store) -> None:
+        cfg = await store.load(1)
+        # Store an unserializable object to force json.dump TypeError
+        cfg.set_other("unserializable", lambda: None)
+        with pytest.raises(RuntimeError, match="Failed to save config for guild 1"):
+            await store.save(cfg)
+

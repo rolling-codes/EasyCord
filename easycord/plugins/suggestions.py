@@ -125,7 +125,12 @@ class SuggestionsPlugin(Plugin):
         cfg_obj = await self.config.store.load(ctx.guild.id)
         suggestions = cfg_obj.get_other("suggestions", {})
 
-        pending = {sid: s for sid, s in suggestions.items() if s.get("status") == "pending"}
+        pending = {
+            sid: s
+            for sid, s in suggestions.items()
+            if isinstance(s, dict) and s.get("status") == "pending"
+        }
+
 
         if not pending:
             await ctx.respond("No pending suggestions")

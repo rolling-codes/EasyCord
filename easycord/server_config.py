@@ -5,12 +5,17 @@ import asyncio
 import contextlib
 import copy
 import json
+import logging
 import os
 from collections import defaultdict
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Callable, TypeVar
 
 T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
+
 
 
 class ServerConfig:  # pylint: disable=too-many-public-methods
@@ -223,7 +228,16 @@ class ServerConfigStore:
         """
         async with self._locks[guild_id]:
             config = self._load_unlocked(guild_id)
+            start = perf_counter()
             result = fn(config)
+            elapsed_ms = (perf_counter() - start) * 1000
+            if elapsed_ms > 50.0:
+                logger.warning(
+                    "Slow config mutation callback for guild %d: took %.2fms (threshold: 50ms). "
+                    "Callbacks must not perform blocked or I/O operations.",
+                    guild_id,
+                    elapsed_ms,
+                )
             self._save_unlocked(config)
             return result
 
