@@ -68,9 +68,7 @@ class TagsPlugin(Plugin):
         if entry is None:
             await ctx.respond(ctx.t("tags.not_found", default="Tag `{name}` not found.", name=name), ephemeral=True)
             return
-        member = ctx.guild.get_member(ctx.user.id)
-        is_admin = member is not None and member.guild_permissions.administrator
-        if ctx.user.id != entry["author_id"] and not is_admin:
+        if ctx.user.id != entry["author_id"] and not ctx.is_admin:
             await ctx.respond(
                 ctx.t("tags.cannot_delete", default="You can only delete your own tags (or be an admin)."),
                 ephemeral=True,

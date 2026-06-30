@@ -248,3 +248,138 @@ class TestAnalyzeRobustness:
         action, _, _ = await plugin._analyze_message(GUILD, msg)
 
         assert action is None
+
+
+# ---------------------------------------------------------------------------
+# Config mutators must be admin-gated — any member flipping action_level to
+# auto_delete (or disabling moderation) is a privilege-escalation surface.
+# ---------------------------------------------------------------------------
+
+class TestConfigMutatorsRequireManageGuild:
+    @pytest.mark.parametrize(
+        "command",
+        ["mod_enable", "mod_threshold", "mod_action_level", "mod_add_rule", "mod_remove_rule"],
+    )
+    def test_mutator_requires_manage_guild(self, command: str) -> None:
+        func = getattr(AIModeratorPlugin, command)
+        assert func._slash_permissions == ["manage_guild"], (
+            f"/{command} mutates moderation config and must require manage_guild"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Coverage Gaps / Gated paths coverage
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_on_load_with_and_without_orchestrator(tmp_path) -> None:
+    # Without orchestrator
+    p1 = _make_plugin(tmp_path, None)
+    await p1.on_load()
+    
+    # With orchestrator
+    p2 = _make_plugin(tmp_path, MagicMock())
+    await p2.on_load()
+
+
+@pytest.mark.asyncio
+async def test_analyze_message_no_orchestrator(tmp_path) -> None:
+    p = _make_plugin(tmp_path, None)
+    msg = _make_message()
+    action, confidence, reason = await p._analyze_message(GUILD, msg)
+    assert action is None
+    assert confidence == 0.0
+    assert reason == "Orchestrator not configured"
+
+
+@pytest.mark.asyncio
+async def test_analyze_message_exception(tmp_path) -> None:
+    orch = MagicMock()
+    orch.run = AsyncMock(side_effect=ValueError("fail"))
+    p = _make_plugin(tmp_path, orch)
+    msg = _make_message()
+    action, confidence, reason = await p._analyze_message(GUILD, msg)
+    assert action is None
+    assert confidence == 0.0
+    assert reason == "Analysis failed"
+
+
+class TestAIModeratorSlashCommands:
+    @pytest.mark.asyncio
+    async def test_mod_enable(self, tmp_path) -> None:
+        p = _make_plugin(tmp_path, None)
+        ctx = MagicMock()
+        ctx.guild.id = GUILD
+        ctx.send = AsyncMock()
+        
+        await p.mod_enable(ctx, enabled=True)
+        ctx.send.assert_called_once_with("✅ Moderation enabled")
+        cfg = await p._get_config(GUILD)
+        assert cfg["enabled"] is True
+
+    @pytest.mark.asyncio
+    async def test_mod_config(self, tmp_path) -> None:
+        p = _make_plugin(tmp_path, None)
+        ctx = MagicMock()
+        ctx.guild.id = GUILD
+        ctx.respond = AsyncMock()
+        
+        await p.mod_config(ctx)
+        ctx.respond.assert_called_once()
+        embed = ctx.respond.call_args.kwargs.get("embed")
+        assert embed is not None
+        assert embed.title == "Moderation Config"
+
+    @pytest.mark.asyncio
+    async def test_mod_threshold(self, tmp_path) -> None:
+        p = _make_plugin(tmp_path, None)
+        ctx = MagicMock()
+        ctx.guild.id = GUILD
+        ctx.send = AsyncMock()
+        
+        await p.mod_threshold(ctx, threshold=0.75)
+        ctx.send.assert_called_once_with("✅ Threshold set to 75%")
+        cfg = await p._get_config(GUILD)
+        assert cfg["confidence_threshold"] == 0.75
+
+    @pytest.mark.asyncio
+    async def test_mod_action_level(self, tmp_path) -> None:
+        p = _make_plugin(tmp_path, None)
+        ctx = MagicMock()
+        ctx.guild.id = GUILD
+        ctx.send = AsyncMock()
+        
+        await p.mod_action_level(ctx, level="warn")
+        ctx.send.assert_called_once_with("✅ Action level set to warn")
+        cfg = await p._get_config(GUILD)
+        assert cfg["action_level"] == "warn"
+
+        ctx.send.reset_mock()
+        await p.mod_action_level(ctx, level="invalid")
+        ctx.send.assert_called_once_with("❌ Invalid level. Use: notify_only, warn, auto_delete")
+
+    @pytest.mark.asyncio
+    async def test_mod_add_remove_rule(self, tmp_path) -> None:
+        p = _make_plugin(tmp_path, None)
+        ctx = MagicMock()
+        ctx.guild.id = GUILD
+        ctx.send = AsyncMock()
+        
+        # Add valid rule
+        await p.mod_add_rule(ctx, rule="spam")
+        ctx.send.assert_called_once_with("✅ Added rule: spam")
+        cfg = await p._get_config(GUILD)
+        assert "spam" in cfg["rules"]
+
+        # Add invalid rule
+        ctx.send.reset_mock()
+        await p.mod_add_rule(ctx, rule="invalid_rule")
+        ctx.send.assert_called_once_with("❌ Invalid rule. Use: spam, abuse, nsfw")
+
+        # Remove rule
+        ctx.send.reset_mock()
+        await p.mod_remove_rule(ctx, rule="spam")
+        ctx.send.assert_called_once_with("✅ Removed rule: spam")
+        cfg = await p._get_config(GUILD)
+        assert "spam" not in cfg["rules"]
+

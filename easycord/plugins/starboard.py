@@ -67,20 +67,22 @@ class StarboardPlugin(Plugin):
         return cfg_obj.get_other("archived_messages", {})
 
     async def _set_archived(self, guild_id: int, message_id: int, post_id: int) -> None:
-        """Store archived message mapping."""
-        cfg_obj = await self.config.store.load(guild_id)
-        archived = cfg_obj.get_other("archived_messages", {})
-        archived[str(message_id)] = post_id
-        cfg_obj.set_other("archived_messages", archived)
-        await self.config.store.save(cfg_obj)
+        """Store archived message mapping atomically."""
+        def _apply(cfg) -> None:
+            archived = cfg.get_other("archived_messages", {})
+            archived[str(message_id)] = post_id
+            cfg.set_other("archived_messages", archived)
+
+        await self.config.store.mutate(guild_id, _apply)
 
     async def _remove_archived(self, guild_id: int, message_id: int) -> None:
-        """Remove archived message mapping."""
-        cfg_obj = await self.config.store.load(guild_id)
-        archived = cfg_obj.get_other("archived_messages", {})
-        archived.pop(str(message_id), None)
-        cfg_obj.set_other("archived_messages", archived)
-        await self.config.store.save(cfg_obj)
+        """Remove archived message mapping atomically."""
+        def _apply(cfg) -> None:
+            archived = cfg.get_other("archived_messages", {})
+            archived.pop(str(message_id), None)
+            cfg.set_other("archived_messages", archived)
+
+        await self.config.store.mutate(guild_id, _apply)
 
     async def _archive_message(self, message: discord.Message, reaction_count: int) -> None:
         """Post or update message on starboard."""
@@ -176,7 +178,9 @@ class StarboardPlugin(Plugin):
     @on("raw_reaction_add")
     async def _on_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
         """Check reaction count and archive if threshold met."""
-        if payload.guild_id is None or payload.user_id == self.bot.user.id:
+        if payload.guild_id is None or (
+            self.bot.user is not None and payload.user_id == self.bot.user.id
+        ):
             return
 
         guild = self.bot.get_guild(payload.guild_id)
@@ -215,7 +219,9 @@ class StarboardPlugin(Plugin):
     @on("raw_reaction_remove")
     async def _on_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
         """Check if message should be unarchived."""
-        if payload.guild_id is None or payload.user_id == self.bot.user.id:
+        if payload.guild_id is None or (
+            self.bot.user is not None and payload.user_id == self.bot.user.id
+        ):
             return
 
         guild = self.bot.get_guild(payload.guild_id)
@@ -253,16 +259,19 @@ class StarboardPlugin(Plugin):
 
     @slash(description="Set the channel for starboard messages.", permissions=["manage_guild"], guild_only=True)
     async def starboard_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         await self._update_config(ctx.guild.id, channel_id=channel.id)
         await ctx.respond(f"Starboard messages will be posted in {channel.mention}.", ephemeral=True)
 
     @slash(description="Set the emoji to trigger starboard.", permissions=["manage_guild"], guild_only=True)
     async def starboard_emoji(self, ctx: Context, emoji: str) -> None:
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         await self._update_config(ctx.guild.id, emoji=emoji)
         await ctx.respond(f"Starboard emoji set to {emoji}.", ephemeral=True)
 
     @slash(description="Set the reaction threshold for starboard.", permissions=["manage_guild"], guild_only=True)
     async def starboard_threshold(self, ctx: Context, threshold: int) -> None:
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         if threshold < 1:
             await ctx.respond("Threshold must be at least 1.", ephemeral=True)
             return
@@ -271,6 +280,7 @@ class StarboardPlugin(Plugin):
 
     @slash(description="Show the current starboard configuration for this server.", guild_only=True)
     async def starboard_config(self, ctx: Context) -> None:
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         cfg = await self._get_config(ctx.guild.id)
         channel_id = cfg.get("channel_id")
         channel = ctx.guild.get_channel(channel_id) if channel_id else None

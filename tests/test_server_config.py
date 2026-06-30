@@ -1,6 +1,7 @@
 """Tests for ServerConfig and ServerConfigStore."""
 from __future__ import annotations
 
+import asyncio
 
 import pytest
 
@@ -211,3 +212,82 @@ class TestServerConfigStore:
         path.write_text("not json", encoding="utf-8")
         with pytest.raises(RuntimeError):
             await store.load(1)
+
+
+class TestAtomicMutate:
+    @pytest.fixture
+    def store(self, tmp_path):
+        return ServerConfigStore(str(tmp_path / "cfg"))
+
+    @pytest.mark.asyncio
+    async def test_naive_load_modify_save_loses_concurrent_write(self, store) -> None:
+        """Documents the race that mutate() exists to prevent.
+
+        Two unlocked load -> modify -> save sequences that interleave (an await
+        sits between the load and the save) clobber each other: last save wins.
+        """
+        async def naive_append(value: int) -> None:
+            cfg = await store.load(1)
+            items = cfg.get_other("items", [])
+            await asyncio.sleep(0)  # force the interleave the real code can hit
+            items.append(value)
+            cfg.set_other("items", items)
+            await store.save(cfg)
+
+        await asyncio.gather(naive_append(1), naive_append(2))
+
+        loaded = await store.load(1)
+        # One write was lost — exactly the bug.
+        assert len(loaded.get_other("items", [])) == 1
+
+    @pytest.mark.asyncio
+    async def test_mutate_serializes_concurrent_writes(self, store) -> None:
+        def _append(value: int):
+            def _apply(cfg):
+                items = cfg.get_other("items", [])
+                items.append(value)
+                cfg.set_other("items", items)
+            return _apply
+
+        await asyncio.gather(
+            store.mutate(1, _append(1)),
+            store.mutate(1, _append(2)),
+        )
+
+        loaded = await store.load(1)
+        items = loaded.get_other("items", [])
+        # Both writes survive under the per-guild lock.
+        assert sorted(items) == [1, 2]
+
+    @pytest.mark.asyncio
+    async def test_mutate_returns_callback_value(self, store) -> None:
+        def _bump(cfg):
+            nxt = cfg.get_other("counter", 0) + 1
+            cfg.set_other("counter", nxt)
+            return nxt
+
+        first = await store.mutate(1, _bump)
+        second = await store.mutate(1, _bump)
+        assert (first, second) == (1, 2)
+
+    @pytest.mark.asyncio
+    async def test_mutate_persists_changes(self, store) -> None:
+        await store.mutate(1, lambda cfg: cfg.set_other("k", "v"))
+        loaded = await store.load(1)
+        assert loaded.get_other("k") == "v"
+
+    @pytest.mark.asyncio
+    async def test_mutate_isolates_guilds(self, store) -> None:
+        await store.mutate(1, lambda cfg: cfg.set_other("k", "g1"))
+        await store.mutate(2, lambda cfg: cfg.set_other("k", "g2"))
+        assert (await store.load(1)).get_other("k") == "g1"
+        assert (await store.load(2)).get_other("k") == "g2"
+
+    @pytest.mark.asyncio
+    async def test_save_unlocked_failure_raises_runtime_error(self, store) -> None:
+        cfg = await store.load(1)
+        # Store an unserializable object to force json.dump TypeError
+        cfg.set_other("unserializable", lambda: None)
+        with pytest.raises(RuntimeError, match="Failed to save config for guild 1"):
+            await store.save(cfg)
+

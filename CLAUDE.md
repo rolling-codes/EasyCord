@@ -9,6 +9,9 @@ pip install -e ".[dev]"
 pytest tests/
 pytest tests/test_middleware.py -v
 pytest tests/test_middleware.py::test_name -v
+ruff check easycord tests --select E9,F63,F7,F82   # the blocking lint gate (syntax/undefined-name errors)
+ruff check .                                        # full advisory lint (non-blocking in CI)
+python scripts/verify_plugin_tests.py      # per-plugin test-count thresholds (complex ≥20, simple ≥8)
 python -m build --no-isolation   # plain `python -m build` needs a working venv module
 python scripts/check_release_metadata.py   # version consistency across pyproject/__init__/CHANGELOG
 python scripts/bump_version.py 5.50.0      # bump version across all tracked files
@@ -17,11 +20,13 @@ pyright                                    # static type checking (pyrightconfig
 
 `pytest-asyncio` with `asyncio_mode = "auto"` — no manual event loop setup needed.
 
+**CI PR gate** (`.github/workflows/tests.yml`, Python 3.10/3.11/3.12) runs, in order: critical-error ruff (`--select E9,F63,F7,F82`, blocking) → full ruff (advisory) → `check_release_metadata.py` → `verify_plugin_tests.py` → `pytest`. Reproduce a green run locally with those four commands. There is no ruff config file — only the explicit `--select` rule set is enforced as a gate.
+
 The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easycord new`, `easycord doctor`, `easycord inspect`, `easycord sync-plan`, `easycord plugin create|check|discover`, `easycord test-template`, `easycord audit-tools`.
 
 ## Context
 
-- [Documentation index](docs/README.md) — goal-based entry to all 21 user-facing guides; start here when a topic isn't listed below
+- [Documentation index](docs/README.md) — goal-based entry to all 23 user-facing guides; start here when a topic isn't listed below
 - [Architecture](context/architecture.md) — layers, mixins, module map
 - [Conventions](context/conventions.md) — naming rules, key invariants
 - [Hot-Reload Development](docs/hot-reload-development.md) — `bot.run(reload=True)`, `on_reload()` hook
@@ -43,7 +48,11 @@ A root `AGENTS.md` is the Codex-facing twin of this file, maintained by hand —
 
 **i18n** — `LocalizationManager` in `i18n.py`, split across `_i18n_locale.py`, `_i18n_diagnostics.py`, `_i18n_validation.py`. Diagnostic modes: `SILENT`, `WARN`, `STRICT`. Never hardcode response strings in plugins; always look them up via `ctx.t(...)`.
 
-**AI orchestration** — `orchestrator.py` routes via `FallbackStrategy` (advances through providers on exhaustion, raises `IndexError` when all fail). AI providers are lazy-imported from `plugins/_ai_providers.py` via `easycord.__getattr__`. `ToolLimiter` methods (`check_limit`, `reset_user`, `reset_tool`) are async — always await them.
+**AI orchestration** — `orchestrator.py` routes via `FallbackStrategy` (advances through providers on exhaustion, raises `IndexError` when all fail). AI providers are lazy-imported from `plugins/_ai_providers.py` via `easycord.__getattr__`. Tools register into the `ToolRegistry` in `tools.py` and are gated by `ToolSafety` — `SAFE` (read-only), `CONTROLLED` (validated), `RESTRICTED` (never exposed). Per-tool rate limiting lives in `tool_limits.py`; `ToolLimiter` methods (`check_limit`, `reset_user`, `reset_tool`) are async — always await them.
+
+**Interaction registry** — `registry.py` is EasyCord's authoritative inventory of slash commands, context menus, components, modals, and autocomplete callbacks (and route-pattern matching for component custom_ids). `discord.app_commands.CommandTree` stays the Discord-side sync backend; the registry is the framework's own source of truth that the command-registration layer feeds.
+
+**Middleware** — `middleware.py` provides the `MiddlewareFn` chain (`Callable[[Context, next], Awaitable[None]]`) wrapped around command dispatch for cross-cutting concerns (logging, auth, rate limiting). See [Middleware Patterns](docs/middleware-patterns.md) for composition/ordering.
 
 **Command registration split** — `_command_callbacks.py` builds the actual callback wrappers; `_command_registration.py` handles option injection, choice population, and context-menu registration. Both are consumed by `_bot_commands.py`. Registration validates Discord constraints upfront: name ≤ 32 chars matching `[-_a-z0-9]`, description ≤ 100 chars, ≤ 25 options, ≤ 25 choices per option — violations raise `ValueError` before hitting the tree.
 
@@ -111,3 +120,4 @@ if isinstance(channel, SENDABLE_CHANNEL_TYPES):
 - `bot.run(reload=True)` is dev-only — the mtime watcher runs as a background task in `_background_tasks` and is cancelled by `close()`.
 - `_MixinBase` pattern — every `_bot_*.py` mixin uses `if TYPE_CHECKING: from ._bot_base import _BotBase; _MixinBase = _BotBase` so Pylance sees the full `Bot` surface without a runtime import cycle. Never set `_MixinBase = object` without the `TYPE_CHECKING` guard.
 - Event-path plugins (`@on("message")` and friends) must route every destructive action through one governed method that owns rate limiting, channel narrowing, and Discord error handling, and must never let a Discord exception escape into the dispatcher — see `AIModeratorPlugin._execute_action`. The broad `except Exception` there is intentional (`# noqa: BLE001`); only non-destructive branches (e.g. `notify_only`) stay inline.
+- `ServerConfigStore`'s per-guild lock makes a single `load()` or `save()` atomic, **not** a `load → modify → save` sequence. Any config read-modify-write must go through `ServerConfigStore.mutate(guild_id, fn)` (holds the per-guild lock across the whole load/modify/save). `fn` must be synchronous and local — no Discord/network I/O while the lock is held (do `channel.send` / `add_roles` outside `mutate`). `PluginConfigManager.update` / `set_default` already route through it; `get()` stays a pure read except on first-time default creation. Plugins that instead keep their own per-guild lock and hold it across the entire RMW (economy `_balance_lock`, auto_role/birthday/giveaway/polls `_guild_lock`) are the equivalent correct pattern — never load/modify/save unguarded.
