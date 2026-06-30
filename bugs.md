@@ -12,6 +12,7 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 | B-005 | 2026-06-30 | Tests / typing | LOW | Fixed | `plugin._bot` (Optional) member access flagged by Pyright in tests |
 | B-006 | 2026-06-30 | levels plugin | MEDIUM | Fixed | Cooldown map `.clear()` reset every user at once (XP-gate bypass) |
 | B-007 | 2026-06-30 | invite_tracker | LOW | Won't fix (noted) | `_invite_cache` not pruned on guild-remove (bounded by guild count) |
+| B-008 | 2026-06-30 | openclaw plugin | LOW | Open (for follow-up agent) | Optional member access: `ctx.guild.id` in guild_only cmds + `self.orchestrator`/`source` unnarrowed |
 
 ---
 
@@ -104,6 +105,26 @@ After B-001/B-002 fixes, three real gaps remained and were filled:
 - **Lesson:** "Unbounded dict" is only a real DoS risk when the *key* is attacker-
   controlled. Guild-keyed caches are bounded by membership; user-keyed/global caches
   (cf. B-006) are the ones that need eviction.
+
+## B-008 — openclaw Optional member access (OPEN — for follow-up agent)
+- **Where:** `easycord/plugins/openclaw.py`, Pyright `reportOptionalMemberAccess`
+  (severity: warning, not the error baseline — so not CI-blocking, but real gaps):
+  - `ctx.guild.id` in `guild_only=True` commands: lines **91, 119, 153, 164, 187**.
+    `ctx.guild` is `Optional[Guild]`; at runtime `guild_only=True` guarantees it, but the
+    static checker can't see that.
+  - `self.orchestrator.strategy` — line **220** (`self.orchestrator` is Optional).
+  - `source.can_execute(...)` — line **296** (`source` is Optional).
+- **Fix (for the follow-up agent):** Apply the SAME pattern starboard already adopted in
+  commit `bdd0c22` — add `assert ctx.guild is not None  # guaranteed by guild_only=True`
+  at the top of each guild-only command before using `ctx.guild.id`. For the
+  `orchestrator`/`source` cases, narrow with an explicit `if ... is None: return`
+  (or assert) before the member access, matching how the value is actually guaranteed.
+- **Lesson:** `guild_only=True` is a *runtime* guarantee the type checker doesn't model;
+  the project convention is an explicit `assert ctx.guild is not None` per command, not a
+  blanket `# type: ignore`. Same Optional-narrowing discipline as B-004/B-005.
+- **Status:** Not fixed in this pass (out of the CI/audit scope); recorded here so the
+  next agent picks it up. Verify the exact line numbers against current `openclaw.py`
+  before editing — they drift.
 
 ## Audit pass (2026-06-30) — verified clean / false positives
 Four parallel read-only audits ran (mutate contract, destructive-action isolation,
