@@ -136,7 +136,9 @@ async def test_unarchive_message_deletes_and_clears(tmp_path) -> None:
     channel.fetch_message.return_value = post
     guild = MagicMock()
     guild.get_channel.return_value = channel
-    plugin._bot.get_guild.return_value = guild
+    bot = MagicMock()
+    bot.get_guild.return_value = guild
+    plugin._bot = bot
 
     await plugin._unarchive_message(1, 555)
 
@@ -153,7 +155,9 @@ async def test_unarchive_message_cleans_up_on_notfound(tmp_path) -> None:
     channel.fetch_message.side_effect = discord.NotFound(MagicMock(), "gone")
     guild = MagicMock()
     guild.get_channel.return_value = channel
-    plugin._bot.get_guild.return_value = guild
+    bot = MagicMock()
+    bot.get_guild.return_value = guild
+    plugin._bot = bot
 
     await plugin._unarchive_message(1, 555)
 

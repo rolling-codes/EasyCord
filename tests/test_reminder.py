@@ -80,6 +80,7 @@ class TestPureFunctions:
         reminder = {"id": 1, "message": "hello", "fire_at": "not-a-date"}
         embed = _reminder_embed(reminder)
         assert embed.description == "hello"
+        assert embed.footer.text is not None
         assert "unknown time" in embed.footer.text
 
     def test_reminder_embed_empty_message(self) -> None:
