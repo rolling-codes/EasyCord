@@ -8,7 +8,9 @@ def count_test_functions(filepath: Path) -> int:
         tree = ast.parse(content)
         count = 0
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+            # async def test_... is ast.AsyncFunctionDef, not ast.FunctionDef —
+            # count both or every async test goes uncounted.
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
                 count += 1
         return count
     except Exception as e:
@@ -25,25 +27,36 @@ def main():
         
     complex_plugins = ["ai_moderator", "tickets", "birthday", "levels", "reminders"]
     simple_plugins = ["suggestions", "tags", "starboard"]
-    
+
+    # Some plugins keep their tests in a file that does not match test_<plugin>.py.
+    # Map plugin -> actual test filename stem (without the "test_" prefix / ".py").
+    test_file_aliases = {
+        "levels": "levels_plugin",
+        "reminders": "reminder",
+    }
+
     complex_threshold = 20
     simple_threshold = 8
-    
+
     failed = False
-    
+
     print("Checking plugin test coverage thresholds...")
-    
+
+    def test_file_for(plugin: str) -> Path:
+        stem = test_file_aliases.get(plugin, plugin)
+        return tests_dir / f"test_{stem}.py"
+
     for plugin in complex_plugins:
-        test_file = tests_dir / f"test_{plugin}.py"
+        test_file = test_file_for(plugin)
         count = count_test_functions(test_file) if test_file.exists() else 0
         if count < complex_threshold:
             print(f"[FAIL] {plugin} plugin requires at least {complex_threshold} tests, found {count}")
             failed = True
         else:
             print(f"[PASS] {plugin} plugin has {count} tests (>= {complex_threshold})")
-            
+
     for plugin in simple_plugins:
-        test_file = tests_dir / f"test_{plugin}.py"
+        test_file = test_file_for(plugin)
         count = count_test_functions(test_file) if test_file.exists() else 0
         if count < simple_threshold:
             print(f"[FAIL] {plugin} plugin requires at least {simple_threshold} tests, found {count}")

@@ -72,7 +72,6 @@ jobs:
                 repo: context.repo.repo,
                 title,
                 labels: ['bug', 'ci-failure'],
-                assignees: ['tee'],
                 body: [
                   `## ${workflow.name} failed`,
                   '',

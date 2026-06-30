@@ -99,6 +99,17 @@ class TestPureFunctions:
         from easycord.plugins.reminder import _parse_duration as pd
         assert pd("2d") == 172800
 
+    def test_parse_duration_seconds(self) -> None:
+        from easycord.plugins.reminder import _parse_duration as pd
+        assert pd("45s") == 45
+
+    def test_parse_duration_invalid_raises(self) -> None:
+        import pytest as _pytest
+
+        from easycord.plugins.reminder import _parse_duration as pd
+        with _pytest.raises(ValueError):
+            pd("not-a-duration")
+
 
 # ---------------------------------------------------------------------------
 # Layer 2 — Store tests (tmp_path)
