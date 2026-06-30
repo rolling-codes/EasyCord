@@ -1,5 +1,6 @@
 """Tests for easycord.plugins.levels — LevelsPlugin."""
 import json
+import time
 import discord
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -266,6 +267,29 @@ async def test_award_xp_independent_users_no_cooldown_sharing(plugin):
     await plugin._award_xp(msg2)
     assert plugin.get_entry(1, 1)["xp"] == 10
     assert plugin.get_entry(1, 2)["xp"] == 10
+
+
+async def test_award_xp_prunes_only_expired_cooldowns(tmp_path, monkeypatch):
+    # Regression for B-006: an over-threshold cooldown map must prune only the
+    # expired entries, never `.clear()` everything (which would let the whole
+    # server bypass the XP cooldown at once).
+    import easycord.plugins.levels as levels_mod
+    monkeypatch.setattr(levels_mod, "_COOLDOWN_PRUNE_THRESHOLD", 1)
+    quiet = LevelsPlugin(
+        xp_per_message=10,
+        cooldown_seconds=60.0,
+        data_dir=str(tmp_path / "levels"),
+        announce_levelups=False,
+    )
+    now = time.monotonic()
+    quiet._cooldowns[100][7] = now - 120  # expired -> pruned
+    quiet._cooldowns[200][8] = now        # within window -> kept
+
+    await quiet._award_xp(_make_message(guild_id=1, user_id=42))
+
+    assert 100 not in quiet._cooldowns          # expired guild fully removed
+    assert quiet._cooldowns[200][8] == now      # active cooldown preserved
+    assert 42 in quiet._cooldowns[1]            # acting user recorded
 
 
 async def test_award_xp_posts_levelup_embed(plugin):

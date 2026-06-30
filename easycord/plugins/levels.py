@@ -16,6 +16,11 @@ from ._levels_data import (
 )
 
 
+# When the in-memory cooldown map exceeds this many tracked (guild, user)
+# entries, prune the expired ones. Bounds memory without a full reset.
+_COOLDOWN_PRUNE_THRESHOLD = 10000
+
+
 def _positive_level(level: int) -> bool:
     return level >= 1
 
@@ -174,9 +179,18 @@ class LevelsPlugin(Plugin):
         if now - self._cooldowns[guild_id].get(user_id, float("-inf")) < self._cooldown:
             return
 
-        # Memory safety: prune cooldowns if they grow too large
-        if sum(len(c) for c in self._cooldowns.values()) > 10000:
-            self._cooldowns.clear()
+        # Memory safety: when the cooldown map grows large, prune only the
+        # entries that have already expired (older than the cooldown window).
+        # A full `.clear()` would reset every user's cooldown at once and let the
+        # whole server bypass the XP gate on its next message.
+        if sum(len(c) for c in self._cooldowns.values()) > _COOLDOWN_PRUNE_THRESHOLD:
+            cutoff = now - self._cooldown
+            for gid in list(self._cooldowns):
+                users = self._cooldowns[gid]
+                for uid in [u for u, ts in users.items() if ts < cutoff]:
+                    del users[uid]
+                if not users:
+                    del self._cooldowns[gid]
 
         self._cooldowns[guild_id][user_id] = now
 

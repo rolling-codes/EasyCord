@@ -10,6 +10,8 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 | B-003 | 2026-06-30 | CI / workflows | MEDIUM | Fixed | Invalid `assignees: ['tee']` broke issue-opening automation |
 | B-004 | 2026-06-30 | Tests / typing | LOW | Fixed | `embed.footer.text` (`str \| None`) used with `in` without narrowing |
 | B-005 | 2026-06-30 | Tests / typing | LOW | Fixed | `plugin._bot` (Optional) member access flagged by Pyright in tests |
+| B-006 | 2026-06-30 | levels plugin | MEDIUM | Fixed | Cooldown map `.clear()` reset every user at once (XP-gate bypass) |
+| B-007 | 2026-06-30 | invite_tracker | LOW | Won't fix (noted) | `_invite_cache` not pruned on guild-remove (bounded by guild count) |
 
 ---
 
@@ -77,3 +79,43 @@ After B-001/B-002 fixes, three real gaps remained and were filled:
 - **Fix:** Build a local `bot = MagicMock()`, configure it, then assign `plugin._bot = bot`.
 - **Lesson:** Per CLAUDE.md, set `_bot` directly in tests — and configure the mock on a
   local variable to keep the attribute access off the Optional-typed field.
+
+## B-006 — Levels cooldown map cleared wholesale
+- **Where:** `easycord/plugins/levels.py` `_award_xp` (the memory-safety branch).
+- **Symptom:** When the in-memory cooldown map exceeded 10k entries it ran
+  `self._cooldowns.clear()`, wiping every tracked `(guild, user)` cooldown at once.
+- **Root cause:** A "nuclear" reset used as memory bounding. Memory *was* bounded, but
+  the side effect is a correctness bug: immediately after the clear, every user in
+  every guild can earn XP again on their next message — a server-wide cooldown bypass
+  (thundering-herd reset).
+- **Fix:** Prune only entries older than the cooldown window (`ts < now - cooldown`),
+  drop emptied guild dicts, keep active cooldowns. Threshold named
+  `_COOLDOWN_PRUNE_THRESHOLD`. Regression test
+  `test_award_xp_prunes_only_expired_cooldowns`.
+- **Lesson:** Don't bound memory by discarding live state. Expired entries are free to
+  drop (the gate would pass anyway); active ones must survive. "Clear everything at a
+  threshold" trades a memory bound for a correctness hole.
+
+## B-007 — invite_tracker cache not pruned on guild removal (noted, not fixed)
+- **Where:** `easycord/plugins/invite_tracker.py:42` `_invite_cache: dict[int, dict[str, int]]`.
+- **Assessment:** Keyed by `guild_id`, so bounded by the number of guilds the bot is in
+  — not attacker-spammable (you cannot inject fake guild IDs). If the bot is kicked, the
+  guild's entry lingers until restart. Low impact; left as-is to avoid speculative churn.
+- **Lesson:** "Unbounded dict" is only a real DoS risk when the *key* is attacker-
+  controlled. Guild-keyed caches are bounded by membership; user-keyed/global caches
+  (cf. B-006) are the ones that need eviction.
+
+## Audit pass (2026-06-30) — verified clean / false positives
+Four parallel read-only audits ran (mutate contract, destructive-action isolation,
+Optional/None narrowing, per-guild memory growth). Recording the negatives so they
+aren't re-investigated:
+- **mutate() contract:** all 16 `.mutate(` callers pass synchronous local-only closures;
+  every unguarded load→modify→save has its own per-guild lock. Clean.
+- **Destructive-action isolation:** all `@on(...)` handlers performing delete / role /
+  edit calls wrap discord exceptions; none escape the dispatcher. Clean.
+- **Optional/None narrowing:** guild-only commands guarded; `get_member/get_channel/
+  get_role/get_guild` results checked before use. No `ctx.author`, no `ctx.is_admin()`.
+  Clean.
+- **openclaw `_active`/`_runners`:** flagged as "no cleanup" but the `finally` block in
+  the runner (and the stop path) pops both dicts; keyed by guild_id, one task per guild.
+  **False positive** — verify the `finally` before trusting an audit's "no cleanup".
