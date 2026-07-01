@@ -8,12 +8,30 @@ Pick a goal below to jump straight to what you need. **No wasted clicks.**
 
 ## Start here (5 minutes)
 
-**New to EasyCord?** Start with the [Day 1 guide in the README](../README.md#your-first-bot-day-1).  
-Then pick one goal below based on what you want to build next.
+**New to EasyCord?** 
+1. **Do the [Day 1 walkthrough](../README.md#your-first-bot-day-1)** in the README (creates a bot, writes a command, tests it offline)
+2. **Follow the recommended learning path below**
+
+---
+
+## Recommended Learning Path
+
+After Day 1, follow this progression to build real features:
+
+1. **[Building Commands](building-commands.md)** — Add buttons, forms, autocomplete, command groups
+2. **[Request Lifecycle](request-lifecycle.md)** — Add permission guards, error handlers, hooks
+3. **[Organizing Code](organizing-code.md)** — Split into plugins, add background tasks, decouple with event bus
+4. **[Storage & State](database-guide.md)** — Save and load per-guild data safely
+5. **[Testing Commands](testing.md)** — Test offline without Discord running
+
+**Optional:** [AI Features](conversation-memory.md) (conversation memory, optional in bot)  
+**Reference:** [Built-in Plugins](builtin-plugins.md) (28 ready-made plugins to extend)
 
 ---
 
 ## Pick Your Path
+
+Or jump straight to a specific goal:
 
 ### Building Commands & Features
 | Goal | Read |
@@ -37,9 +55,9 @@ Then pick one goal below based on what you want to build next.
 ### Data & Storage
 | Goal | Read |
 |------|------|
-| Store user/guild data per guild | [Built-in Plugins](builtin-plugins.md) |
-| Choose between SQLite and memory database | [Built-in Plugins](builtin-plugins.md) |
-| Understand storage concurrency safety | [Built-in Plugins](builtin-plugins.md) |
+| Store user/guild data per guild | [Storage & State](database-guide.md) |
+| Choose between SQLite and memory database | [Storage & State](database-guide.md) |
+| Understand storage concurrency safety | [Storage & State](database-guide.md) |
 
 ### AI Features (Optional)
 | Goal | Read |

@@ -22,30 +22,30 @@
 
 ## Documentation
 
-**[Browse all guides →](docs/README.md)** — organized by what you want to do, with a complete index.
+**New here?** Start with [Your First Bot (Day 1)](#your-first-bot-day-1) below, then jump to [Browse all guides →](docs/README.md).
 
-| | |
+**Guides organized by what you want to do:**
+
+| Core Learning Path | What to read |
 |---|---|
-| [Getting Started](docs/getting-started.md) | Install, write your first command, add plugins, configure storage |
-| [Interactions](docs/interactions.md) | Slash commands, context menus, components, modals, and autocomplete |
-| [Command Sync](docs/command-sync.md) | Preview, diff, and apply Discord command registration |
-| [Dynamic Component Routing](docs/components-dynamic-routing.md) | Typed URL-style routes for buttons and select menus with TTL support |
-| [Middleware Patterns](docs/middleware-patterns.md) | Built-in guards, rate limiting, logging, and custom middleware |
-| [Error Handling](docs/error-handling.md) | Per-command, plugin-scoped, and global error handler waterfall |
-| [Event Bus](docs/event-bus.md) | Async pub/sub between plugins — decouple cross-plugin communication |
-| [Lifecycle Hooks](docs/hooks.md) | `before_command`, `after_command`, `on_plugin_load`, `on_plugin_unload` |
-| [Deprecation Helpers](docs/deprecation.md) | `@deprecated` and `@version_introduced` for API lifecycle management |
-| [Testing Commands](docs/testing.md) | `PluginTestSuite`, `FakeContextBuilder`, and offline `invoke_*` helpers |
-| [Plugin Authoring](docs/plugin-authoring.md) | Build, validate, and distribute reusable plugin packages |
-| [Developer Toolkit](docs/developer-toolkit.md) | CLI scaffolding, offline testing, interaction inspection, and diagnostics |
-| [Hot-Reload Development](docs/hot-reload-development.md) | Watch plugin files and reload code without restarting the bot |
-| [Type Checking](docs/type-checking.md) | Pyright configuration and common plugin type patterns |
-| [Task Scheduling](docs/task-scheduling.md) | `@task` decorator — background tasks, intervals, error restart |
-| [Subcommand Groups](docs/subcommand-groups.md) | `SlashGroup` — subcommand namespaces and permission gates |
-| [Interactive UI](docs/context-interactive-ui.md) | `ctx.confirm()`, `ctx.paginate()`, `ctx.ask_form()`, `ctx.choose()`, `ctx.prompt()` |
-| [Conversation Memory](docs/conversation-memory.md) | Multi-turn AI context, eviction, `ctx.ai()` vs `Orchestrator` |
-| [Built-in Plugins](docs/builtin-plugins.md) | All 28 bundled plugins — commands, setup, and storage requirements |
-| [Context Reference](docs/context-reference.md) | Full `Context` API — responses, DMs, moderation, channels, members |
+| **Installation & first command** | [Getting Started](docs/getting-started.md) |
+| **Add commands (slash, buttons, forms)** | [Building Commands](docs/building-commands.md) — slash, groups, buttons, modals, dynamic routing |
+| **Control who can run commands** | [Request Lifecycle](docs/request-lifecycle.md) — middleware, error handlers, lifecycle hooks |
+| **Split code into plugins** | [Organizing Code](docs/organizing-code.md) — plugins, task scheduling, event bus |
+| **Store per-guild data** | [Storage & State](docs/database-guide.md) — databases, concurrency, backends |
+| **Test your commands** | [Testing Commands](docs/testing.md) — offline testing without Discord |
+
+| Specialized Topics |  |
+|---|---|
+| [Interactive UI](docs/context-interactive-ui.md) | Confirm, paginate, choose, prompt, ask_form |
+| [Command Sync](docs/command-sync.md) | Preview, diff, and apply Discord registration |
+| [AI Features](docs/conversation-memory.md) | Optional: multi-turn memory, provider selection |
+| [Built-in Plugins](docs/builtin-plugins.md) | 28 ready-made plugins (levels, economy, tags, moderation, etc.) |
+| [Hot-Reload Development](docs/hot-reload-development.md) | Reload code without restarting |
+| [Type Checking](docs/type-checking.md) | Pyright configuration |
+| [Deprecation Helpers](docs/deprecation.md) | `@deprecated` and `@version_introduced` |
+| [Developer Toolkit](docs/developer-toolkit.md) | CLI for scaffolding, inspection, diagnostics |
+| [Full Context Reference](docs/context-reference.md) | Complete `Context` API |
 | [Examples](examples/) | Working bot code |
 
 ---
@@ -124,10 +124,12 @@ Run: `pytest tests/test_bot.py`
 - ✅ Have a foundation for 28 built-in plugins (levels, economy, tags, moderation, etc.)
 
 ### Next steps
-- [Add more commands](docs/interactions.md) — autocomplete, buttons, modals
-- [Organize into plugins](docs/plugin-authoring.md) — split features, reuse, test in isolation
-- [Store per-guild data](docs/builtin-plugins.md) — built-in SQLite or memory backends
-- [Add AI features](docs/conversation-memory.md) — optional, not required
+1. **[Build Commands](docs/building-commands.md)** — Add slash commands, buttons, modals, autocomplete
+2. **[Organize Code](docs/organizing-code.md)** — Split into plugins, run background tasks, let plugins talk
+3. **[Control Access](docs/request-lifecycle.md)** — Add guards (permissions, rate limits), handle errors
+4. **[Store Data](docs/database-guide.md)** — Per-guild storage with SQLite or memory backend
+5. **[Test Offline](docs/testing.md)** — Test commands without running Discord
+6. **[Add AI](docs/conversation-memory.md)** — Optional: conversation memory and LLM orchestration
 
 ---
 
