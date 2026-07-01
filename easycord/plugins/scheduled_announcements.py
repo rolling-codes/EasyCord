@@ -149,7 +149,10 @@ class ScheduledAnnouncementsPlugin(Plugin):
                 if guild:
                     ch = guild.get_channel(ann["channel_id"])
                     if isinstance(ch, discord.TextChannel):
-                        await ch.send(ann["message"])
+                        try:
+                            await ch.send(ann["message"])
+                        except (discord.Forbidden, discord.HTTPException) as e:
+                            logger.warning("Announcement %d in guild %d failed to send: %s", ann_id, guild_id, e)
 
                 # Advance next_fire
                 async with self._guild_lock(guild_id):

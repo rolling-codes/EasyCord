@@ -299,9 +299,12 @@ class PollsPlugin(Plugin):
             return
         if ctx.guild is None:
             return
+        if ctx.channel is None:
+            await ctx.respond("This command must be used in a channel.", ephemeral=True)
+            return
 
         guild_id = ctx.guild.id
-        channel_id: int = ctx.channel.id  # type: ignore[union-attr]
+        channel_id: int = ctx.channel.id
         end_dt = datetime.now(timezone.utc) + timedelta(seconds=duration)
 
         embed = build_poll_embed(question, options, {}, seconds_remaining=float(duration))

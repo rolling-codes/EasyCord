@@ -30,9 +30,10 @@ def _make_context(
 # ── TagsStore unit tests ──────────────────────────────────────
 
 
-def test_store_set_then_get_returns_entry(tmp_path) -> None:
+@pytest.mark.asyncio
+async def test_store_set_then_get_returns_entry(tmp_path) -> None:
     store = TagsStore(str(tmp_path / "tags"))
-    store.set(1, "hello", "world", author_id=7)
+    await store.set(1, "hello", "world", author_id=7)
     assert store.get(1, "hello") == {"text": "world", "author_id": 7}
 
 
@@ -41,32 +42,36 @@ def test_store_get_missing_returns_none(tmp_path) -> None:
     assert store.get(1, "nope") is None
 
 
-def test_store_delete_removes_entry(tmp_path) -> None:
+@pytest.mark.asyncio
+async def test_store_delete_removes_entry(tmp_path) -> None:
     store = TagsStore(str(tmp_path / "tags"))
-    store.set(1, "x", "v", author_id=7)
-    store.delete(1, "x")
+    await store.set(1, "x", "v", author_id=7)
+    await store.delete(1, "x")
     assert store.get(1, "x") is None
 
 
-def test_store_delete_missing_is_noop(tmp_path) -> None:
+@pytest.mark.asyncio
+async def test_store_delete_missing_is_noop(tmp_path) -> None:
     store = TagsStore(str(tmp_path / "tags"))
     # Must not raise when the key is absent.
-    store.delete(1, "ghost")
+    await store.delete(1, "ghost")
     assert store.list_names(1) == []
 
 
-def test_store_list_names_sorted(tmp_path) -> None:
+@pytest.mark.asyncio
+async def test_store_list_names_sorted(tmp_path) -> None:
     store = TagsStore(str(tmp_path / "tags"))
-    store.set(1, "banana", "b", author_id=7)
-    store.set(1, "apple", "a", author_id=7)
+    await store.set(1, "banana", "b", author_id=7)
+    await store.set(1, "apple", "a", author_id=7)
     assert store.list_names(1) == ["apple", "banana"]
 
 
-def test_store_is_isolated_per_guild(tmp_path) -> None:
+@pytest.mark.asyncio
+async def test_store_is_isolated_per_guild(tmp_path) -> None:
     store = TagsStore(str(tmp_path / "tags"))
-    store.set(1, "shared", "guild-one", author_id=7)
+    await store.set(1, "shared", "guild-one", author_id=7)
     assert store.get(2, "shared") is None
-    store.set(2, "shared", "guild-two", author_id=9)
+    await store.set(2, "shared", "guild-two", author_id=9)
     one = store.get(1, "shared")
     two = store.get(2, "shared")
     assert one is not None and one["text"] == "guild-one"
@@ -87,7 +92,7 @@ async def test_get_missing_tag_responds_not_found(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_get_existing_tag_responds_text(tmp_path) -> None:
     plugin = _make_plugin(tmp_path)
-    plugin._store.set(1, "greet", "hi there", author_id=2)
+    await plugin._store.set(1, "greet", "hi there", author_id=2)
     ctx = _make_context()
     await plugin.get(ctx, "greet")
     ctx.respond.assert_called_once_with("hi there")
@@ -104,7 +109,7 @@ async def test_set_saves_tag(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_delete_denied_for_non_author_non_admin(tmp_path) -> None:
     plugin = _make_plugin(tmp_path)
-    plugin._store.set(1, "owned", "v", author_id=99)
+    await plugin._store.set(1, "owned", "v", author_id=99)
     ctx = _make_context(user_id=2, is_admin=False)
     await plugin.delete(ctx, "owned")
     assert "only delete your own" in ctx.respond.call_args.args[0].lower()
@@ -115,7 +120,7 @@ async def test_delete_denied_for_non_author_non_admin(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_delete_allowed_for_author(tmp_path) -> None:
     plugin = _make_plugin(tmp_path)
-    plugin._store.set(1, "mine", "v", author_id=2)
+    await plugin._store.set(1, "mine", "v", author_id=2)
     ctx = _make_context(user_id=2, is_admin=False)
     await plugin.delete(ctx, "mine")
     assert plugin._store.get(1, "mine") is None
@@ -124,7 +129,7 @@ async def test_delete_allowed_for_author(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_delete_allowed_for_admin_on_others_tag(tmp_path) -> None:
     plugin = _make_plugin(tmp_path)
-    plugin._store.set(1, "theirs", "v", author_id=99)
+    await plugin._store.set(1, "theirs", "v", author_id=99)
     ctx = _make_context(user_id=2, is_admin=True)
     await plugin.delete(ctx, "theirs")
     assert plugin._store.get(1, "theirs") is None
@@ -150,8 +155,8 @@ async def test_list_empty_responds(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_list_populated_paginates(tmp_path) -> None:
     plugin = _make_plugin(tmp_path)
-    plugin._store.set(1, "a", "1", author_id=2)
-    plugin._store.set(1, "b", "2", author_id=2)
+    await plugin._store.set(1, "a", "1", author_id=2)
+    await plugin._store.set(1, "b", "2", author_id=2)
     ctx = _make_context()
     await plugin.list(ctx)
     ctx.paginate.assert_called_once()

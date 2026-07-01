@@ -206,7 +206,10 @@ class ReminderPlugin(Plugin):
 
         guild_id = ctx.guild.id
         user_id = ctx.user.id
-        channel_id: int = ctx.channel.id  # type: ignore[union-attr]
+        if ctx.channel is None:
+            await ctx.respond("This command must be used in a channel.", ephemeral=True)
+            return
+        channel_id: int = ctx.channel.id
 
         now = datetime.now(timezone.utc)
         fire_at = now + timedelta(seconds=seconds)

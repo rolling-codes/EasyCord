@@ -140,3 +140,42 @@ aren't re-investigated:
 - **openclaw `_active`/`_runners`:** flagged as "no cleanup" but the `finally` block in
   the runner (and the stop path) pops both dicts; keyed by guild_id, one task per guild.
   **False positive** — verify the `finally` before trusting an audit's "no cleanup".
+
+---
+
+## Release v5.51.0 — CRITICAL bug fixes
+
+Fixed in this release (July 2026):
+
+### B-008 — openclaw.py Optional narrowing (FIXED)
+Added `assert ctx.guild is not None` guards at lines 91, 119, 153, 164, 187 (guild-only commands).
+Added `assert self.orchestrator is not None` before line 225.
+Added `if source is None: return` guard at line 284.
+
+### B-009 — scheduled_announcements.py loop resilience (FIXED)
+Wrapped `ch.send()` at line 152 in try/except to catch `discord.Forbidden` and `discord.HTTPException`.
+Loop continues on send failure instead of dying permanently.
+
+### B-012 — ctx.channel Optional access (FIXED)
+Added guards in giveaway.py:300, polls.py:304, reminder.py:209 before accessing `ctx.channel.id`.
+
+### B-011 — tickets.py button guild guard (FIXED)
+Added guard at line 95 to return early if `interaction.guild is None`.
+
+### Cherry-pick c60c8b6 — three live bugs (FIXED)
+- birthday.py: Fixed `_days_until` year-advance logic (Feb 29 crash)
+- tickets.py: Fixed `oldest_first=False` in transcript history
+- levels.py: Extracted `_grant_level_reward`, integrated into `/give_xp`
+
+### B-017 — suggestions.py dead field (FIXED)
+Removed unused `self.suggestion_counter = {}` from __init__.
+
+## Deferred to v5.52.0
+
+- B-010: tags.py concurrent write safety (needs per-guild asyncio.Lock)
+- B-013: auto_responder.py TOCTOU (needs mutate refactor)
+- B-014: on_ready exception logging (4 plugins)
+- B-015: levels.py HTTPException narrowing
+- B-016: auto_role.py exception handling after sleep
+- LocalizationManager thread-safety (metrics atomicity)
+- Hot-reload command dispatch race (architectural)

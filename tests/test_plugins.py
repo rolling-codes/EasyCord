@@ -24,8 +24,9 @@ class TestTagsStore:
     def store(self, tmp_path):
         return TagsStore(str(tmp_path / "tags"))
 
-    def test_set_and_get(self, store) -> None:
-        store.set(1, "hello", "Hello, world!", author_id=99)
+    @pytest.mark.asyncio
+    async def test_set_and_get(self, store) -> None:
+        await store.set(1, "hello", "Hello, world!", author_id=99)
         entry = store.get(1, "hello")
         assert entry is not None
         assert entry["text"] == "Hello, world!"
@@ -34,30 +35,35 @@ class TestTagsStore:
     def test_get_missing_returns_none(self, store) -> None:
         assert store.get(1, "nonexistent") is None
 
-    def test_delete(self, store) -> None:
-        store.set(1, "tag", "value", author_id=1)
-        store.delete(1, "tag")
+    @pytest.mark.asyncio
+    async def test_delete(self, store) -> None:
+        await store.set(1, "tag", "value", author_id=1)
+        await store.delete(1, "tag")
         assert store.get(1, "tag") is None
 
-    def test_delete_noop_if_missing(self, store) -> None:
-        store.delete(1, "nonexistent")  # should not raise
+    @pytest.mark.asyncio
+    async def test_delete_noop_if_missing(self, store) -> None:
+        await store.delete(1, "nonexistent")  # should not raise
 
-    def test_list_names(self, store) -> None:
-        store.set(1, "alpha", "a", author_id=1)
-        store.set(1, "beta", "b", author_id=1)
+    @pytest.mark.asyncio
+    async def test_list_names(self, store) -> None:
+        await store.set(1, "alpha", "a", author_id=1)
+        await store.set(1, "beta", "b", author_id=1)
         names = store.list_names(1)
         assert names == ["alpha", "beta"]
 
     def test_list_names_empty(self, store) -> None:
         assert store.list_names(1) == []
 
-    def test_guilds_are_isolated(self, store) -> None:
-        store.set(1, "tag", "guild1", author_id=1)
+    @pytest.mark.asyncio
+    async def test_guilds_are_isolated(self, store) -> None:
+        await store.set(1, "tag", "guild1", author_id=1)
         assert store.get(2, "tag") is None
 
-    def test_overwrite_existing_tag(self, store) -> None:
-        store.set(1, "tag", "v1", author_id=1)
-        store.set(1, "tag", "v2", author_id=2)
+    @pytest.mark.asyncio
+    async def test_overwrite_existing_tag(self, store) -> None:
+        await store.set(1, "tag", "v1", author_id=1)
+        await store.set(1, "tag", "v2", author_id=2)
         entry = store.get(1, "tag")
         assert entry["text"] == "v2"
         assert entry["author_id"] == 2

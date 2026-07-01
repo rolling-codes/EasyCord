@@ -1,6 +1,7 @@
 """Per-guild text snippet storage and slash commands."""
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from easycord.decorators import slash
@@ -9,11 +10,18 @@ from ._shared import read_json_file, write_json_file
 
 
 class TagsStore:
-    """Handles atomic per-guild tag JSON storage."""
+    """Handles atomic per-guild tag JSON storage with concurrent write safety."""
 
     def __init__(self, data_dir: str) -> None:
         self._data_dir = Path(data_dir)
         self._data_dir.mkdir(parents=True, exist_ok=True)
+        self._locks: dict[int, asyncio.Lock] = {}
+
+    def _get_lock(self, guild_id: int) -> asyncio.Lock:
+        """Get or create asyncio.Lock for this guild (thread-safe in single-threaded asyncio)."""
+        if guild_id not in self._locks:
+            self._locks[guild_id] = asyncio.Lock()
+        return self._locks[guild_id]
 
     def _path(self, guild_id: int) -> Path:
         return self._data_dir / f"tags_{guild_id}.json"
@@ -27,16 +35,18 @@ class TagsStore:
     def get(self, guild_id: int, name: str) -> dict | None:
         return self._load(guild_id).get(name)
 
-    def set(self, guild_id: int, name: str, text: str, *, author_id: int) -> None:
-        data = self._load(guild_id)
-        data[name] = {"text": text, "author_id": author_id}
-        self._save(guild_id, data)
-
-    def delete(self, guild_id: int, name: str) -> None:
-        data = self._load(guild_id)
-        if name in data:
-            del data[name]
+    async def set(self, guild_id: int, name: str, text: str, *, author_id: int) -> None:
+        async with self._get_lock(guild_id):
+            data = self._load(guild_id)
+            data[name] = {"text": text, "author_id": author_id}
             self._save(guild_id, data)
+
+    async def delete(self, guild_id: int, name: str) -> None:
+        async with self._get_lock(guild_id):
+            data = self._load(guild_id)
+            if name in data:
+                del data[name]
+                self._save(guild_id, data)
 
     def list_names(self, guild_id: int) -> list[str]:
         return sorted(self._load(guild_id).keys())
@@ -59,7 +69,7 @@ class TagsPlugin(Plugin):
 
     @slash(description="Create or update a tag.", guild_only=True)
     async def set(self, ctx, name: str, text: str) -> None:
-        self._store.set(ctx.guild_id, name, text, author_id=ctx.user.id)
+        await self._store.set(ctx.guild_id, name, text, author_id=ctx.user.id)
         await ctx.respond(ctx.t("tags.saved", default="Tag `{name}` saved.", name=name), ephemeral=True)
 
     @slash(description="Delete a tag (admin or creator only).", guild_only=True)
@@ -74,7 +84,7 @@ class TagsPlugin(Plugin):
                 ephemeral=True,
             )
             return
-        self._store.delete(ctx.guild_id, name)
+        await self._store.delete(ctx.guild_id, name)
         await ctx.respond(ctx.t("tags.deleted", default="Tag `{name}` deleted.", name=name), ephemeral=True)
 
     @slash(description="List all tags in this server.", guild_only=True)

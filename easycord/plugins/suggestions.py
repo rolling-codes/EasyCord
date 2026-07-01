@@ -45,7 +45,6 @@ class SuggestionsPlugin(Plugin):
     def __init__(self):
         super().__init__()
         self.config = PluginConfigManager(".easycord/suggestions")
-        self.suggestion_counter = {}
 
     async def on_load(self) -> None:
         """Initialize suggestions plugin."""

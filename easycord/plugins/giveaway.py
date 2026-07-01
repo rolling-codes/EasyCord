@@ -297,7 +297,10 @@ class GiveawayPlugin(Plugin):
         message = await ctx.interaction.original_response()
         message_id = message.id
         guild_id = ctx.guild.id
-        channel_id: int = ctx.channel.id  # type: ignore[union-attr]
+        if ctx.channel is None:
+            await ctx.respond("This command must be used in a channel.", ephemeral=True)
+            return
+        channel_id: int = ctx.channel.id
 
         async with self._guild_lock(guild_id):
             cfg = await self._store.load(guild_id)

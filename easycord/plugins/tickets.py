@@ -92,8 +92,11 @@ class _TicketView(discord.ui.View):
         self.add_item(close_btn)
 
     async def _on_claim(self, interaction: discord.Interaction) -> None:
+        if interaction.guild is None:
+            await interaction.response.send_message("This button can only be used in a server.", ephemeral=True)
+            return
         guild = interaction.guild
-        member = guild.get_member(interaction.user.id) if guild else None
+        member = guild.get_member(interaction.user.id)
         if member is None:
             await interaction.response.send_message(
                 "Could not verify your membership.", ephemeral=True
