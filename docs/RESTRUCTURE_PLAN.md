@@ -130,15 +130,19 @@ Consolidated, goal-oriented, easy navigation. No clicks wasted.
 
 ## Implementation Timeline
 
-### Phase 1 (This PR)
+### Phase 1 (v5.51.0 — In Progress)
 - [x] README: Add "Day 1" guide (done in PR #72)
-- [ ] Create `docs/RESTRUCTURE.md` with consolidated guide links
-- [ ] Update `docs/README.md` with new structure
+- [x] Create `docs/RESTRUCTURE_PLAN.md` with consolidated guide plan
+- [x] Update `docs/README.md` with goal-based navigation
+- [x] Consolidate: `Interactions.md` + `Subcommand-groups.md` + `Components-dynamic-routing.md` → **Building Commands**
+- [x] Consolidate: `Middleware-patterns.md` + `Error-handling.md` + `Hooks.md` → **Request Lifecycle**
+- [x] Consolidate: `Plugin-authoring.md` + `Event-bus.md` + `Task-scheduling.md` → **Organizing Code**
+- [ ] Consolidate: `Context-interactive-ui.md` standalone (already self-contained)
 
 ### Phase 2 (v5.52.0)
-- Merge docs physically (consolidate content, eliminate redundancy)
-- Example: Merge `Middleware.md` + `Error-handling.md` + `Hooks.md` → "Request Lifecycle"
-- Add decision trees ("When to use X vs Y?")
+- Remove old 15 guides (interactions.md, subcommand-groups.md, etc.)
+- Add decision trees to remaining guides ("When to use X vs Y?")
+- Verify navigation is non-programmer-friendly
 
 ### Phase 3 (v5.53.0)
 - Add visual diagrams (request flow, plugin lifecycle)
