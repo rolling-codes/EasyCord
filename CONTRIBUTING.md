@@ -25,10 +25,10 @@ pytest tests/test_middleware.py::test_name -v  # single test
 
 Coverage must not drop below 80%. New code without tests will not be merged.
 
-### Plugin Test Thresholds
-We enforce strict test coverage for plugins using `scripts/verify_plugin_tests.py`.
-- **Complex Plugins** (AIModerator, Tickets, Birthday, Levels, Reminders): Must maintain $\ge 20$ tests.
-- **Simple Plugins** (Suggestions, Tags, Starboard): Must maintain $\ge 8$ tests.
+### Plugin Test-Count Thresholds
+We enforce minimum test counts for plugins using `scripts/verify_plugin_tests.py` (counts test_* functions per plugin).
+- **Complex Plugins** (AIModerator, Tickets, Birthday, Levels, Reminders): ≥ 20 tests.
+- **Simple Plugins** (Suggestions, Tags, Starboard): ≥ 8 tests.
 
 You can validate these thresholds locally by running:
 ```bash

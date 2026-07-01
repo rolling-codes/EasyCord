@@ -170,9 +170,12 @@ Added guard at line 95 to return early if `interaction.guild is None`.
 ### B-017 — suggestions.py dead field (FIXED)
 Removed unused `self.suggestion_counter = {}` from __init__.
 
-## Deferred to v5.52.0
+### B-010 — tags.py concurrent write safety (FIXED)
+Added per-guild `asyncio.Lock` to TagsStore._get_lock().
+Made set() and delete() async with lock protection.
+Added atomic delete_if_authorized() method to prevent TOCTOU race in authorization check.
 
-- B-010: tags.py concurrent write safety (needs per-guild asyncio.Lock)
+## Deferred to v5.52.0
 - B-013: auto_responder.py TOCTOU (needs mutate refactor)
 - B-014: on_ready exception logging (4 plugins)
 - B-015: levels.py HTTPException narrowing

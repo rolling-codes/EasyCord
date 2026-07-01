@@ -20,7 +20,14 @@ pyright                                    # static type checking (pyrightconfig
 
 `pytest-asyncio` with `asyncio_mode = "auto"` — no manual event loop setup needed.
 
-**CI PR gate** (`.github/workflows/tests.yml`, Python 3.10/3.11/3.12) runs, in order: critical-error ruff (`--select E9,F63,F7,F82`, blocking) → full ruff (advisory) → `check_release_metadata.py` → `verify_plugin_tests.py` → `pytest`. Reproduce a green run locally with those four commands. There is no ruff config file — only the explicit `--select` rule set is enforced as a gate.
+**CI PR gate** (`.github/workflows/tests.yml`, Python 3.10/3.11/3.12) runs, in order:
+1. critical-error ruff (`--select E9,F63,F7,F82`, blocking)
+2. full ruff (advisory)
+3. `check_release_metadata.py` (version consistency)
+4. `verify_plugin_tests.py` (per-plugin test thresholds)
+5. `pytest` (all tests)
+
+Reproduce a green run locally with: `ruff check --select E9,F63,F7,F82`, `ruff check .`, `python scripts/check_release_metadata.py`, `python scripts/verify_plugin_tests.py`, `pytest`. There is no ruff config file — only the explicit `--select` rule set is enforced as a gate.
 
 The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easycord new`, `easycord doctor`, `easycord inspect`, `easycord sync-plan`, `easycord plugin create|check|discover`, `easycord test-template`, `easycord audit-tools`.
 

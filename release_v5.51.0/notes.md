@@ -19,12 +19,12 @@ Stability release focusing on CRITICAL bug fixes in core plugins and framework O
 - 1307 tests total (up from 1301)
 - All CI gates passing: ruff, pytest, plugin coverage, release metadata
 
-## Known Deferred Issues
+## Known Deferred Issues (v5.52.0)
 
-- Tags concurrent write safety (v5.52.0)
-- Auto-responder TOCTOU fix (v5.52.0)
-- LocalizationManager thread-safety (v5.52.0)
-- Hot-reload command dispatch race (v5.52.0)
+- Auto-responder TOCTOU refactor (requires mutate contract rework)
+- LocalizationManager thread-safety (metrics atomicity with threading.Lock)
+- Hot-reload command dispatch race (architectural: requires dispatch-side lock)
+- on_ready exception logging (4 plugins: exception swallowing silently)
 
 ## Installation
 

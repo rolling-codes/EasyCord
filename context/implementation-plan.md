@@ -79,12 +79,18 @@ start). Quoted to `"*"`. Pre-existing, unrelated to the audit.
   guard) and resolution doesn't recompile; strict TTL boundary with a mocked clock.
 
 ## Verification
-- `python -m pytest tests/ -q` → 1213 passed.
+
+- `python -m pytest tests/ -q` → 1307 passed.
 - `ruff check` clean on all changed files.
 - `pyright` introduces no new error categories (the lone `_slash_bot_permissions`
   `reportFunctionMemberAccess` matches the existing `_slash_*` stamping pattern).
 
+## Release v5.51.0
+
+Version bump and CHANGELOG.md updated. Release tagged and published to PyPI.
+Additional bug fixes from forensic audit (B-008 through B-017) included with test coverage.
+
 ## Out of scope (deferred — see EASYCORD_IMPROVEMENT_PLAN.md later phases)
+
 Medium-risk gaps: `auto_sync_guilds` startup timeout, cooldown-pruning memory growth,
-ConversationMemory eviction policy, database schema validation. No version bump / changelog
-entry was made; tag as v5.51.0 via a separate release step when ready.
+ConversationMemory eviction policy, database schema validation.
