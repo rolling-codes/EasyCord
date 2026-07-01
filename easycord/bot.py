@@ -363,19 +363,22 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         ``asyncio.wait_for``; on expiry a warning is logged and startup
         continues uninterrupted.  Pass ``guild_sync_timeout=None`` (or
         ``<=0``) to opt out and restore the original unbounded behaviour.
+
+        Note: cancellation is suppressed to avoid interrupting DB operations
+        mid-lock, which could cause corruption. The task continues in the
+        background but we stop waiting for it.
         """
         guild_ids = [guild.id for guild in getattr(self, "guilds", [])]
         timeout = self._guild_sync_timeout
         if timeout is not None and timeout > 0:
+            task = asyncio.create_task(self.db.sync_guilds(guild_ids))
             try:
-                await asyncio.wait_for(
-                    self.db.sync_guilds(guild_ids),
-                    timeout=timeout,
-                )
+                await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
             except asyncio.TimeoutError:
                 logger.warning(
                     "Guild sync timed out after %.1fs for %d guild(s); "
-                    "startup will continue without a complete sync.",
+                    "startup will continue without a complete sync. "
+                    "Sync continues in background.",
                     timeout,
                     len(guild_ids),
                 )
