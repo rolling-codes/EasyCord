@@ -2,9 +2,23 @@
 ![Version](https://img.shields.io/badge/v-5.51.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1300%2B-brightgreen)
+[![Discord.py](https://img.shields.io/badge/discord.py-2.7%2B-blueviolet)](https://discordpy.readthedocs.io/)
 
-> A production-grade Discord bot framework built on discord.py. Slash commands, events, components, modals, plugins, middleware, per-guild storage, localization, and optional AI orchestration — all with decorator-based APIs and no boilerplate. **AI is optional.** A fully-featured bot needs zero AI dependencies.
+> **Production-grade Discord bot framework** for building scalable, maintainable bots with clean, type-safe code.
+>
+> Slash commands, context menus, modal forms, components with dynamic routing, plugins with dependency management, per-guild storage, multi-language i18n, conversation memory, optional AI orchestration, middleware pipeline, lifecycle hooks, and task scheduling—all with **zero boilerplate**.
+>
+> **Built for scale**: 1300+ tests, atomic database operations, concurrent plugin safety, proper error isolation, and comprehensive type hints. Deploy with confidence.
+
+### Why EasyCord?
+
+- **No boilerplate.** Decorators do the work. Define commands in two lines, not thirty.
+- **Type-safe.** Full Pyright support. Catch bugs at dev time, not runtime.
+- **Plugin-native.** Modular, testable, reusable. Build plugins in minutes, not hours.
+- **Optional AI.** Includes conversation memory and multi-provider LLM orchestration. Use it or ignore it.
+- **Tested.** 1300+ tests covering concurrency, crashes, race conditions, and edge cases.
+- **Async-first.** Proper lock safety, atomic database operations, isolated error handling. Won't silently corrupt state.
 
 ## Documentation
 
