@@ -1,104 +1,92 @@
 # EasyCord Documentation
 
-Pick a goal below to jump straight to what you need, or browse the [complete index](#complete-index) at the bottom.
+Pick a goal below to jump straight to what you need. **No wasted clicks.**
+
+**[See the restructure plan →](RESTRUCTURE_PLAN.md)** — We're consolidating 25 guides to 12 core guides for clarity.
 
 ---
 
-## Start here
+## Start here (5 minutes)
 
-**New to EasyCord?** Read [Getting Started](getting-started.md) first. It covers installation, your first command, plugins, storage, and localization in one place.
-
----
-
-## I want to…
-
-### Build my first bot
-→ [Getting Started](getting-started.md) — install, first command, project layout, `BotConfig`
-
-### Add slash commands, context menus, components, or modals
-→ [Interactions](interactions.md) — slash commands, autocomplete, buttons, select menus, modals, context menus
-
-### Organize commands under a shared name (like `/admin kick`, `/admin ban`)
-→ [Subcommand Groups](subcommand-groups.md) — `SlashGroup`, permission inheritance, guild restrictions
-
-### Preview and apply my command registrations to Discord
-→ [Command Sync](command-sync.md) — dry-run sync, diff output, guild-scoped sync, removal confirmation
-
-### Add buttons and select menus with typed URL-style routing
-→ [Dynamic Component Routing](components-dynamic-routing.md) — `:int`, `:str`, `:snowflake` routes, TTL-expiring components
-
-### Run background tasks on a schedule
-→ [Task Scheduling](task-scheduling.md) — `@task`, intervals, error restart, plugin lifecycle
-
-### Add ready-made features without writing commands
-→ [Built-in Plugins](builtin-plugins.md) — all 28 bundled plugins: levels, moderation, economy, reminders, polls, starboard, and more
-
-### Add AI to my bot
-→ [Conversation Memory](conversation-memory.md) — `ctx.ai()`, multi-turn history, provider selection, eviction  
-→ [Built-in Plugins → AI plugins](builtin-plugins.md#ai-plugins) — `OpenClaudePlugin`, `OpenClawPlugin`, `AIModeratorPlugin`
-
-### Show confirmation buttons, paginated messages, dropdowns, or forms
-→ [Interactive UI](context-interactive-ui.md) — `ctx.confirm()`, `ctx.paginate()`, `ctx.choose()`, `ctx.prompt()`, `ctx.ask_form()`
-
-### Control access: guild-only commands, cooldowns, permissions, rate limits
-→ [Middleware Patterns](middleware-patterns.md) — `guild_only`, `rate_limit`, `require_permissions`, `cooldown`, custom middleware
-
-### Handle errors gracefully
-→ [Error Handling](error-handling.md) — per-command, plugin-scoped, and global error handler waterfall
-
-### React to bot and plugin lifecycle events
-→ [Lifecycle Hooks](hooks.md) — `before_command`, `after_command`, `on_plugin_load`, `on_plugin_unload`
-
-### Let plugins talk to each other without tight coupling
-→ [Event Bus](event-bus.md) — async pub/sub, exception isolation, subscribe/publish patterns
-
-### See everything `ctx` can do
-→ [Context Reference](context-reference.md) — complete API: responding, DMs, channels, moderation, member lookups, AI shortcuts
-
-### Test my commands without a Discord connection
-→ [Testing Commands](testing.md) — `PluginTestSuite`, `FakeContextBuilder`, `invoke_*` helpers, offline test patterns
-
-### Develop faster: reload code without restarting the bot
-→ [Hot-Reload Development](hot-reload-development.md) — `bot.run(reload=True)`, `on_reload()` hook, safe failure modes
-
-### Use the CLI for scaffolding, inspection, and diagnostics
-→ [Developer Toolkit](developer-toolkit.md) — `easycord new`, `easycord doctor`, `easycord inspect`, `easycord sync-plan`, `easycord audit-tools`
-
-### Build a plugin package others can install
-→ [Plugin Authoring](plugin-authoring.md) — manifest, entry-point discovery, `create_package_plugin`, `check_plugin_project`
-
-### Mark APIs as deprecated or track when things were added
-→ [Deprecation Helpers](deprecation.md) — `@deprecated`, `@version_introduced`, suppressing warnings in tests
-
-### Get type checking working with Pyright
-→ [Type Checking](type-checking.md) — `pyrightconfig.json`, typing `ctx`, `_MixinBase` pattern, common plugin patterns
+**New to EasyCord?** Start with the [Day 1 guide in the README](../README.md#your-first-bot-day-1).  
+Then pick one goal below based on what you want to build next.
 
 ---
 
-## Complete index
+## Pick Your Path
 
-| Guide | What it covers |
+### Building Commands & Features
+| Goal | Read |
+|------|------|
+| Add slash commands with parameters | [Building Commands](building-commands.md) |
+| Add buttons, dropdowns, forms | [Building Commands](building-commands.md) |
+| Organize commands under one name (`/admin kick`) | [Building Commands](building-commands.md) |
+| Dynamic routing for buttons (URL-style) | [Building Commands](building-commands.md) |
+| Show pagination, confirmations, dropdowns | [Interactive UI](context-interactive-ui.md) |
+
+### Organizing & Controlling Code
+| Goal | Read |
+|------|------|
+| Structure my bot into reusable plugins | [Plugin Authoring](plugin-authoring.md) |
+| Control who can use a command (permissions, cooldowns) | [Request Lifecycle](request-lifecycle.md) |
+| Let plugins communicate safely | [Event Bus](event-bus.md) |
+| Handle errors gracefully | [Request Lifecycle](request-lifecycle.md) |
+| React to lifecycle events (load/unload) | [Request Lifecycle](request-lifecycle.md) |
+
+### Data & Storage
+| Goal | Read |
+|------|------|
+| Store user/guild data per guild | [Built-in Plugins](builtin-plugins.md) |
+| Choose between SQLite and memory database | [Built-in Plugins](builtin-plugins.md) |
+| Understand storage concurrency safety | [Built-in Plugins](builtin-plugins.md) |
+
+### AI Features (Optional)
+| Goal | Read |
+|------|------|
+| Add AI chat to my bot | [Conversation Memory](conversation-memory.md) |
+| Use built-in AI plugins (moderator, agent) | [Built-in Plugins → AI](builtin-plugins.md#ai-plugins) |
+| Change LLM provider (Claude, OpenAI, etc.) | [Conversation Memory](conversation-memory.md) |
+
+### Testing & Deployment
+| Goal | Read |
+|------|------|
+| Test commands without running Discord | [Testing Commands](testing.md) |
+| Verify my command registrations before deploying | [Command Sync](command-sync.md) |
+| Debug issues in production | [Troubleshooting](troubleshooting.md) |
+
+### Developer Experience
+| Goal | Read |
+|------|------|
+| Reload code without restarting | [Hot-Reload Development](hot-reload-development.md) |
+| Use the CLI (new project, doctor, inspect) | [Developer Toolkit](developer-toolkit.md) |
+| Get type checking to work with Pyright | [Type Checking](type-checking.md) |
+| Publish my plugin to PyPI | [Plugin Authoring](plugin-authoring.md) |
+| Mark APIs as deprecated | [Deprecation Helpers](deprecation.md)
+
+---
+
+## All Guides
+
+| Core Guides | What to read |
 |---|---|
-| [Getting Started](getting-started.md) | Install, first command, plugins, storage, localization |
-| [Interactions](interactions.md) | Slash commands, autocomplete, buttons, modals, context menus |
-| [Subcommand Groups](subcommand-groups.md) | `SlashGroup` — namespaced subcommands with permission gates |
-| [Command Sync](command-sync.md) | Preview, diff, and apply Discord command registration |
-| [Dynamic Component Routing](components-dynamic-routing.md) | Typed URL-style routes for buttons and select menus |
-| [Task Scheduling](task-scheduling.md) | `@task` — background tasks, intervals, error restart |
-| [Built-in Plugins](builtin-plugins.md) | All 28 bundled plugins — commands, setup, storage requirements |
-| [Conversation Memory](conversation-memory.md) | Multi-turn AI context, eviction, `ctx.ai()` vs `Orchestrator` |
-| [Interactive UI](context-interactive-ui.md) | `ctx.confirm()`, `ctx.paginate()`, `ctx.ask_form()`, `ctx.choose()`, `ctx.prompt()` |
-| [Middleware Patterns](middleware-patterns.md) | Built-in guards, rate limiting, logging, custom middleware |
-| [Error Handling](error-handling.md) | Per-command, plugin-scoped, and global error waterfall |
-| [Lifecycle Hooks](hooks.md) | `before_command`, `after_command`, `on_plugin_load`, `on_plugin_unload` |
-| [Event Bus](event-bus.md) | Async pub/sub between plugins |
-| [Context Reference](context-reference.md) | Full `Context` API — responses, DMs, moderation, channels, members |
-| [Testing Commands](testing.md) | `PluginTestSuite`, `FakeContextBuilder`, offline `invoke_*` helpers |
-| [Hot-Reload Development](hot-reload-development.md) | Live code reload, `on_reload()` lifecycle, poll interval |
-| [Developer Toolkit](developer-toolkit.md) | CLI scaffolding, inspection, diagnostics |
-| [Plugin Authoring](plugin-authoring.md) | Build and distribute reusable plugin packages |
-| [Deprecation Helpers](deprecation.md) | `@deprecated`, `@version_introduced` decorators |
-| [Type Checking](type-checking.md) | Pyright config and plugin typing patterns |
-| [Troubleshooting](troubleshooting.md) | Common day-one friction points with diagnostic fixes |
-| [Database Guide](database-guide.md) | Concurrency model, guild sync, backend choices, production setup |
-| [Plugin Ecosystem Health](plugin-ecosystem-health.md) | Profiling startup, memory, and test scaling at 50+ plugins |
+| [Getting Started](getting-started.md) | Installation, your first command, plugins |
+| [Building Commands](building-commands.md) | Slash commands, groups, buttons, modals, context menus, dynamic routing |
+| [Interactive UI](context-interactive-ui.md) | Built-in UI helpers (confirm, paginate, forms) |
+| [Command Sync](command-sync.md) | Registering commands to Discord |
+| [Request Lifecycle](request-lifecycle.md) | Middleware, error handlers, hooks, command flow |
+| [Middleware Patterns](middleware-patterns.md) | Guards, rate limiting, logging, custom middleware |
+| [Error Handling](error-handling.md) | Error handler waterfall |
+| [Lifecycle Hooks](hooks.md) | Lifecycle events (before/after command, plugin load/unload) |
+| [Event Bus](event-bus.md) | Plugin-to-plugin communication |
+| [Built-in Plugins](builtin-plugins.md) | 28 bundled plugins (levels, economy, moderation, AI, etc.) |
+| [Conversation Memory](conversation-memory.md) | AI context, multi-turn memory |
+| [Testing Commands](testing.md) | Offline testing without Discord |
+| [Plugin Authoring](plugin-authoring.md) | Build reusable plugins |
+| [Hot-Reload Development](hot-reload-development.md) | Reload code without restart |
+| [Developer Toolkit](developer-toolkit.md) | CLI tools (new, doctor, inspect) |
+| [Type Checking](type-checking.md) | Pyright configuration |
+| [Deprecation Helpers](deprecation.md) | Marking APIs as deprecated |
+| [Troubleshooting](troubleshooting.md) | Common issues and fixes |
+| [Context Reference](context-reference.md) | Full `Context` API |
+| [Database Guide](database-guide.md) | Storage, concurrency, backends |
+| [Plugin Ecosystem Health](plugin-ecosystem-health.md) | Profiling and scaling |
