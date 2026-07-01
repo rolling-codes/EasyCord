@@ -80,14 +80,3 @@ easycord = ["py.typed"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["__pycache__", "*.pyc", "*.pyo"]
-
-[[tool.pyright.executionEnvironments]]
-root = "tests"
-reportArgumentType = "none"
-reportAttributeAccessIssue = "none"
-reportMissingTypeArgument = "none"
-reportOptionalCall = "none"
-reportOperatorIssue = "none"
-reportCallIssue = "none"
-reportGeneralTypeIssues = "none"
-reportOptionalMemberAccess = "none"

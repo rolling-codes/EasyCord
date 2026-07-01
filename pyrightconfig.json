@@ -19,5 +19,19 @@
   "reportMissingTypeArgument": "none",
   "reportUnknownMemberType": "none",
   "reportUnknownVariableType": "none",
-  "reportUnknownArgumentType": "none"
+  "reportUnknownArgumentType": "none",
+
+  "executionEnvironments": [
+    {
+      "root": "tests",
+      "reportArgumentType": "none",
+      "reportAttributeAccessIssue": "none",
+      "reportMissingTypeArgument": "none",
+      "reportOptionalCall": "none",
+      "reportOperatorIssue": "none",
+      "reportCallIssue": "none",
+      "reportGeneralTypeIssues": "none",
+      "reportOptionalMemberAccess": "none"
+    }
+  ]
 }

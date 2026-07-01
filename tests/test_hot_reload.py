@@ -404,15 +404,15 @@ async def test_reload_lock_held_across_swap():
 async def test_hot_reload_loop_activates_dispatch_gate():
     """Starting the dev watcher flips the flag that makes command dispatch
     acquire the reload lock (lock-free in production where the loop never runs)."""
+    import pytest
+
     bot = _make_bot()
     assert getattr(bot, "_hot_reload_active", False) is False
 
     # The flag is set before the first sleep; raise from sleep to exit the loop.
     with patch("asyncio.sleep", new_callable=AsyncMock, side_effect=asyncio.CancelledError):
-        try:
+        with pytest.raises(asyncio.CancelledError):
             await bot._hot_reload_loop()
-        except asyncio.CancelledError:
-            pass
 
     assert bot._hot_reload_active is True
     assert isinstance(bot._reload_lock, asyncio.Lock)
