@@ -27,11 +27,12 @@ Then pick one goal below based on what you want to build next.
 ### Organizing & Controlling Code
 | Goal | Read |
 |------|------|
-| Structure my bot into reusable plugins | [Plugin Authoring](plugin-authoring.md) |
+| Structure my bot into reusable plugins | [Organizing Code](organizing-code.md) |
 | Control who can use a command (permissions, cooldowns) | [Request Lifecycle](request-lifecycle.md) |
-| Let plugins communicate safely | [Event Bus](event-bus.md) |
+| Let plugins communicate safely | [Organizing Code](organizing-code.md) |
 | Handle errors gracefully | [Request Lifecycle](request-lifecycle.md) |
 | React to lifecycle events (load/unload) | [Request Lifecycle](request-lifecycle.md) |
+| Run background tasks on a schedule | [Organizing Code](organizing-code.md) |
 
 ### Data & Storage
 | Goal | Read |
@@ -74,10 +75,7 @@ Then pick one goal below based on what you want to build next.
 | [Interactive UI](context-interactive-ui.md) | Built-in UI helpers (confirm, paginate, forms) |
 | [Command Sync](command-sync.md) | Registering commands to Discord |
 | [Request Lifecycle](request-lifecycle.md) | Middleware, error handlers, hooks, command flow |
-| [Middleware Patterns](middleware-patterns.md) | Guards, rate limiting, logging, custom middleware |
-| [Error Handling](error-handling.md) | Error handler waterfall |
-| [Lifecycle Hooks](hooks.md) | Lifecycle events (before/after command, plugin load/unload) |
-| [Event Bus](event-bus.md) | Plugin-to-plugin communication |
+| [Organizing Code](organizing-code.md) | Plugins, task scheduling, event bus, patterns |
 | [Built-in Plugins](builtin-plugins.md) | 28 bundled plugins (levels, economy, moderation, AI, etc.) |
 | [Conversation Memory](conversation-memory.md) | AI context, multi-turn memory |
 | [Testing Commands](testing.md) | Offline testing without Discord |
