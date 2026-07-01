@@ -68,35 +68,82 @@ pip install -e ".[dev]"
 
 ---
 
-## Quickstart
+## Your First Bot (Day 1)
 
-```python
-from easycord import Bot
-
-bot = Bot()
-
-@bot.slash(description="Ping the bot")
-async def ping(ctx):
-    await ctx.respond("Pong!")
-
-bot.run("YOUR_TOKEN")
+### 1. Create a new bot project
+```bash
+easycord new my-bot
+cd my-bot
+pip install -e ".[dev]"
 ```
 
-Save as `bot.py` and run it. `/ping` appears in Discord automatically.
+### 2. Write your first command
+Open `my_bot/bot.py` and replace the placeholder:
+
+```python
+from easycord import Bot, Plugin, slash
+
+class GreetingPlugin(Plugin):
+    @slash(description="Greet a user")
+    async def greet(self, ctx, user: str):
+        """Say hello to someone."""
+        await ctx.respond(f"Hello, {user}! 👋")
+
+bot = Bot()
+bot.add_plugin(GreetingPlugin())
+
+if __name__ == "__main__":
+    bot.run("YOUR_DISCORD_BOT_TOKEN")
+```
+
+### 3. Run it
+```bash
+python -m my_bot.bot
+```
+
+Type `/greet alice` in Discord. It works instantly.
+
+### 4. Test it offline (no bot running needed)
+```python
+# In tests/test_bot.py
+from easycord.testing import invoke
+from my_bot.bot import bot, GreetingPlugin
+
+async def test_greet():
+    plugin = GreetingPlugin()
+    ctx = await invoke(bot, "greet alice")
+    assert "Hello, alice" in ctx.last_response
+```
+
+Run: `pytest tests/test_bot.py`
+
+### What you just did
+- ✅ Created a slash command with one decorator
+- ✅ Added a typed parameter (`user: str`)
+- ✅ Tested it without running Discord at all
+- ✅ Have a foundation for 28 built-in plugins (levels, economy, tags, moderation, etc.)
+
+### Next steps
+- [Add more commands](docs/interactions.md) — autocomplete, buttons, modals
+- [Organize into plugins](docs/plugin-authoring.md) — split features, reuse, test in isolation
+- [Store per-guild data](docs/builtin-plugins.md) — built-in SQLite or memory backends
+- [Add AI features](docs/conversation-memory.md) — optional, not required
 
 ---
 
-## Start a project with the CLI
+## Advanced: Start a larger project with templates
+
+If you want a pre-configured structure for a specific use case:
 
 ```bash
 easycord new my-bot --template plugin
 cd my-bot
 pip install -e ".[dev]"
-pytest
-easycord doctor bot:bot
+pytest  # runs example tests
+easycord doctor bot:bot  # validates your setup
 ```
 
-The generated project includes `bot.py`, one example plugin, `.env.example`, `pyproject.toml`, and a starter pytest file. Four templates are available:
+Templates available (choose one based on your use case):
 
 | Template | What it generates |
 |---|---|
