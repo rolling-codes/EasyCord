@@ -5,7 +5,7 @@ import discord
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from easycord.plugins.levels import LevelsPlugin
+from easycord.plugins.levels import LevelsPlugin, _COOLDOWN_PRUNE_THRESHOLD
 from easycord.plugins._levels_data import (
     xp_for_level as _xp_for_level,
     level_from_xp as _level_from_xp,
@@ -273,8 +273,7 @@ async def test_award_xp_prunes_only_expired_cooldowns(tmp_path, monkeypatch):
     # Regression for B-006: an over-threshold cooldown map must prune only the
     # expired entries, never `.clear()` everything (which would let the whole
     # server bypass the XP cooldown at once).
-    import easycord.plugins.levels as levels_mod
-    monkeypatch.setattr(levels_mod, "_COOLDOWN_PRUNE_THRESHOLD", 1)
+    monkeypatch.setattr(f"{_COOLDOWN_PRUNE_THRESHOLD.__module__}._COOLDOWN_PRUNE_THRESHOLD", 1)
     quiet = LevelsPlugin(
         xp_per_message=10,
         cooldown_seconds=60.0,
