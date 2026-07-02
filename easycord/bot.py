@@ -9,7 +9,7 @@ import logging
 from typing import Callable, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .plugins._ai_providers import AIProviderProtocol
+    pass
 
 import discord
 from discord import app_commands
