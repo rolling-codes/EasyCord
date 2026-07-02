@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class _BotLike(Protocol):
     """Structural type for bot objects used by command registration helpers."""
 
-    ...
+    pass
 
 logger = logging.getLogger("easycord")
 
