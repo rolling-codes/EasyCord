@@ -22,7 +22,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,7 +36,7 @@ jobs:
           pip install -e .[dev]
 
       - name: Restore baseline benchmark
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         id: cache-baseline
         with:
           path: baseline/benchmark-results.json
@@ -154,7 +154,7 @@ jobs:
 
       - name: Cache baseline (main/develop only)
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && success()
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: baseline/benchmark-results.json
           key: benchmark-baseline-${{ github.ref_name }}
