@@ -300,7 +300,7 @@ class PollsPlugin(Plugin):
         if ctx.guild is None:
             return
         if ctx.channel is None:
-            await ctx.respond("This command must be used in a channel.", ephemeral=True)
+            await ctx.respond(ctx.t("polls.channel_required", default="This command must be used in a channel."), ephemeral=True)
             return
 
         guild_id = ctx.guild.id
