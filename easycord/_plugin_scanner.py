@@ -11,7 +11,6 @@ from .tools import ToolSafety
 if TYPE_CHECKING:
     from .plugin import Plugin
 
-
 def scan_plugin_methods(
     bot: "_BotBase",
     plugin: "Plugin",
