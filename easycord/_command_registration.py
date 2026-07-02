@@ -4,7 +4,7 @@ from __future__ import annotations
 import inspect
 import logging
 import re
-from typing import TYPE_CHECKING, Callable, Protocol, Union
+from typing import TYPE_CHECKING, Callable, Union
 
 import discord
 from discord import app_commands
@@ -13,13 +13,8 @@ from discord.app_commands import locale_str
 from ._command_callbacks import build_context_menu_callback
 
 if TYPE_CHECKING:
-    pass
-
-
-class _BotLike(Protocol):
-    """Structural type for bot objects used by command registration helpers."""
-
-    pass
+    from ._bot_base import _BotBase
+    from .context import Context
 
 logger = logging.getLogger("easycord")
 
@@ -85,7 +80,7 @@ def _validate_command(
 
 
 def register_slash(
-    bot: "_BotLike",
+    bot: "_BotBase",
     func: Callable,
     *,
     callback_builder: Callable[..., Callable],
@@ -177,7 +172,7 @@ def register_slash(
 
 
 def _register_autocomplete_handler(
-    bot: "_BotLike",
+    bot: "_BotBase",
     cmd: app_commands.Command,
     *,
     name: str,
