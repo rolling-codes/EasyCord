@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 pyright_header = "# pyright: reportArgumentType=false, reportAttributeAccessIssue=false, reportMissingTypeArgument=false, reportOptionalCall=false, reportOperatorIssue=false, reportCallIssue=false, reportGeneralTypeIssues=false, reportOptionalMemberAccess=false\n"

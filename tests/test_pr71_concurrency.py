@@ -6,7 +6,6 @@ import json
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
-import discord
 import pytest
 
 from easycord.plugins._config_manager import PluginConfigManager

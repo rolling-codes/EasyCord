@@ -8,8 +8,6 @@ import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from easycord import Bot, BotConfig
 
 
