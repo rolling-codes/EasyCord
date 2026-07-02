@@ -14,7 +14,6 @@ from ._command_callbacks import build_context_menu_callback
 
 if TYPE_CHECKING:
     from ._bot_base import _BotBase
-    from .context import Context
 
 logger = logging.getLogger("easycord")
 
