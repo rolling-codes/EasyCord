@@ -195,3 +195,265 @@ async def test_set_channel_updates_config(tmp_path) -> None:
     await plugin.starboard_channel(ctx, channel)
     cfg = await plugin._get_config(1)
     assert cfg.get("channel_id") == 777
+
+
+@pytest.mark.asyncio
+async def test_set_emoji_updates_config(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    ctx = MagicMock()
+    ctx.guild = MagicMock()
+    ctx.guild.id = 1
+    ctx.respond = AsyncMock()
+    await plugin.starboard_emoji(ctx, "🌟")
+    cfg = await plugin._get_config(1)
+    assert cfg.get("emoji") == "🌟"
+
+
+@pytest.mark.asyncio
+async def test_starboard_config_shows_unset_channel(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    ctx = MagicMock()
+    ctx.guild = MagicMock()
+    ctx.guild.id = 1
+    ctx.guild.name = "Test Guild"
+    ctx.respond = AsyncMock()
+    await plugin.starboard_config(ctx)
+    embed = ctx.respond.call_args.kwargs.get("embed")
+    assert embed is not None
+    fields = {f.name: f.value for f in embed.fields}
+    assert fields["Channel"] == "*not set*"
+    assert fields["Threshold"] == "3"
+    assert fields["Emoji"] == "⭐"
+
+
+# ── reaction event handlers ───────────────────────────────────
+
+
+def _make_payload(*, guild_id=1, user_id=2, channel_id=10, message_id=555, emoji="⭐") -> MagicMock:
+    payload = MagicMock()
+    payload.guild_id = guild_id
+    payload.user_id = user_id
+    payload.channel_id = channel_id
+    payload.message_id = message_id
+    payload.emoji = emoji  # str(str) round-trips, matching str(payload.emoji) in the plugin
+    return payload
+
+
+def _make_bot(guild: MagicMock) -> MagicMock:
+    bot = MagicMock()
+    bot.user = MagicMock()
+    bot.user.id = 999_999
+    bot.get_guild.return_value = guild
+    return bot
+
+
+def _make_reaction(count: int, emoji: str = "⭐") -> MagicMock:
+    reaction = MagicMock()
+    reaction.emoji = emoji
+    reaction.count = count
+    return reaction
+
+
+@pytest.mark.asyncio
+async def test_reaction_add_ignores_dms(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    bot = _make_bot(MagicMock())
+    plugin._bot = bot
+    await plugin._on_reaction_add(_make_payload(guild_id=None))
+    bot.get_guild.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reaction_add_ignores_bots_own_reaction(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    bot = _make_bot(MagicMock())
+    plugin._bot = bot
+    await plugin._on_reaction_add(_make_payload(user_id=bot.user.id))
+    bot.get_guild.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reaction_add_ignores_unconfigured_emoji(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    guild = MagicMock()
+    guild.id = 1
+    plugin._bot = _make_bot(guild)
+    await plugin._on_reaction_add(_make_payload(emoji="🎉"))
+    guild.get_channel.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reaction_add_skips_when_disabled(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin._update_config(1, enabled=False)
+    guild = MagicMock()
+    guild.id = 1
+    plugin._bot = _make_bot(guild)
+    await plugin._on_reaction_add(_make_payload())
+    guild.get_channel.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reaction_add_archives_at_threshold(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin._update_config(1, channel_id=123)
+
+    star_channel = _sendable_channel()
+    post = MagicMock()
+    post.id = 999
+    star_channel.send.return_value = post
+
+    message = _make_message()
+    message.reactions = [_make_reaction(3)]
+    message.guild.get_channel.return_value = star_channel
+
+    source_channel = _sendable_channel()
+    source_channel.fetch_message.return_value = message
+
+    guild = MagicMock()
+    guild.id = 1
+    guild.get_channel.return_value = source_channel
+    plugin._bot = _make_bot(guild)
+
+    await plugin._on_reaction_add(_make_payload())
+
+    star_channel.send.assert_awaited_once()
+    assert await plugin._get_archived(1) == {"555": 999}
+
+
+@pytest.mark.asyncio
+async def test_reaction_add_below_threshold_does_not_archive(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin._update_config(1, channel_id=123)
+
+    star_channel = _sendable_channel()
+    message = _make_message()
+    message.reactions = [_make_reaction(2)]  # threshold defaults to 3
+    message.guild.get_channel.return_value = star_channel
+
+    source_channel = _sendable_channel()
+    source_channel.fetch_message.return_value = message
+
+    guild = MagicMock()
+    guild.id = 1
+    guild.get_channel.return_value = source_channel
+    plugin._bot = _make_bot(guild)
+
+    await plugin._on_reaction_add(_make_payload())
+
+    star_channel.send.assert_not_called()
+    assert await plugin._get_archived(1) == {}
+
+
+@pytest.mark.asyncio
+async def test_reaction_remove_unarchives_below_threshold(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin._update_config(1, channel_id=123)
+    await plugin._set_archived(1, message_id=555, post_id=999)
+
+    post = MagicMock()
+    post.delete = AsyncMock()
+    star_channel = _sendable_channel()
+    star_channel.fetch_message.return_value = post
+
+    message = _make_message()
+    message.reactions = []  # all stars gone
+
+    source_channel = _sendable_channel()
+    source_channel.fetch_message.return_value = message
+
+    guild = MagicMock()
+    guild.id = 1
+    guild.get_channel.side_effect = lambda cid: {10: source_channel, 123: star_channel}[cid]
+    plugin._bot = _make_bot(guild)
+
+    await plugin._on_reaction_remove(_make_payload())
+
+    post.delete.assert_awaited_once()
+    assert await plugin._get_archived(1) == {}
+
+
+@pytest.mark.asyncio
+async def test_reaction_remove_keeps_archive_at_threshold(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin._update_config(1, channel_id=123)
+    await plugin._set_archived(1, message_id=555, post_id=999)
+
+    star_channel = _sendable_channel()
+    message = _make_message()
+    message.reactions = [_make_reaction(5)]  # still >= threshold
+
+    source_channel = _sendable_channel()
+    source_channel.fetch_message.return_value = message
+
+    guild = MagicMock()
+    guild.id = 1
+    guild.get_channel.side_effect = lambda cid: {10: source_channel, 123: star_channel}[cid]
+    plugin._bot = _make_bot(guild)
+
+    await plugin._on_reaction_remove(_make_payload())
+
+    star_channel.fetch_message.assert_not_called()
+    assert await plugin._get_archived(1) == {"555": 999}
+
+
+@pytest.mark.asyncio
+async def test_reaction_remove_ignores_unconfigured_emoji(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin._set_archived(1, message_id=555, post_id=999)
+    guild = MagicMock()
+    guild.id = 1
+    plugin._bot = _make_bot(guild)
+
+    await plugin._on_reaction_remove(_make_payload(emoji="🎉"))
+
+    guild.get_channel.assert_not_called()
+    assert await plugin._get_archived(1) == {"555": 999}
+
+
+@pytest.mark.asyncio
+async def test_archive_message_forbidden_stores_nothing(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin._update_config(1, channel_id=123)
+    channel = _sendable_channel()
+    channel.send.side_effect = discord.Forbidden(MagicMock(), "no perms")
+    message = _make_message()
+    message.guild.get_channel.return_value = channel
+
+    # Must swallow the error, not raise into the dispatcher.
+    await plugin._archive_message(message, reaction_count=5)
+
+    assert await plugin._get_archived(1) == {}
+
+
+@pytest.mark.asyncio
+async def test_archive_message_resends_when_existing_post_gone(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin._update_config(1, channel_id=123)
+    await plugin._set_archived(1, message_id=555, post_id=999)
+
+    channel = _sendable_channel()
+    channel.fetch_message.side_effect = discord.NotFound(MagicMock(), "gone")
+    new_post = MagicMock()
+    new_post.id = 1000
+    channel.send.return_value = new_post
+    message = _make_message()
+    message.guild.get_channel.return_value = channel
+
+    await plugin._archive_message(message, reaction_count=5)
+
+    channel.send.assert_awaited_once()
+    assert await plugin._get_archived(1) == {"555": 1000}
+
+
+@pytest.mark.asyncio
+async def test_archive_message_skips_unsendable_channel(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin._update_config(1, channel_id=123)
+    message = _make_message()
+    # Channel type outside SENDABLE_CHANNEL_TYPES (e.g. a category)
+    message.guild.get_channel.return_value = MagicMock(spec=discord.CategoryChannel)
+
+    await plugin._archive_message(message, reaction_count=5)
+
+    assert await plugin._get_archived(1) == {}

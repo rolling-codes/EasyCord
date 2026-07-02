@@ -13,6 +13,29 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 | B-006 | 2026-06-30 | levels plugin | MEDIUM | Fixed | Cooldown map `.clear()` reset every user at once (XP-gate bypass) |
 | B-007 | 2026-06-30 | invite_tracker | LOW | Won't fix (noted) | `_invite_cache` not pruned on guild-remove (bounded by guild count) |
 | B-008 | 2026-06-30 | openclaw plugin | LOW | Open (for follow-up agent) | Optional member access: `ctx.guild.id` in guild_only cmds + `self.orchestrator`/`source` unnarrowed |
+| B-018 | 2026-07-02 | starboard plugin | HIGH | Fixed | `cfg.get("enabled")` without default read a missing key as disabled — starboard dead after `/starboard_channel` alone |
+| B-019 | 2026-07-02 | plugins (pattern) | MEDIUM | Open (needs verification) | Same no-default `cfg.get("enabled")` in auto_responder, economy, member_logging, role_persistence, ai_moderator — check each against its `_DEFAULTS` and config-creation path |
+
+---
+
+## B-018 — Starboard silently disabled after configuring only the channel
+- **Where:** `easycord/plugins/starboard.py` — `_on_reaction_add`, `_on_reaction_remove`,
+  `starboard_config` display.
+- **Symptom:** New tests `test_reaction_add_archives_at_threshold` and
+  `test_reaction_remove_unarchives_below_threshold` failed: handlers returned before
+  archiving. In production: an admin who runs `/starboard_channel #starboard` (or any
+  single config command) on a fresh guild gets a starboard that never fires.
+- **Root cause:** `PluginConfigManager.get(guild, key, _DEFAULTS)` only applies defaults
+  when the section is *absent*. `update()` creates the section with just the updated
+  keys and no defaults merged. So a section created by `/starboard_channel` is
+  `{"channel_id": …}` with no `"enabled"` key, and `if not cfg.get("enabled")` treated
+  the missing key as `False`.
+- **Fix:** `cfg.get("enabled", True)` in both reaction handlers and the config display —
+  same missing-key fallback pattern the code already used for `emoji` and `threshold`.
+- **Lesson:** With this config layer, a section can exist with *any subset* of the
+  default keys. Every read must carry its own default (`cfg.get(k, default)`); relying
+  on `_DEFAULTS` having been merged is wrong unless the section was created by the
+  defaults path. See B-019 for the sweep of sibling plugins with the same pattern.
 
 ---
 

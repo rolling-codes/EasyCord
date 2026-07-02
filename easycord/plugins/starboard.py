@@ -188,7 +188,9 @@ class StarboardPlugin(Plugin):
             return
 
         cfg = await self._get_config(guild.id)
-        if not cfg.get("enabled"):
+        # Default True: a section created by /starboard_channel alone has no
+        # "enabled" key, and absence must not read as disabled.
+        if not cfg.get("enabled", True):
             return
 
         # Only react to configured emoji
@@ -229,7 +231,7 @@ class StarboardPlugin(Plugin):
             return
 
         cfg = await self._get_config(guild.id)
-        if not cfg.get("enabled"):
+        if not cfg.get("enabled", True):
             return
 
         if str(payload.emoji) != cfg.get("emoji", "⭐"):
@@ -289,7 +291,7 @@ class StarboardPlugin(Plugin):
             title=f"⭐ Starboard Config — {ctx.guild.name}",
             color=discord.Color.gold(),
         )
-        embed.add_field(name="Enabled", value="✅" if cfg.get("enabled") else "❌", inline=True)
+        embed.add_field(name="Enabled", value="✅" if cfg.get("enabled", True) else "❌", inline=True)
         embed.add_field(name="Channel", value=channel.mention if channel else "*not set*", inline=True)
         embed.add_field(name="Emoji", value=cfg.get("emoji", "⭐"), inline=True)
         embed.add_field(name="Threshold", value=str(cfg.get("threshold", 3)), inline=True)
