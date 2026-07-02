@@ -36,7 +36,7 @@ def main():
     }
 
     complex_threshold = 20
-    simple_threshold = 8
+    simple_threshold = 20
 
     failed = False
 

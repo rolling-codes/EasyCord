@@ -160,3 +160,67 @@ async def test_list_populated_paginates(tmp_path) -> None:
     ctx = _make_context()
     await plugin.list(ctx)
     ctx.paginate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_store_set_overwrites_existing_entry(tmp_path) -> None:
+    store = TagsStore(str(tmp_path / "tags"))
+    await store.set(1, "note", "first", author_id=7)
+    await store.set(1, "note", "second", author_id=9)
+    assert store.get(1, "note") == {"text": "second", "author_id": 9}
+    # Overwriting must not duplicate the name.
+    assert store.list_names(1) == ["note"]
+
+
+@pytest.mark.asyncio
+async def test_store_persists_across_reopen(tmp_path) -> None:
+    store = TagsStore(str(tmp_path / "tags"))
+    await store.set(1, "keep", "me", author_id=7)
+    reopened = TagsStore(str(tmp_path / "tags"))
+    assert reopened.get(1, "keep") == {"text": "me", "author_id": 7}
+
+
+@pytest.mark.asyncio
+async def test_store_concurrent_sets_all_persist(tmp_path) -> None:
+    import asyncio
+
+    store = TagsStore(str(tmp_path / "tags"))
+    await asyncio.gather(*[store.set(1, f"tag{i}", f"v{i}", author_id=i) for i in range(10)])
+    # Every concurrent writer's entry survived the read-modify-write under the lock.
+    assert store.list_names(1) == sorted(f"tag{i}" for i in range(10))
+
+
+@pytest.mark.asyncio
+async def test_store_delete_if_authorized_reason_codes(tmp_path) -> None:
+    store = TagsStore(str(tmp_path / "tags"))
+    assert await store.delete_if_authorized(1, "ghost", user_id=2, is_admin=False) == (False, "not_found")
+
+    await store.set(1, "owned", "v", author_id=99)
+    assert await store.delete_if_authorized(1, "owned", user_id=2, is_admin=False) == (False, "unauthorized")
+    assert await store.delete_if_authorized(1, "owned", user_id=99, is_admin=False) == (True, "deleted")
+
+
+@pytest.mark.asyncio
+async def test_set_overwrite_transfers_authorship(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    first_ctx = _make_context(user_id=2)
+    await plugin.set(first_ctx, "note", "original")
+    second_ctx = _make_context(user_id=3)
+    await plugin.set(second_ctx, "note", "updated")
+    # New author owns the tag now — original author can no longer delete it.
+    entry = plugin._store.get(1, "note")
+    assert entry == {"text": "updated", "author_id": 3}
+
+
+@pytest.mark.asyncio
+async def test_list_chunks_names_into_pages_of_twenty(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    for i in range(25):
+        await plugin._store.set(1, f"tag{i:02d}", "v", author_id=2)
+    ctx = _make_context()
+    await plugin.list(ctx)
+    pages = ctx.paginate.call_args.args[0]
+    assert len(pages) == 2
+    # 20 names on the first page, 5 on the second (plus the header line each).
+    assert len(pages[0].split("\n")) == 21
+    assert len(pages[1].split("\n")) == 6

@@ -45,6 +45,7 @@ the target branch.
 | 2026-06-28 | **Stale release branches get closed, not "fixed."** PR #70 (`release/v5.43.3`) closed as superseded rather than rebased. | Its substantive findings were already fixed/moot on `main` (v5.50.2). Re-fixing a branch 14 commits behind wastes effort and risks reintroducing reverted code. |
 | 2026-06-28 | **All config read-modify-write goes through `ServerConfigStore.mutate(guild_id, fn)`.** The per-guild `asyncio.Lock` only made a single `load`/`save` atomic; `mutate` holds it across the whole load→modify→save. `fn` must be sync and do no network I/O (the lock is held while it runs). | Generalizes the per-guild-lock pattern economy/auto_role/birthday/giveaway/polls already used (their bespoke `_guild_lock` dicts are now redundant but left as-is). Eliminates last-write-wins data loss across the config layer. Never hold the lock across Discord I/O — do `channel.send`/`add_roles` outside `mutate`. |
 | 2026-06-28 | **role_persistence records roles by identity, gates assignability at restore, and only clears the record on success or when stale.** | A role above the bot at leave-time must still be remembered and restored once the bot's position improves; a failed restore must be retryable, and an entry whose roles were all deleted must not leak forever. |
+| 2026-07-02 | **Plugin test-count floor is a flat ≥20 for every plugin** — `verify_plugin_tests.py` no longer distinguishes complex (≥20) from simple (≥8). Suggestions/tags/starboard were brought up from 13/15/11 to 21/21/25 tests to keep the gate green. | The complex/simple split let the smallest plugins stay thin; a single floor keeps coverage expectations uniform. Docs updated in CLAUDE.md and CONTRIBUTING.md. |
 
 ---
 
@@ -58,6 +59,7 @@ the target branch.
 | 2026-06-28 | Med (data integrity) | `plugins/suggestions.py` | `_get_next_id`, suggestion storage, and approve/reject now run under `mutate` — fixes duplicate IDs and dropped suggestion entries from racing `/suggest`. | Code-read audit (user) |
 | 2026-06-28 | Med (data integrity) | `plugins/starboard.py`, `plugins/reaction_roles.py`, `plugins/moderation.py` | Routed archived-message writes, reaction-role mapping writes + delete-event cleanups, and `/warn` warning appends through `mutate`. reaction_roles `raw_message_delete` keeps a read-first guard so it doesn't write on every deletion. | Code-read audit (user) |
 | 2026-06-28 | Med (data integrity + logic) | `plugins/role_persistence.py` | Routed save/restore through `mutate`; plus 3 logic fixes — save by identity (not bot hierarchy), gate assignability at restore, and only delete the saved record on successful restore or when all saved roles are gone (failed restore now retryable). | Code-read audit (user) |
+| 2026-07-02 | High (feature dead on arrival) | `plugins/starboard.py` | B-018: `cfg.get("enabled")` without default treated a missing key as disabled — any guild whose config section was created by a single config command (e.g. `/starboard_channel`) had a starboard that never fired. Fixed with `cfg.get("enabled", True)` in both reaction handlers + config display. B-019 (open): same pattern in auto_responder, economy, member_logging, role_persistence, ai_moderator needs a sweep. | New ≥20-test gate work (test-first exposure) |
 
 New tests: `tests/test_server_config.py::TestAtomicMutate`, `tests/test_suggestions.py`, `tests/test_role_persistence.py`. Full suite: 1248 passed.
 
@@ -74,11 +76,14 @@ New tests: `tests/test_server_config.py::TestAtomicMutate`, `tests/test_suggesti
 
 ## Known issues / tech debt
 
-- **`scripts/verify_plugin_tests.py` undercounts tests.** It matches only
-  `ast.FunctionDef`, so every `async def test_…` (most of the suite) scores 0, and
-  it expects exact `test_<plugin>.py` filenames (misses `test_levels_plugin.py`,
-  `test_reminder.py`). It reports false failures. Fix: also walk `ast.AsyncFunctionDef`
-  and map plugin→test-file aliases. *(Not yet fixed.)*
+- ~~**`scripts/verify_plugin_tests.py` undercounts tests.**~~ *Fixed* — B-001 (walks
+  `ast.AsyncFunctionDef`) and B-002 (plugin→test-file aliases). 2026-07-02: threshold
+  is now a flat ≥20 for all plugins (was complex ≥20 / simple ≥8).
+- **Local pytest hangs at exit on this dev machine** (Python 3.14 + pytest 9.1.1):
+  every run — including untouched files like `test_middleware.py` — completes all
+  tests to `[100%]`, then hangs before printing the summary. Results are still
+  readable from `-v` output. CI (3.10/3.12) is unaffected. Suspect pytest-asyncio/
+  interpreter finalization; diagnose when a local upgrade window opens.
 - **Plugin i18n gaps** — moderation/suggestions/economy/starboard hardcode response
   strings (see decision above). Migrate to `ctx.t(...)` as a dedicated pass.
 - **CI action-pin drift** — invariants in CLAUDE.md/AGENTS.md state `actions/checkout@v4`

@@ -221,3 +221,181 @@ async def test_suggestion_approve_reject_success(tmp_path) -> None:
     cfg_obj2 = await plugin.config.store.load(1)
     suggestions2 = cfg_obj2.get_other("suggestions", {})
     assert suggestions2["2"]["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_suggest_accepts_thread_channel(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin.config.update(1, "suggestions", suggestions_channel=123)
+    ctx = _make_context()
+
+    mock_thread = MagicMock(spec=discord.Thread)
+    mock_msg = AsyncMock(spec=discord.Message)
+    mock_msg.id = 555
+    mock_thread.send = AsyncMock(return_value=mock_msg)
+    ctx.guild.get_channel.return_value = mock_thread
+
+    await plugin.suggest(ctx, "thread idea")
+    ctx.respond.assert_called_once_with("✅ Suggestion #1 posted!", ephemeral=True)
+
+
+@pytest.mark.asyncio
+async def test_suggest_uses_custom_vote_emojis(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin.config.update(
+        1, "suggestions", suggestions_channel=123, upvote_emoji="⬆️", downvote_emoji="⬇️"
+    )
+    ctx = _make_context()
+
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_msg = AsyncMock(spec=discord.Message)
+    mock_msg.id = 999
+    mock_channel.send = AsyncMock(return_value=mock_msg)
+    ctx.guild.get_channel.return_value = mock_channel
+
+    await plugin.suggest(ctx, "idea")
+    mock_msg.add_reaction.assert_any_call("⬆️")
+    mock_msg.add_reaction.assert_any_call("⬇️")
+
+
+@pytest.mark.asyncio
+async def test_suggestions_listing_caps_at_ten_newest_first(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+
+    def _seed(cfg) -> None:
+        cfg.set_other(
+            "suggestions",
+            {str(i): {"user_id": 2, "idea": f"idea {i}", "message_id": i, "status": "pending"} for i in range(1, 13)},
+        )
+
+    await plugin.config.store.mutate(1, _seed)
+
+    ctx = _make_context()
+    await plugin.suggestions(ctx)
+    embed = ctx.respond.call_args.kwargs.get("embed")
+    assert embed is not None
+    assert embed.title == "Pending Suggestions (12)"
+    lines = embed.description.split("\n")
+    assert len(lines) == 10
+    # Highest IDs come first
+    assert lines[0].startswith("**#12**")
+    assert lines[-1].startswith("**#3**")
+
+
+@pytest.mark.asyncio
+async def test_suggestions_listing_excludes_resolved(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+
+    def _seed(cfg) -> None:
+        cfg.set_other(
+            "suggestions",
+            {
+                "1": {"user_id": 2, "idea": "approved one", "message_id": 1, "status": "approved"},
+                "2": {"user_id": 2, "idea": "rejected one", "message_id": 2, "status": "rejected"},
+                "3": {"user_id": 2, "idea": "still open", "message_id": 3, "status": "pending"},
+            },
+        )
+
+    await plugin.config.store.mutate(1, _seed)
+
+    ctx = _make_context()
+    await plugin.suggestions(ctx)
+    embed = ctx.respond.call_args.kwargs.get("embed")
+    assert embed is not None
+    assert embed.title == "Pending Suggestions (1)"
+    assert "still open" in embed.description
+    assert "approved one" not in embed.description
+
+
+@pytest.mark.asyncio
+async def test_suggestions_listing_truncates_long_ideas(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    long_idea = "x" * 250
+
+    def _seed(cfg) -> None:
+        cfg.set_other(
+            "suggestions",
+            {"1": {"user_id": 2, "idea": long_idea, "message_id": 1, "status": "pending"}},
+        )
+
+    await plugin.config.store.mutate(1, _seed)
+
+    ctx = _make_context()
+    await plugin.suggestions(ctx)
+    embed = ctx.respond.call_args.kwargs.get("embed")
+    assert embed is not None
+    # "**#1** — " prefix plus at most 100 chars of the idea
+    assert "x" * 100 in embed.description
+    assert "x" * 101 not in embed.description
+
+
+@pytest.mark.asyncio
+async def test_suggestions_listing_skips_malformed_entries(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+
+    def _seed(cfg) -> None:
+        cfg.set_other(
+            "suggestions",
+            {
+                "1": "not a dict",
+                "2": {"user_id": 2, "idea": "valid", "message_id": 2, "status": "pending"},
+            },
+        )
+
+    await plugin.config.store.mutate(1, _seed)
+
+    ctx = _make_context()
+    await plugin.suggestions(ctx)
+    embed = ctx.respond.call_args.kwargs.get("embed")
+    assert embed is not None
+    assert embed.title == "Pending Suggestions (1)"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_suggest_preserves_all_entries(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+    await plugin.config.update(1, "suggestions", suggestions_channel=123)
+
+    def _make_posting_ctx() -> MagicMock:
+        ctx = _make_context()
+        mock_channel = MagicMock(spec=discord.TextChannel)
+        mock_msg = AsyncMock(spec=discord.Message)
+        mock_msg.id = 999
+        mock_channel.send = AsyncMock(return_value=mock_msg)
+        ctx.guild.get_channel.return_value = mock_channel
+        return ctx
+
+    await asyncio.gather(*[plugin.suggest(_make_posting_ctx(), f"idea {i}") for i in range(8)])
+
+    cfg_obj = await plugin.config.store.load(1)
+    # Config keys (suggestions_channel, ...) share the "suggestions" section
+    # with the stored entries, so filter to the dict-typed suggestion records.
+    stored = cfg_obj.get_other("suggestions", {})
+    entries = {k: v for k, v in stored.items() if isinstance(v, dict)}
+    # Every concurrent writer's entry survived the read-modify-write
+    assert len(entries) == 8
+    assert sorted(int(k) for k in entries) == list(range(1, 9))
+
+
+@pytest.mark.asyncio
+async def test_approve_leaves_other_suggestions_pending(tmp_path) -> None:
+    plugin = _make_plugin(tmp_path)
+
+    def _seed(cfg) -> None:
+        cfg.set_other(
+            "suggestions",
+            {
+                "1": {"user_id": 2, "idea": "first", "message_id": 1, "status": "pending"},
+                "2": {"user_id": 2, "idea": "second", "message_id": 2, "status": "pending"},
+            },
+        )
+
+    await plugin.config.store.mutate(1, _seed)
+
+    ctx = _make_context(manage_guild=True)
+    await plugin.suggestion_approve(ctx, 1)
+
+    cfg_obj = await plugin.config.store.load(1)
+    suggestions = cfg_obj.get_other("suggestions", {})
+    assert suggestions["1"]["status"] == "approved"
+    assert suggestions["2"]["status"] == "pending"

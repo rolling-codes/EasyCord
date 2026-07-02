@@ -11,7 +11,7 @@ pytest tests/test_middleware.py -v
 pytest tests/test_middleware.py::test_name -v
 ruff check easycord tests --select E9,F63,F7,F82   # the blocking lint gate (syntax/undefined-name errors)
 ruff check .                                        # full advisory lint (non-blocking in CI)
-python scripts/verify_plugin_tests.py      # per-plugin test-count thresholds (complex ≥20, simple ≥8)
+python scripts/verify_plugin_tests.py      # per-plugin test-count thresholds (all plugins ≥20)
 python -m build --no-isolation   # plain `python -m build` needs a working venv module
 python scripts/check_release_metadata.py   # version consistency across pyproject/__init__/CHANGELOG
 python scripts/bump_version.py 5.50.0      # bump version across all tracked files
