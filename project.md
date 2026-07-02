@@ -59,7 +59,7 @@ the target branch.
 | 2026-06-28 | Med (data integrity) | `plugins/suggestions.py` | `_get_next_id`, suggestion storage, and approve/reject now run under `mutate` — fixes duplicate IDs and dropped suggestion entries from racing `/suggest`. | Code-read audit (user) |
 | 2026-06-28 | Med (data integrity) | `plugins/starboard.py`, `plugins/reaction_roles.py`, `plugins/moderation.py` | Routed archived-message writes, reaction-role mapping writes + delete-event cleanups, and `/warn` warning appends through `mutate`. reaction_roles `raw_message_delete` keeps a read-first guard so it doesn't write on every deletion. | Code-read audit (user) |
 | 2026-06-28 | Med (data integrity + logic) | `plugins/role_persistence.py` | Routed save/restore through `mutate`; plus 3 logic fixes — save by identity (not bot hierarchy), gate assignability at restore, and only delete the saved record on successful restore or when all saved roles are gone (failed restore now retryable). | Code-read audit (user) |
-| 2026-07-02 | High (feature dead on arrival) | `plugins/starboard.py` | B-018: `cfg.get("enabled")` without default treated a missing key as disabled — any guild whose config section was created by a single config command (e.g. `/starboard_channel`) had a starboard that never fired. Fixed with `cfg.get("enabled", True)` in both reaction handlers + config display. B-019 (open): same pattern in auto_responder, economy, member_logging, role_persistence, ai_moderator needs a sweep. | New ≥20-test gate work (test-first exposure) |
+| 2026-07-02 | High (feature dead on arrival) | `plugins/starboard.py` | B-018: `cfg.get("enabled")` without default treated a missing key as disabled — any guild whose config section was created by a single config command (e.g. `/starboard_channel`) had a starboard that never fired. Fixed with `cfg.get("enabled", True)` in both reaction handlers + config display. B-019 closed 2026-07-02 — the five sibling plugins verified benign (see bugs.md). | New ≥20-test gate work (test-first exposure) |
 
 New tests: `tests/test_server_config.py::TestAtomicMutate`, `tests/test_suggestions.py`, `tests/test_role_persistence.py`. Full suite: 1248 passed.
 
@@ -69,6 +69,7 @@ New tests: `tests/test_server_config.py::TestAtomicMutate`, `tests/test_suggesti
 
 | PR | Branch | Disposition | Notes |
 |----|--------|-------------|-------|
+| #72 | `fix/config-concurrency-rmw` | **Updated (open)** | v5.51.0 release PR. Code Rabbit findings addressed in-branch (aa0cfb0, 4ab2975); polls channel-guard localized per review. B-018 fixed; B-019 sweep verified benign (closed, docs-only); B-008 confirmed fixed (pyright clean 2026-07-02). Merged `origin/main` (v5.50.2 + dependabot action bumps) to clear the CONFLICTING state; CLAUDE.md/AGENTS.md action-pin invariant reconciled to `checkout@v7`. |
 | #70 | `release/v5.43.3` | **Closed (superseded)** | 14 commits behind `main` (v5.50.2), conflicting. ~40 bot findings triaged: most **already-fixed** (orchestrator fallback/`attempt`, `steps` accounting, tool-schema gating via signature inspection, `tools.execute()` auth, `auto_delete` governance, `/unmute` role creation, CHANGELOG conflict marker); many **moot** (welcome `fetch_ban`, `/saved_roles`, suggestions key-migration, economy `/buy` shop, invite_tracker state, reaction_roles responses — code only on the stale branch); 2 **valid** → fixed (see Bug fixes). i18n comments **pushed-back** (pre-existing debt). |
 | #63 | `fix/ai-moderator-governance-and-doc-drift` | Merged → v5.50.1 | AIModeratorPlugin governance + doc drift. Active branch continued past this to v5.50.2. |
 
@@ -86,10 +87,8 @@ New tests: `tests/test_server_config.py::TestAtomicMutate`, `tests/test_suggesti
   interpreter finalization; diagnose when a local upgrade window opens.
 - **Plugin i18n gaps** — moderation/suggestions/economy/starboard hardcode response
   strings (see decision above). Migrate to `ctx.t(...)` as a dedicated pass.
-- **CI action-pin drift** — invariants in CLAUDE.md/AGENTS.md state `actions/checkout@v4`
-  is pinned (and "v6 does not exist"), but dependabot PR #65 bumped checkout 4→7.
-  Confirm `tests.yml` (currently `@v4`) and other workflows agree, and reconcile the
-  documented invariant with what's actually pinned.
+- ~~**CI action-pin drift**~~ *Resolved 2026-07-02 (PR #72)* — merged main brought
+  `checkout@v7` into `tests.yml`; CLAUDE.md/AGENTS.md invariant updated to match.
 
 ---
 

@@ -121,7 +121,7 @@ if isinstance(channel, SENDABLE_CHANNEL_TYPES):
 - `ctx.is_admin` is a property — never call `ctx.is_admin()`.
 - `ctx.user` / `ctx.member` are correct; `ctx.author` does not exist.
 - `@ai_tool` requires an explicit `ToolSafety` annotation to register.
-- CI actions are pinned to `actions/checkout@v4` and `actions/setup-python@v5` — v6 does not exist.
+- CI actions are pinned to `actions/checkout@v7` and `actions/setup-python@v5` — dependabot manages major bumps; keep this line in sync with `.github/workflows/`.
 - `sync_commands()` raises `RuntimeError` on removals unless `confirm_removals=True` is passed explicitly.
 - `Plugin.on_reload()` fires on the **new** instance after a hot-reload swap, not the old one; `self.bot` is available when it fires. Only fires on success — never on failure.
 - `bot.run(reload=True)` is dev-only — the mtime watcher runs as a background task in `_background_tasks` and is cancelled by `close()`.

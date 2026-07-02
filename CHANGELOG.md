@@ -28,9 +28,16 @@
 **Suggestions plugin cleanup** (`easycord/plugins/suggestions.py`):
 - Removed unused `self.suggestion_counter = {}` field (dead code, real counter lives in persistent config).
 
+**Starboard disabled by missing config key** (`easycord/plugins/starboard.py`, B-018):
+- `cfg.get("enabled")` without a default treated a missing key as disabled — a guild that only ran `/starboard_channel` had a starboard that never fired. Now `cfg.get("enabled", True)` in both reaction handlers and the config display. The same pattern in five sibling plugins was audited and verified benign (B-019, closed).
+
+### Added
+
+- Public API exports: `SENDABLE_CHANNEL_TYPES`, `EventBus`, and `HookRegistry` are now importable from `easycord`.
+
 ### Tests
 
-- Extended test coverage for plugin fixes; 1307 tests total (up from 1301).
+- Extended test coverage for plugin fixes; flat >=20-test-per-plugin CI floor (was complex >=20 / simple >=8); 1335 tests total (up from 1301).
 
 ## EasyCord v5.50.2 - 2026-06-24
 

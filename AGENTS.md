@@ -59,7 +59,7 @@ EasyCord is a Discord bot framework layered as follows:
 - Use `ctx.user` / `ctx.member` — `ctx.author` does not exist.
 - `ctx.is_admin` is a property, not a method — do not call it as `ctx.is_admin()`.
 - Cooldown sentinels default to `float("-inf")`, not `0.0` — ensures first-message events pass on fresh runners.
-- CI workflows pin to `actions/checkout@v4` and `actions/setup-python@v5`.
+- CI workflows pin to `actions/checkout@v7` and `actions/setup-python@v5` (dependabot manages major bumps; keep in sync with `.github/workflows/`).
 
 ## Branch / repo state
 

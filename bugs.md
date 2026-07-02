@@ -12,9 +12,9 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 | B-005 | 2026-06-30 | Tests / typing | LOW | Fixed | `plugin._bot` (Optional) member access flagged by Pyright in tests |
 | B-006 | 2026-06-30 | levels plugin | MEDIUM | Fixed | Cooldown map `.clear()` reset every user at once (XP-gate bypass) |
 | B-007 | 2026-06-30 | invite_tracker | LOW | Won't fix (noted) | `_invite_cache` not pruned on guild-remove (bounded by guild count) |
-| B-008 | 2026-06-30 | openclaw plugin | LOW | Open (for follow-up agent) | Optional member access: `ctx.guild.id` in guild_only cmds + `self.orchestrator`/`source` unnarrowed |
+| B-008 | 2026-06-30 | openclaw plugin | LOW | Fixed (v5.51.0) | Optional member access: asserts/guards added in the v5.51.0 release commit; pyright clean 2026-07-02 — see the Release v5.51.0 section |
 | B-018 | 2026-07-02 | starboard plugin | HIGH | Fixed | `cfg.get("enabled")` without default read a missing key as disabled — starboard dead after `/starboard_channel` alone |
-| B-019 | 2026-07-02 | plugins (pattern) | MEDIUM | Open (needs verification) | Same no-default `cfg.get("enabled")` in auto_responder, economy, member_logging, role_persistence, ai_moderator — check each against its `_DEFAULTS` and config-creation path |
+| B-019 | 2026-07-02 | plugins (pattern) | MEDIUM | Closed (verified benign) | No-default `cfg.get("enabled")` in auto_responder, economy, member_logging, role_persistence, ai_moderator verified benign against each plugin's config-creation path — see B-019 section |
 
 ---
 
@@ -36,6 +36,30 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
   default keys. Every read must carry its own default (`cfg.get(k, default)`); relying
   on `_DEFAULTS` having been merged is wrong unless the section was created by the
   defaults path. See B-019 for the sweep of sibling plugins with the same pattern.
+
+---
+
+## B-019 — no-default `cfg.get("enabled")` sweep (CLOSED — verified benign)
+- **Where:** the five plugins flagged after B-018: `auto_responder.py:68`,
+  `economy.py:219`, `member_logging.py:60`, `role_persistence.py:53,79`,
+  `ai_moderator.py:183,237`.
+- **Verification (2026-07-02):** the B-018 bug requires an `update()`-only path that
+  creates the config section *without* the `enabled` key before the defaults path runs.
+  None of the five have one:
+  - **member_logging, economy, role_persistence** — zero `update()` calls / zero config
+    slash commands; their sections can only be created by `_get_config()` (defaults path),
+    so `enabled` is always present.
+  - **auto_responder** — `_update_config` calls exist (lines 100/112/130) but every one
+    runs after `_get_config()` already created the section with defaults.
+  - **ai_moderator** — default is `enabled: False` (opt-in moderation) and the explicit
+    `/mod_enable` command always writes the key; a missing key reading as disabled is
+    the CORRECT behavior. The `mod_config` display at line 237 is cosmetic-only.
+  - Broader sweep for other no-default truthy-flag gates (e.g. moderation.py
+    `enable_warnings`) found none reachable before a `_get_config()` call.
+- **Lesson:** the B-018 pattern is only a bug when (a) `_DEFAULTS` has a truthy value for
+  the key AND (b) an `update()`-style path can create the section before the defaults
+  path runs. Check both conditions before filing sweep items — presence of the
+  no-default read alone is not sufficient.
 
 ---
 
@@ -129,7 +153,7 @@ After B-001/B-002 fixes, three real gaps remained and were filled:
   controlled. Guild-keyed caches are bounded by membership; user-keyed/global caches
   (cf. B-006) are the ones that need eviction.
 
-## B-008 — openclaw Optional member access (OPEN — for follow-up agent)
+## B-008 — openclaw Optional member access (FIXED — v5.51.0)
 - **Where:** `easycord/plugins/openclaw.py`, Pyright `reportOptionalMemberAccess`
   (severity: warning, not the error baseline — so not CI-blocking, but real gaps):
   - `ctx.guild.id` in `guild_only=True` commands: lines **91, 119, 153, 164, 187**.
@@ -145,9 +169,10 @@ After B-001/B-002 fixes, three real gaps remained and were filled:
 - **Lesson:** `guild_only=True` is a *runtime* guarantee the type checker doesn't model;
   the project convention is an explicit `assert ctx.guild is not None` per command, not a
   blanket `# type: ignore`. Same Optional-narrowing discipline as B-004/B-005.
-- **Status:** Not fixed in this pass (out of the CI/audit scope); recorded here so the
-  next agent picks it up. Verify the exact line numbers against current `openclaw.py`
-  before editing — they drift.
+- **Status:** Fixed in the v5.51.0 release commit (see "Release v5.51.0" section below,
+  which records the same fix). Verified 2026-07-02: `pyright easycord/plugins/openclaw.py`
+  → 0 errors, 0 warnings under the repo pyrightconfig (`reportOptionalMemberAccess:
+  warning` active). This entry previously contradicted the release section — reconciled.
 
 ## Audit pass (2026-06-30) — verified clean / false positives
 Four parallel read-only audits ran (mutate contract, destructive-action isolation,

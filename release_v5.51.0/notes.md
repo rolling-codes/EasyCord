@@ -13,10 +13,11 @@ Stability release focusing on CRITICAL bug fixes in core plugins and framework O
 3. **Context channel access** — Added guards in giveaway, polls, reminder before accessing `ctx.channel.id`.
 4. **Tickets button view** — Handle DM interactions gracefully in persistent view button.
 5. **Three live plugin bugs** — Fixed Feb 29 crash (birthday), reversed transcript (tickets), missing role rewards (levels).
+6. **Starboard dead-on-arrival config** (B-018) — `cfg.get("enabled")` without a default treated a missing key as disabled; a guild that only ran `/starboard_channel` never got a working starboard. Fixed with `cfg.get("enabled", True)`.
 
 ## Test Coverage
 
-- 1307 tests total (up from 1301)
+- 1335 tests total (up from 1301); flat >=20-test-per-plugin CI floor
 - All CI gates passing: ruff, pytest, plugin coverage, release metadata
 
 ## Known Deferred Issues (v5.52.0)
