@@ -13,7 +13,7 @@ from discord.app_commands import locale_str
 from ._command_callbacks import build_context_menu_callback
 
 if TYPE_CHECKING:
-    from .context import Context
+    pass
 
 
 class _BotLike(Protocol):
