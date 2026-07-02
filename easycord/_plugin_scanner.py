@@ -9,7 +9,6 @@ from .tool_limits import RateLimit
 from .tools import ToolSafety
 
 if TYPE_CHECKING:
-    from ._bot_base import _BotBase
     from .plugin import Plugin
 
 
