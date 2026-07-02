@@ -1,19 +1,23 @@
 """Plugin method scanning and registration helpers."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import Any, Callable, Protocol, cast
 
 import discord
 
 from .tool_limits import RateLimit
 from .tools import ToolSafety
 
-if TYPE_CHECKING:
-    from .plugin import Plugin
+
+class _PluginLike(Protocol):
+    _instance_id: str
+
+    def id(self, custom_id: str) -> str: ...
+
 
 def scan_plugin_methods(
     bot: "_BotBase",
-    plugin: "Plugin",
+    plugin: "_PluginLike",
     *,
     iter_methods: Callable[[object], list[tuple[str, Any]]],
     parent=None,
