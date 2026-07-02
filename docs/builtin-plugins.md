@@ -219,6 +219,39 @@ Plugins that need persistent data will silently fall back to in-memory storage i
 
 ---
 
+## Complete example: defaults + opt-ins
+
+Here's a bot that loads the four default plugins and adds several opt-in plugins:
+
+```python
+from easycord import Bot, SQLiteDatabase
+from easycord.plugins import (
+    ModerationPlugin,
+    EconomyPlugin,
+    ReminderPlugin,
+    StarboardPlugin,
+)
+
+bot = Bot(
+    load_builtin_plugins=True,  # loads: welcome, tags, polls, levels
+    db=SQLiteDatabase("bot.db"),  # for persistence
+)
+
+# Add opt-in plugins
+bot.add_plugins(
+    ModerationPlugin(),   # /kick, /ban, /timeout, /warn
+    EconomyPlugin(),      # /balance, /daily, /transfer
+    ReminderPlugin(),     # /remind me in 2h do X
+    StarboardPlugin(),    # React with ⭐ to pin
+)
+
+bot.run("YOUR_DISCORD_TOKEN")
+```
+
+See [examples/with-builtin-plugins.py](../examples/with-builtin-plugins.py) for a complete working bot.
+
+---
+
 ## Loading multiple plugins at once
 
 ```python

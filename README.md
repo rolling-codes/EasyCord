@@ -124,12 +124,18 @@ Run: `pytest tests/test_bot.py`
 - ✅ Have a foundation for 28 built-in plugins (levels, economy, tags, moderation, etc.)
 
 ### Next steps
-1. **[Build Commands](docs/building-commands.md)** — Add slash commands, buttons, modals, autocomplete
-2. **[Organize Code](docs/organizing-code.md)** — Split into plugins, run background tasks, let plugins talk
-3. **[Control Access](docs/request-lifecycle.md)** — Add guards (permissions, rate limits), handle errors
-4. **[Store Data](docs/database-guide.md)** — Per-guild storage with SQLite or memory backend
-5. **[Test Offline](docs/testing.md)** — Test commands without running Discord
-6. **[Add AI](docs/conversation-memory.md)** — Optional: conversation memory and LLM orchestration
+
+**Pick your path:**
+
+| Path | What to do |
+|---|---|
+| **Extend with plugins** | See [examples/with-builtin-plugins.py](examples/with-builtin-plugins.py) for a bot that loads default plugins (tags, levels, polls, welcome) + opt-in plugins (moderation, economy, reminders). Then read [Built-in Plugins](docs/builtin-plugins.md). |
+| **Build custom commands** | Follow [Building Commands](docs/building-commands.md) to add buttons, modals, groups, autocomplete. |
+| **Organize into plugins** | Follow [Organizing Code](docs/organizing-code.md) to split code into reusable plugins. |
+| **Add permissions & control** | Follow [Request Lifecycle](docs/request-lifecycle.md) for guards, rate limits, error handlers. |
+| **Store persistent data** | Follow [Storage & State](docs/database-guide.md) for per-guild SQLite or in-memory storage. |
+| **Test without Discord** | Follow [Testing Commands](docs/testing.md) to test offline. |
+| **Add AI features** | Follow [Conversation Memory](docs/conversation-memory.md) for optional LLM integration. |
 
 ---
 

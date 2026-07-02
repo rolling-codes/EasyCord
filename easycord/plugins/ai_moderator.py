@@ -14,8 +14,8 @@ from easycord import (
     on,
     slash,
 )
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.plugins._config_manager import PluginConfigManager
-from easycord.plugins._utils import SENDABLE_CHANNEL_TYPES
 
 if TYPE_CHECKING:
     from easycord import Context, Orchestrator

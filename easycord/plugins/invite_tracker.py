@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, on
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.plugins._config_manager import PluginConfigManager
-from easycord.plugins._utils import SENDABLE_CHANNEL_TYPES
 
 if TYPE_CHECKING:
     pass

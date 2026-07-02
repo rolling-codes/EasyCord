@@ -379,7 +379,18 @@ def slash(
     return decorator
 
 
-slash_command = slash
+def slash_command(*args, **kwargs):
+    """Deprecated alias for ``slash``. Use ``slash`` instead.
+
+    This is provided for backwards compatibility. New code should use
+    ``@slash`` directly — it's the canonical name used throughout the docs.
+    """
+    warnings.warn(
+        "slash_command is deprecated; use slash instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return slash(*args, **kwargs)
 
 
 def task(
