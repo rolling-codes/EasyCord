@@ -1,21 +1,37 @@
 """Plugin method scanning and registration helpers."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import Any, Callable, Protocol, cast
 
 import discord
 
 from .tool_limits import RateLimit
 from .tools import ToolSafety
 
-if TYPE_CHECKING:
-    from ._bot_base import _BotBase
-    from .plugin import Plugin
+
+class _BotBaseLike(Protocol):
+    """Structural bot type used to avoid importing _BotBase and creating cycles."""
+
+    ai_tools: dict[str, Any]
+    event_bus: Any
+    tool_registry: Any
+    _command_error_handlers: dict[Any, Any]
+    _event_handlers: dict[str, list[Any]]
+    _register_slash: Callable[..., Any]
+    _register_context_menu: Callable[..., Any]
+    _register_component_handler: Callable[..., Any]
+    _register_modal_handler: Callable[..., Any]
+
+
+class _PluginLike(Protocol):
+    """Structural plugin type used to avoid importing Plugin and creating cycles."""
+
+    def id(self, raw: str) -> str: ...
 
 
 def scan_plugin_methods(
-    bot: "_BotBase",
-    plugin: "Plugin",
+    bot: _BotBaseLike,
+    plugin: _PluginLike,
     *,
     iter_methods: Callable[[object], list[tuple[str, Any]]],
     parent=None,
@@ -87,25 +103,26 @@ def _collect_standalone_autocomplete(
 
 
 def _register_slash_methods(
-    bot: "_BotBase",
+    bot: _BotBaseLike,
     method: Callable,
     *,
     plugin_name: str,
     standalone_autocomplete: dict[str, dict[str, Callable]],
     parent,
 ) -> None:
+    slash_name = cast(str, getattr(method, "_slash_name"))
     autocomplete_handlers = {
         **getattr(method, "_slash_autocomplete", {}),
-        **standalone_autocomplete.get(method._slash_name, {}),
+        **standalone_autocomplete.get(slash_name, {}),
     }
-    for command_name in [method._slash_name] + list(
+    for command_name in [slash_name] + list(
         getattr(method, "_slash_aliases", [])
     ):
         bot._register_slash(
             method,
             name=command_name,
-            description=method._slash_desc,
-            guild_id=method._slash_guild,
+            description=getattr(method, "_slash_desc"),
+            guild_id=getattr(method, "_slash_guild"),
             guild_only=getattr(method, "_slash_guild_only", False),
             require_admin=getattr(method, "_slash_require_admin", False),
             ephemeral=getattr(method, "_slash_ephemeral", False),
@@ -126,7 +143,7 @@ def _register_slash_methods(
 
 
 def _register_context_menu(
-    bot: "_BotBase",
+    bot: _BotBaseLike,
     method: Callable,
     *,
     plugin_name: str,
@@ -134,9 +151,9 @@ def _register_context_menu(
 ) -> None:
     bot._register_context_menu(
         method,
-        name=method._context_menu_name,
+        name=getattr(method, "_context_menu_name"),
         menu_type=menu_type,
-        guild_id=method._context_menu_guild,
+        guild_id=getattr(method, "_context_menu_guild"),
         nsfw=getattr(method, "_context_menu_nsfw", False),
         allowed_contexts=getattr(method, "_context_menu_allowed_contexts", None),
         allowed_installs=getattr(method, "_context_menu_allowed_installs", None),
@@ -144,7 +161,7 @@ def _register_context_menu(
     )
 
 
-def _register_ai_tool(bot: "_BotBase", method: Callable) -> None:
+def _register_ai_tool(bot: _BotBaseLike, method: Callable) -> None:
     tool_name = cast(str, getattr(method, "_ai_tool_name"))
     description = cast(str, getattr(method, "_ai_tool_description"))
     parameters = cast(dict[str, Any], getattr(method, "_ai_tool_parameters"))

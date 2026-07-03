@@ -351,7 +351,7 @@ class TestAuditLog:
         cfg.set_channel("audit_log", 555)
         store.load = AsyncMock(return_value=cfg)
 
-        channel = MagicMock()
+        channel = MagicMock(spec=discord.TextChannel)
         channel.send = AsyncMock()
 
         client = MagicMock()

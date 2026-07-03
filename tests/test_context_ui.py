@@ -5,7 +5,6 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
-import pytest
 
 from easycord._context_ui import UIMixin
 

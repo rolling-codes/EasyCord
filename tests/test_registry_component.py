@@ -51,20 +51,17 @@ class TestComponentRegexPrecompiled:
 class TestComponentTTLBoundary:
     def test_entry_expires_strictly_after_expiry(self, monkeypatch) -> None:
         """At exactly expires_at the entry is expired (strict > boundary)."""
-        import easycord.registry as registry_mod
-
-        now = 1000.0
-        monkeypatch.setattr(registry_mod.time, "time", lambda: now)
+        monkeypatch.setattr("time.time", lambda: 1000.0)
 
         registry = InteractionRegistry()
         registry.register_component("ephemeral_btn", _noop, ttl=10.0)  # expires at 1010
 
         # Before expiry: active.
-        monkeypatch.setattr(registry_mod.time, "time", lambda: 1009.999)
+        monkeypatch.setattr("time.time", lambda: 1009.999)
         resolved, _ = registry.resolve_component("ephemeral_btn")
         assert resolved is not None
 
         # Exactly at expiry: expired (expires_at > now is False).
-        monkeypatch.setattr(registry_mod.time, "time", lambda: 1010.0)
+        monkeypatch.setattr("time.time", lambda: 1010.0)
         resolved, _ = registry.resolve_component("ephemeral_btn")
         assert resolved is None

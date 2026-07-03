@@ -5,6 +5,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
+import discord
 import pytest
 
 from easycord.plugins.tags import TagsPlugin
@@ -32,7 +33,7 @@ def _make_ctx(
     ctx.paginate = AsyncMock()
     ctx.t = lambda key, default="", **kw: default.format(**kw) if kw else default
 
-    ctx.channel = MagicMock()
+    ctx.channel = MagicMock(spec=discord.TextChannel)
     ctx.channel.id = channel_id
 
     message = SimpleNamespace(id=message_id, edit=AsyncMock())

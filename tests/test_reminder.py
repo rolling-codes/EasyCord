@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
+import discord
 import pytest
 
 from easycord.plugins.reminder import ReminderPlugin, _reminder_embed
@@ -20,7 +21,7 @@ def _ctx(guild_id: int = 100, user_id: int = 1) -> MagicMock:
     ctx.user = MagicMock()
     ctx.user.id = user_id
     ctx.respond = AsyncMock()
-    ctx.channel = MagicMock()
+    ctx.channel = MagicMock(spec=discord.TextChannel)
     ctx.channel.id = 55
     ctx.is_admin = True
     ctx.member = MagicMock()

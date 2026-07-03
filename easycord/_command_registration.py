@@ -293,8 +293,10 @@ def register_context_menu(
         context_factory=context_factory,
         chain_builder=chain_builder,
     )
-    callback.__signature__ = inspect.Signature(
-        parameters=[interaction_param, target_param]
+    setattr(
+        callback,
+        "__signature__",
+        inspect.Signature(parameters=[interaction_param, target_param]),
     )
     menu = app_commands.ContextMenu(
         name=locale_str(name),
@@ -322,10 +324,12 @@ def register_context_menu(
 
 def inject_choices(callback: Callable, choices: dict[str, list]) -> None:
     """Stamp discord.py's internal choices attribute onto a command callback."""
-    if not hasattr(callback, "__discord_app_commands_param_choices__"):
-        callback.__discord_app_commands_param_choices__ = {}
+    param_choices = getattr(callback, "__discord_app_commands_param_choices__", None)
+    if param_choices is None:
+        param_choices = {}
+        setattr(callback, "__discord_app_commands_param_choices__", param_choices)
     for param_name, values in choices.items():
-        callback.__discord_app_commands_param_choices__[param_name] = [
+        param_choices[param_name] = [
             app_commands.Choice(name=str(v), value=v) for v in values
         ]
 

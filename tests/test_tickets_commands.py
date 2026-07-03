@@ -1,12 +1,10 @@
 """Tests for TicketsPlugin — pure helpers and command flows."""
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
-import pytest
 
 from easycord.plugins.tickets import (
     TicketsPlugin,

@@ -19,7 +19,7 @@ def test_slash_command_is_deprecated_alias_for_slash() -> None:
         decorator = slash_command(description="hi")
 
     async def cmd(self, ctx):  # pragma: no cover - body never runs
-        ...
+        pass
 
     decorated = decorator(cmd)
     assert decorated._is_slash is True
