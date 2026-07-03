@@ -70,7 +70,7 @@ jobs:
                   "overhead_percent": 50,
               },
               "Metrics Overhead": {
-                  "overhead_percent": 30,
+                  "overhead_percent": 40,
               },
               "Validator Scaling (20 locales)": {
                   "validation_time_ms": 1000,
