@@ -19,7 +19,7 @@ from .context import Context
 from .database import DatabaseConfig, EasyCordDatabase, MemoryDatabase, SQLiteDatabase
 from .i18n import LocalizationManager
 from .conversation_memory import ConversationMemory
-from .middleware import MiddlewareFn
+from .middleware import AnalyticsStore, MiddlewareFn
 from .plugin import Plugin
 from ._bot_commands import _CommandsMixin
 from ._bot_events import _EventsMixin
@@ -115,6 +115,8 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             register_builtin_tools(self.tool_registry)
         except Exception as e:
             logger.debug(f"Failed to register builtin AI tools: {e}")
+        self._analytics_store: AnalyticsStore | None = None
+        self._guild_disabled_plugins: dict[int, set[str]] = {}
         self._error_handler = None
         self._command_error_handlers: dict[str, object] = {}
         self.db = database or self._create_database(
@@ -136,6 +138,24 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         if enable_health_command:
             self._register_health_command()
         self._start_time = time.time()
+
+    # ── Analytics ────────────────────────────────────────────
+
+    def command_stats(self, guild_id: int | None = None) -> dict[str, int]:
+        """Return slash command invocation counts recorded by :func:`analytics_middleware`.
+
+        *guild_id* filters to one server; omit it to sum across all guilds and DMs.
+        Returns an empty dict if :func:`analytics_middleware` has not been registered.
+
+        Example::
+
+            bot.use(analytics_middleware())
+            stats = bot.command_stats(guild_id=123)  # {"ping": 5}
+            total = bot.command_stats()              # sum across all guilds
+        """
+        if self._analytics_store is None:
+            return {}
+        return self._analytics_store.query(guild_id)
 
     # ── Interaction inspection and command sync planning ──────
 
