@@ -4,7 +4,11 @@ from __future__ import annotations
 import inspect
 import logging
 import re
-from typing import Callable, Protocol, Union
+from typing import TYPE_CHECKING, Any, Callable, Protocol, Union
+
+if TYPE_CHECKING:
+    from .context import Context
+    from .registry import InteractionRegistry
 
 import discord
 from discord import app_commands
@@ -15,6 +19,11 @@ from ._command_callbacks import build_context_menu_callback
 
 class _BotBaseLike(Protocol):
     """Structural bot type used to avoid importing _BotBase and creating cycles."""
+
+    tree: app_commands.CommandTree[Any]
+    registry: InteractionRegistry
+    _plugins: list[Any]
+    _dispatch_framework_error: Callable[..., Any]
 
 
 logger = logging.getLogger("easycord")
@@ -81,11 +90,11 @@ def _validate_command(
 
 
 def register_slash(
-    bot: "_BotBaseLike",
+    bot: _BotBaseLike,
     func: Callable,
     *,
     callback_builder: Callable[..., Callable],
-    context_factory: Callable[[discord.Interaction], "Context"],
+    context_factory: Callable[[discord.Interaction], Context],
     name: str,
     description: str,
     guild_id: int | None,
@@ -173,7 +182,7 @@ def register_slash(
 
 
 def _register_autocomplete_handler(
-    bot: "_BotBaseLike",
+    bot: _BotBaseLike,
     cmd: app_commands.Command,
     *,
     name: str,
@@ -181,7 +190,7 @@ def _register_autocomplete_handler(
     handler: Callable,
     source_plugin: str | None,
     guild_id: int | None,
-    context_factory: Callable[[discord.Interaction], "Context"],
+    context_factory: Callable[[discord.Interaction], Context],
 ) -> None:
     sig = inspect.signature(handler)
     params = list(sig.parameters.values())
@@ -243,10 +252,10 @@ def _register_autocomplete_handler(
 
 
 def register_context_menu(
-    bot: "_BotBase",
+    bot: _BotBaseLike,
     func: Callable,
     *,
-    context_factory: Callable[[discord.Interaction], "Context"],
+    context_factory: Callable[[discord.Interaction], Context],
     chain_builder: Callable,
     name: str,
     menu_type: discord.AppCommandType,

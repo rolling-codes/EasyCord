@@ -14,7 +14,7 @@
   "reportOptionalMemberAccess": "warning",
   "reportAttributeAccessIssue": "warning",
 
-  "reportFunctionMemberAccess": "none",
+  "reportFunctionMemberAccess": "warning",
   "reportIncompatibleMethodOverride": "none",
   "reportMissingTypeArgument": "none",
   "reportUnknownMemberType": "none",

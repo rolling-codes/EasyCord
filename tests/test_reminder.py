@@ -222,7 +222,7 @@ class TestReminderCommands:
         import asyncio
         from unittest.mock import patch
 
-        with patch.object(asyncio, "create_task", return_value=MagicMock()):
+        with patch.object(asyncio, "create_task", side_effect=lambda c: (c.close(), MagicMock())[1]):
             await p.remind(ctx, "30m", "Buy milk")
 
         ctx.respond.assert_called_once()
@@ -267,7 +267,7 @@ class TestReminderCommands:
         import asyncio
         from unittest.mock import patch
 
-        with patch.object(asyncio, "create_task", return_value=MagicMock()):
+        with patch.object(asyncio, "create_task", side_effect=lambda c: (c.close(), MagicMock())[1]):
             await p.remind(ctx, "1h", "Test message")
         ctx.respond.reset_mock()
 
@@ -290,7 +290,7 @@ class TestReminderCommands:
         import asyncio
         from unittest.mock import patch
 
-        with patch.object(asyncio, "create_task", return_value=MagicMock()):
+        with patch.object(asyncio, "create_task", side_effect=lambda c: (c.close(), MagicMock())[1]):
             await p.remind(ctx, "2h", "Call dentist")
         ctx.respond.reset_mock()
 
