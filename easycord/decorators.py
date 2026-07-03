@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import functools
 import warnings
-from typing import Callable, TypeVar, ParamSpec
+from typing import Any, Callable, Protocol, TypeVar, ParamSpec
 
 from discord import app_commands
 
@@ -11,6 +11,52 @@ from easycord.tools import ToolSafety
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+class DescribeDecorated(Protocol):
+    """Callable decorated with :func:`describe` — carries per-param descriptions."""
+    __discord_app_commands_param_description__: dict[str, str]
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+class CommandErrorDecorated(Protocol):
+    """Callable decorated with :func:`command_error` — error handler for a named command."""
+    _is_command_error: bool
+    _command_error_for: str
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+class SlashDecorated(Protocol):
+    """Callable decorated with :func:`slash` — all slash-command metadata attributes.
+
+    Stacked decorators (:func:`cooldown`, :func:`require_permissions`,
+    :func:`install_type`, :func:`premium_required`) write their metadata onto
+    the function first; ``@slash`` reads it via ``getattr`` and re-exposes it
+    here so static checkers can verify attribute access without ``type: ignore``.
+    """
+    _is_slash: bool
+    _slash_name: str
+    _slash_desc: str
+    _slash_guild: int | None
+    _slash_guild_only: bool
+    _slash_require_admin: bool
+    _slash_ephemeral: bool
+    _slash_permissions: list[str] | None
+    _slash_bot_permissions: list[str] | None
+    _slash_cooldown: float | None
+    _slash_cooldown_rate: int
+    _slash_cooldown_bucket: str
+    _slash_autocomplete: dict[str, Any]
+    _slash_autocomplete_handlers: dict[str, Any]
+    _slash_choices: dict[str, list]
+    _slash_aliases: list[str]
+    _slash_rate_limit: tuple[int, int] | None
+    _slash_nsfw: bool
+    _slash_allowed_contexts: Any
+    _slash_allowed_installs: Any
+    _slash_premium_required: bool
+    __discord_app_commands_param_description__: dict[str, str]
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 def deprecated(
@@ -76,7 +122,7 @@ def version_introduced(version: str) -> Callable[[Callable[P, R]], Callable[P, R
     return decorator
 
 
-def describe(**descriptions: str) -> Callable:
+def describe(**descriptions: str) -> Callable[[Callable], DescribeDecorated]:
     """Attach per-parameter descriptions to a slash command.
 
     Discord shows these in the command picker next to each option.
@@ -92,15 +138,15 @@ def describe(**descriptions: str) -> Callable:
                 await member.kick(reason=reason)
                 await ctx.respond(f"Kicked {member.display_name}.")
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable) -> DescribeDecorated:
         if not hasattr(func, "__discord_app_commands_param_description__"):
-            func.__discord_app_commands_param_description__ = {}
-        func.__discord_app_commands_param_description__.update(descriptions)
-        return func
+            func.__discord_app_commands_param_description__ = {}  # type: ignore[attr-defined]
+        func.__discord_app_commands_param_description__.update(descriptions)  # type: ignore[attr-defined]
+        return func  # type: ignore[return-value]
     return decorator
 
 
-def command_error(command_name: str) -> Callable:
+def command_error(command_name: str) -> Callable[[Callable], CommandErrorDecorated]:
     """Mark a Plugin method as the error handler for a specific slash command.
 
     When the named command raises an unhandled exception, this method is called
@@ -119,10 +165,10 @@ def command_error(command_name: str) -> Callable:
             async def divide_error(self, ctx, exc):
                 await ctx.respond("Cannot divide by zero.", ephemeral=True)
     """
-    def decorator(func: Callable) -> Callable:
-        func._is_command_error = True
-        func._command_error_for = command_name
-        return func
+    def decorator(func: Callable) -> CommandErrorDecorated:
+        func._is_command_error = True  # type: ignore[attr-defined]
+        func._command_error_for = command_name  # type: ignore[attr-defined]
+        return func  # type: ignore[return-value]
     return decorator
 
 
@@ -292,7 +338,7 @@ def slash(
     choices: dict[str, list] | None = None,
     aliases: list[str] | None = None,
     rate_limit: tuple[int, int] | None = None,
-) -> Callable:
+) -> Callable[[Callable], SlashDecorated]:
     """Mark a Plugin method as a slash command.
 
     Stack with ``@cooldown``, ``@require_permissions``, ``@install_type``, and
@@ -349,32 +395,32 @@ def slash(
                 await ctx.respond(f"You rolled {random.randint(1, sides)}!")
     """
 
-    def decorator(func: Callable) -> Callable:
-        func._is_slash = True
-        func._slash_name = name or func.__name__
-        func._slash_desc = description
-        func._slash_guild = guild_id
-        func._slash_guild_only = guild_only
-        func._slash_require_admin = require_admin
-        func._slash_ephemeral = ephemeral
+    def decorator(func: Callable) -> SlashDecorated:
+        func._is_slash = True  # type: ignore[attr-defined]
+        func._slash_name = name or func.__name__  # type: ignore[attr-defined]
+        func._slash_desc = description  # type: ignore[attr-defined]
+        func._slash_guild = guild_id  # type: ignore[attr-defined]
+        func._slash_guild_only = guild_only  # type: ignore[attr-defined]
+        func._slash_require_admin = require_admin  # type: ignore[attr-defined]
+        func._slash_ephemeral = ephemeral  # type: ignore[attr-defined]
         # Respect values already set by stacked decorators (@cooldown, @require_permissions)
-        func._slash_permissions = permissions if permissions is not None else getattr(func, "_slash_permissions", None)
-        func._slash_bot_permissions = bot_permissions if bot_permissions is not None else getattr(func, "_slash_bot_permissions", None)
-        func._slash_cooldown = cooldown if cooldown is not None else getattr(func, "_slash_cooldown", None)
-        func._slash_cooldown_rate = getattr(func, "_slash_cooldown_rate", 1)
-        func._slash_cooldown_bucket = getattr(func, "_slash_cooldown_bucket", "user")
-        func._slash_autocomplete = autocomplete or {}
-        func._slash_autocomplete_handlers = {
+        func._slash_permissions = permissions if permissions is not None else getattr(func, "_slash_permissions", None)  # type: ignore[attr-defined]
+        func._slash_bot_permissions = bot_permissions if bot_permissions is not None else getattr(func, "_slash_bot_permissions", None)  # type: ignore[attr-defined]
+        func._slash_cooldown = cooldown if cooldown is not None else getattr(func, "_slash_cooldown", None)  # type: ignore[attr-defined]
+        func._slash_cooldown_rate = getattr(func, "_slash_cooldown_rate", 1)  # type: ignore[attr-defined]
+        func._slash_cooldown_bucket = getattr(func, "_slash_cooldown_bucket", "user")  # type: ignore[attr-defined]
+        func._slash_autocomplete = autocomplete or {}  # type: ignore[attr-defined]
+        func._slash_autocomplete_handlers = {  # type: ignore[attr-defined]
             **getattr(func, "_slash_autocomplete_handlers", {}),
         }
-        func._slash_choices = choices or {}
-        func._slash_aliases = aliases or []
-        func._slash_rate_limit = rate_limit
-        func._slash_nsfw = False
-        func._slash_allowed_contexts = getattr(func, "_slash_allowed_contexts", None)
-        func._slash_allowed_installs = getattr(func, "_slash_allowed_installs", None)
-        func._slash_premium_required = getattr(func, "_slash_premium_required", False)
-        return func
+        func._slash_choices = choices or {}  # type: ignore[attr-defined]
+        func._slash_aliases = aliases or []  # type: ignore[attr-defined]
+        func._slash_rate_limit = rate_limit  # type: ignore[attr-defined]
+        func._slash_nsfw = False  # type: ignore[attr-defined]
+        func._slash_allowed_contexts = getattr(func, "_slash_allowed_contexts", None)  # type: ignore[attr-defined]
+        func._slash_allowed_installs = getattr(func, "_slash_allowed_installs", None)  # type: ignore[attr-defined]
+        func._slash_premium_required = getattr(func, "_slash_premium_required", False)  # type: ignore[attr-defined]
+        return func  # type: ignore[return-value]
 
     return decorator
 
