@@ -1,12 +1,6 @@
 """Shared helpers for EasyCord built-in plugins."""
 from __future__ import annotations
 
-import discord
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 
-# Channel types that support .send() in discord.py.
-# StageChannel is intentionally excluded — it has no Messageable interface.
-SENDABLE_CHANNEL_TYPES = (
-    discord.TextChannel,
-    discord.Thread,
-    discord.VoiceChannel,
-)
+__all__ = ["SENDABLE_CHANNEL_TYPES"]

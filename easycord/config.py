@@ -35,6 +35,7 @@ _CONFIG_FIELDS = {
     "db_backend",
     "db_path",
     "auto_sync",
+    "guild_sync_timeout",
     "log_level",
     "enable_health_command",
     "extra",
@@ -80,6 +81,7 @@ class BotConfig:
     db_backend: str = "sqlite"
     db_path: str = "data/bot.db"
     auto_sync: bool = True
+    guild_sync_timeout: float | None = 30.0
     log_level: str = "INFO"
     enable_health_command: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
@@ -108,17 +110,18 @@ class BotConfig:
 
         Reads the following env vars (all optional except ``DISCORD_TOKEN``):
 
-        ========================  =============================================
-        Variable                  Mapped to
-        ========================  =============================================
-        ``DISCORD_TOKEN``         ``token``
-        ``DISCORD_GUILD_ID``      ``guild_id``
-        ``EASYCORD_DB_BACKEND``   ``db_backend``
-        ``EASYCORD_DB_PATH``      ``db_path``
-        ``EASYCORD_AUTO_SYNC``    ``auto_sync``
-        ``EASYCORD_LOG_LEVEL``    ``log_level``
-        ``EASYCORD_HEALTH_COMMAND`` ``enable_health_command``
-        ========================  =============================================
+        ==============================  =========================================
+        Variable                        Mapped to
+        ==============================  =========================================
+        ``DISCORD_TOKEN``               ``token``
+        ``DISCORD_GUILD_ID``            ``guild_id``
+        ``EASYCORD_DB_BACKEND``         ``db_backend``
+        ``EASYCORD_DB_PATH``            ``db_path``
+        ``EASYCORD_AUTO_SYNC``          ``auto_sync``
+        ``EASYCORD_GUILD_SYNC_TIMEOUT`` ``guild_sync_timeout``
+        ``EASYCORD_LOG_LEVEL``          ``log_level``
+        ``EASYCORD_HEALTH_COMMAND``     ``enable_health_command``
+        ==============================  =========================================
 
         Keyword arguments in *overrides* take precedence over env vars.
 
@@ -155,6 +158,24 @@ class BotConfig:
                 auto_sync = raw_sync.lower() not in ("0", "false", "no")
             else:
                 auto_sync = bool(raw_sync)
+        _gst_sentinel = object()
+        raw_gst = overrides.pop("guild_sync_timeout", _gst_sentinel)
+        if raw_gst is _gst_sentinel:
+            # Not provided as an override — read from environment
+            env_gst = os.environ.get("EASYCORD_GUILD_SYNC_TIMEOUT")
+            if env_gst is not None:
+                try:
+                    guild_sync_timeout: float | None = float(env_gst)
+                except (TypeError, ValueError):
+                    raise ValueError(
+                        "BotConfig: EASYCORD_GUILD_SYNC_TIMEOUT must be a float, "
+                        f"got {env_gst!r}."
+                    ) from None
+            else:
+                guild_sync_timeout = 30.0
+        else:
+            # Explicit override — preserve None as opt-out, coerce numbers
+            guild_sync_timeout = float(raw_gst) if raw_gst is not None else None
         log_level = overrides.pop("log_level", None)
         if log_level is None:
             log_level = os.environ.get("EASYCORD_LOG_LEVEL", "INFO")
@@ -173,6 +194,7 @@ class BotConfig:
             db_backend=db_backend,
             db_path=db_path,
             auto_sync=auto_sync,
+            guild_sync_timeout=guild_sync_timeout,
             log_level=log_level,
             enable_health_command=enable_health_command,
             extra={**overrides, **dict(override_extra or {})},
@@ -247,5 +269,6 @@ class BotConfig:
         kwargs.setdefault("db_backend", self.db_backend)
         if self.db_backend == "sqlite":
             kwargs.setdefault("db_path", self.db_path)
+        kwargs.setdefault("guild_sync_timeout", self.guild_sync_timeout)
         kwargs.setdefault("enable_health_command", self.enable_health_command)
         return Bot(**kwargs)

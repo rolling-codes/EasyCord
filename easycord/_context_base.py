@@ -33,6 +33,17 @@ class BaseContext:
         return self.interaction.user
 
     @property
+    def author(self):
+        """Raises AttributeError with migration hint.
+
+        discord.py users expect ctx.author, but EasyCord uses ctx.user instead.
+        """
+        raise AttributeError(
+            "ctx.author does not exist in EasyCord. Use ctx.user (User/Member object) "
+            "or ctx.member (guild Member only, None in DMs)."
+        )
+
+    @property
     def guild(self) -> discord.Guild | None:
         """The server the command was run in, or ``None`` if it was in a DM."""
         return self.interaction.guild

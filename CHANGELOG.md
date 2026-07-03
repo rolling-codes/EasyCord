@@ -1,5 +1,44 @@
 # Changelog
 
+## EasyCord v5.51.0 - 2026-07-01
+
+### Fixed
+
+**OpenClaw Optional member access** (`easycord/plugins/openclaw.py`):
+- Added `assert ctx.guild is not None` guards in guild-only commands (lines 91, 119, 153, 164, 187) to narrow `Optional[Guild]` access.
+- Added `assert self.orchestrator is not None` before accessing `strategy` (line 225).
+- Added early return when `source` registry is `None` (line 284) before accessing `_tools`.
+
+**Scheduled announcements loop resilience** (`easycord/plugins/scheduled_announcements.py`):
+- Wrapped `ch.send()` in try/except to catch `discord.Forbidden` and `discord.HTTPException`.
+- Loop now logs the error and continues on send failure instead of terminating permanently.
+
+**Context channel Optional access** (`giveaway.py:300`, `polls.py:304`, `reminder.py:209`):
+- Added guards: `if ctx.channel is None: return` before accessing `ctx.channel.id` in slash commands.
+
+**Tickets button view guild guard** (`easycord/plugins/tickets.py`):
+- Added early return if `interaction.guild is None` in the button callback (line 95).
+- Persistent views can receive DM interactions; now handled gracefully.
+
+**Three live plugin bugs** (cherry-pick c60c8b6):
+- **birthday.py**: Fixed `_days_until` year-advance logic (Feb 29 crash on year boundary).
+- **tickets.py**: Fixed `oldest_first=False` in transcript history to show messages in chronological order.
+- **levels.py**: Extracted `_grant_level_reward` method; `/give_xp` now uses it for role rewards.
+
+**Suggestions plugin cleanup** (`easycord/plugins/suggestions.py`):
+- Removed unused `self.suggestion_counter = {}` field (dead code, real counter lives in persistent config).
+
+**Starboard disabled by missing config key** (`easycord/plugins/starboard.py`, B-018):
+- `cfg.get("enabled")` without a default treated a missing key as disabled — a guild that only ran `/starboard_channel` had a starboard that never fired. Now `cfg.get("enabled", True)` in both reaction handlers and the config display. The same pattern in five sibling plugins was audited and verified benign (B-019, closed).
+
+### Added
+
+- Public API exports: `SENDABLE_CHANNEL_TYPES`, `EventBus`, and `HookRegistry` are now importable from `easycord`.
+
+### Tests
+
+- Extended test coverage for plugin fixes; flat >=20-test-per-plugin CI floor (was complex >=20 / simple >=8); 1335 tests total (up from 1301).
+
 ## EasyCord v5.50.2 - 2026-06-24
 
 ### Fixed

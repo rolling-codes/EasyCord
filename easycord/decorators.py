@@ -286,6 +286,7 @@ def slash(
     require_admin: bool = False,
     ephemeral: bool = False,
     permissions: list[str] | None = None,
+    bot_permissions: list[str] | None = None,
     cooldown: float | None = None,
     autocomplete: dict[str, Callable] | None = None,
     choices: dict[str, list] | None = None,
@@ -316,6 +317,14 @@ def slash(
         (e.g. ``["kick_members"]``). Responds ephemerally and skips the command if
         any are missing.  Use ``require_admin=True`` as a convenient shorthand when
         administrator access is the only requirement.
+    bot_permissions:
+        List of ``discord.Permissions`` attribute names the *bot itself* must hold
+        in the channel for the command to work (e.g. ``["kick_members"]`` for a
+        command that calls ``member.kick()``). Checked at dispatch via
+        ``ctx.bot_permissions``; if any are missing the command is skipped with an
+        ephemeral "I'm missing …" reply, instead of executing and raising
+        ``Forbidden`` partway through. Distinct from ``permissions`` (which gates
+        the *invoking user*).
     cooldown:
         Per-user cooldown in seconds. Blocks the command ephemerally until the
         window expires.
@@ -350,6 +359,7 @@ def slash(
         func._slash_ephemeral = ephemeral
         # Respect values already set by stacked decorators (@cooldown, @require_permissions)
         func._slash_permissions = permissions if permissions is not None else getattr(func, "_slash_permissions", None)
+        func._slash_bot_permissions = bot_permissions if bot_permissions is not None else getattr(func, "_slash_bot_permissions", None)
         func._slash_cooldown = cooldown if cooldown is not None else getattr(func, "_slash_cooldown", None)
         func._slash_cooldown_rate = getattr(func, "_slash_cooldown_rate", 1)
         func._slash_cooldown_bucket = getattr(func, "_slash_cooldown_bucket", "user")
@@ -369,7 +379,18 @@ def slash(
     return decorator
 
 
-slash_command = slash
+def slash_command(*args, **kwargs):
+    """Deprecated alias for ``slash``. Use ``slash`` instead.
+
+    This is provided for backwards compatibility. New code should use
+    ``@slash`` directly — it's the canonical name used throughout the docs.
+    """
+    warnings.warn(
+        "slash_command is deprecated; use slash instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return slash(*args, **kwargs)
 
 
 def task(

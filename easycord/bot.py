@@ -6,7 +6,10 @@ import math
 import os
 import time
 import logging
-from typing import Callable, Any
+from typing import Callable, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .plugins._ai_providers import AIProviderProtocol
 
 import discord
 from discord import app_commands
@@ -75,11 +78,12 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         db_backend: str | None = None,
         db_path: str | None = None,
         db_auto_sync_guilds: bool | None = None,
+        guild_sync_timeout: float | None = 30.0,
         localization: LocalizationManager | None = None,
         default_locale: str = "en-US",
         translations: dict | None = None,
         auto_translator: Callable[[str, str, str], str | None] | None = None,
-        ai_provider=None,
+        ai_provider: AIProviderProtocol | None = None,
         enable_conversation_memory: bool = False,
         enable_health_command: bool = False,
         cooldown_cleanup_interval: float = 600.0,
@@ -89,6 +93,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         self.tree = app_commands.CommandTree(self)
         self._auto_sync = auto_sync
         self._sync_guild_id = sync_guild_id
+        self._guild_sync_timeout = guild_sync_timeout
         self._middleware: list[MiddlewareFn] = []
         self._event_handlers: dict[str, list[Callable]] = {}
         self._plugins: list[Plugin] = []
@@ -351,10 +356,39 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             self.add_plugin(plugin)
             loaded_types.add(type(plugin))
 
+    async def _sync_guilds_with_timeout(self) -> None:
+        """Run ``db.sync_guilds`` bounded by ``_guild_sync_timeout``.
+
+        When a positive timeout is configured the sync is wrapped in
+        ``asyncio.wait_for``; on expiry a warning is logged and startup
+        continues uninterrupted.  Pass ``guild_sync_timeout=None`` (or
+        ``<=0``) to opt out and restore the original unbounded behaviour.
+
+        Note: cancellation is suppressed to avoid interrupting DB operations
+        mid-lock, which could cause corruption. The task continues in the
+        background but we stop waiting for it.
+        """
+        guild_ids = [guild.id for guild in getattr(self, "guilds", [])]
+        timeout = self._guild_sync_timeout
+        if timeout is not None and timeout > 0:
+            task = asyncio.create_task(self.db.sync_guilds(guild_ids))
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Guild sync timed out after %.1fs for %d guild(s); "
+                    "startup will continue without a complete sync. "
+                    "Sync continues in background.",
+                    timeout,
+                    len(guild_ids),
+                )
+        else:
+            await self.db.sync_guilds(guild_ids)
+
     async def setup_hook(self) -> None:
         await self.db.ensure_schema()
         if self.db.auto_sync_guilds:
-            await self.db.sync_guilds([guild.id for guild in getattr(self, "guilds", [])])
+            await self._sync_guilds_with_timeout()
         if self._auto_sync:
             if self._sync_guild_id is not None:
                 guild = discord.Object(id=self._sync_guild_id)
@@ -400,7 +434,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
 
     async def on_ready(self) -> None:
         if self.db.auto_sync_guilds:
-            await self.db.sync_guilds([guild.id for guild in getattr(self, "guilds", [])])
+            await self._sync_guilds_with_timeout()
         for plugin in self._plugins:
             try:
                 await plugin.on_ready()

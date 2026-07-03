@@ -576,22 +576,30 @@ class PluginTestSuite:
     # Plugin factory
     # ------------------------------------------------------------------
 
-    def make_plugin(self, cls: "type[Any]", **attrs: Any) -> Any:
-        """Construct *cls* using the EasyCord test pattern and register it.
+    def make_plugin(self, cls: "type[Any]", *init_args: Any, **init_kwargs: Any) -> Any:
+        """Construct *cls* and register it with the test bot.
 
-        Calls ``cls.__new__(cls)``, runs ``Plugin.__init__`` to populate
-        base attributes, then calls ``self.bot.add_plugin()`` which wires
-        ``plugin._bot``.  Any *attrs* are applied via ``setattr`` after
-        base init but before registration.
+        If the plugin's __init__ accepts arguments, pass them as *init_args / **init_kwargs.
+        For zero-argument plugins, uses ``cls.__new__(cls)`` + ``Plugin.__init__`` for direct control.
+        The plugin is registered via ``self.bot.add_plugin()``, which wires ``_bot``.
 
-        Returns the registered plugin instance.
+        Example::
+
+            # Simple plugin with no constructor args
+            plugin = self.make_plugin(MyPlugin)
+
+            # Plugin with constructor args
+            plugin = self.make_plugin(WelcomePlugin, data_dir=".easycord/welcome")
         """
         from .plugin import Plugin as _Plugin
 
-        plugin: _Plugin = object.__new__(cls)  # type: ignore[arg-type]
-        _Plugin.__init__(plugin)
-        for key, value in attrs.items():
-            setattr(plugin, key, value)
+        if init_args or init_kwargs:
+            # Plugin has custom constructor args — call normally
+            plugin = cls(*init_args, **init_kwargs)
+        else:
+            # Zero-arg plugin — use __new__ + Plugin.__init__ for clarity
+            plugin: _Plugin = object.__new__(cls)  # type: ignore[arg-type]
+            _Plugin.__init__(plugin)
         self.bot.add_plugin(plugin)  # type: ignore[arg-type]
         return plugin
 

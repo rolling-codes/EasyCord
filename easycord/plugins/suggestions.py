@@ -45,7 +45,6 @@ class SuggestionsPlugin(Plugin):
     def __init__(self):
         super().__init__()
         self.config = PluginConfigManager(".easycord/suggestions")
-        self.suggestion_counter = {}
 
     async def on_load(self) -> None:
         """Initialize suggestions plugin."""
@@ -56,13 +55,17 @@ class SuggestionsPlugin(Plugin):
         return await self.config.get(guild_id, "suggestions", _DEFAULTS)
 
     async def _get_next_id(self, guild_id: int) -> int:
-        """Get next suggestion ID."""
-        cfg_obj = await self.config.store.load(guild_id)
-        counter = cfg_obj.get_other("suggestion_counter", 0)
-        next_id = counter + 1
-        cfg_obj.set_other("suggestion_counter", next_id)
-        await self.config.store.save(cfg_obj)
-        return next_id
+        """Atomically increment and return the next suggestion ID.
+
+        The whole read-increment-write runs under the per-guild lock so two
+        concurrent ``/suggest`` calls can't both claim the same ID.
+        """
+        def _apply(cfg) -> int:
+            next_id = cfg.get_other("suggestion_counter", 0) + 1
+            cfg.set_other("suggestion_counter", next_id)
+            return next_id
+
+        return await self.config.store.mutate(guild_id, _apply)
 
     @slash(description="Submit a server suggestion", guild_only=True)
     async def suggest(self, ctx: Context, idea: str) -> None:
@@ -97,17 +100,18 @@ class SuggestionsPlugin(Plugin):
             await msg.add_reaction(upvote)
             await msg.add_reaction(downvote)
 
-            # Store suggestion info
-            cfg_obj = await self.config.store.load(ctx.guild.id)
-            suggestions = cfg_obj.get_other("suggestions", {})
-            suggestions[str(suggestion_id)] = {
-                "user_id": ctx.user.id,
-                "idea": idea,
-                "message_id": msg.id,
-                "status": "pending",
-            }
-            cfg_obj.set_other("suggestions", suggestions)
-            await self.config.store.save(cfg_obj)
+            # Store suggestion info atomically (preserve concurrent writers' entries)
+            def _store(cfg) -> None:
+                suggestions = cfg.get_other("suggestions", {})
+                suggestions[str(suggestion_id)] = {
+                    "user_id": ctx.user.id,
+                    "idea": idea,
+                    "message_id": msg.id,
+                    "status": "pending",
+                }
+                cfg.set_other("suggestions", suggestions)
+
+            await self.config.store.mutate(ctx.guild.id, _store)
 
             await ctx.respond(f"✅ Suggestion #{suggestion_id} posted!", ephemeral=True)
         except discord.Forbidden:
@@ -120,7 +124,12 @@ class SuggestionsPlugin(Plugin):
         cfg_obj = await self.config.store.load(ctx.guild.id)
         suggestions = cfg_obj.get_other("suggestions", {})
 
-        pending = {sid: s for sid, s in suggestions.items() if s.get("status") == "pending"}
+        pending = {
+            sid: s
+            for sid, s in suggestions.items()
+            if isinstance(s, dict) and s.get("status") == "pending"
+        }
+
 
         if not pending:
             await ctx.respond("No pending suggestions")
@@ -147,17 +156,18 @@ class SuggestionsPlugin(Plugin):
             await ctx.respond("❌ You lack `manage_guild` permission", ephemeral=True)
             return
 
-        cfg_obj = await self.config.store.load(ctx.guild.id)
-        suggestions = cfg_obj.get_other("suggestions", {})
-        suggestion = suggestions.get(str(suggestion_id))
+        def _apply(cfg) -> bool:
+            suggestions = cfg.get_other("suggestions", {})
+            suggestion = suggestions.get(str(suggestion_id))
+            if suggestion is None:
+                return False
+            suggestion["status"] = "approved"
+            cfg.set_other("suggestions", suggestions)
+            return True
 
-        if not suggestion:
+        if not await self.config.store.mutate(ctx.guild.id, _apply):
             await ctx.respond("❌ Suggestion not found", ephemeral=True)
             return
-
-        suggestion["status"] = "approved"
-        cfg_obj.set_other("suggestions", suggestions)
-        await self.config.store.save(cfg_obj)
 
         await ctx.respond(f"✅ Suggestion #{suggestion_id} approved")
 
@@ -170,16 +180,17 @@ class SuggestionsPlugin(Plugin):
             await ctx.respond("❌ You lack `manage_guild` permission", ephemeral=True)
             return
 
-        cfg_obj = await self.config.store.load(ctx.guild.id)
-        suggestions = cfg_obj.get_other("suggestions", {})
-        suggestion = suggestions.get(str(suggestion_id))
+        def _apply(cfg) -> bool:
+            suggestions = cfg.get_other("suggestions", {})
+            suggestion = suggestions.get(str(suggestion_id))
+            if suggestion is None:
+                return False
+            suggestion["status"] = "rejected"
+            cfg.set_other("suggestions", suggestions)
+            return True
 
-        if not suggestion:
+        if not await self.config.store.mutate(ctx.guild.id, _apply):
             await ctx.respond("❌ Suggestion not found", ephemeral=True)
             return
-
-        suggestion["status"] = "rejected"
-        cfg_obj.set_other("suggestions", suggestions)
-        await self.config.store.save(cfg_obj)
 
         await ctx.respond(f"✅ Suggestion #{suggestion_id} rejected")

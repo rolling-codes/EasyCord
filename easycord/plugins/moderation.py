@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, cast
 import discord
 
 from easycord import Plugin, RateLimit, ToolLimiter, slash
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.plugins._config_manager import PluginConfigManager
-from easycord.plugins._utils import SENDABLE_CHANNEL_TYPES
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -124,7 +124,7 @@ class ModerationPlugin(Plugin):
                 return None
         return mute_role
 
-    @slash(description="Kick a user from the server", guild_only=True)
+    @slash(description="Kick a user from the server", guild_only=True, bot_permissions=["kick_members"])
     async def kick(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Kick a user from the server."""
         guild = ctx.guild
@@ -150,7 +150,7 @@ class ModerationPlugin(Plugin):
         except discord.HTTPException as e:
             await ctx.respond(f"❌ Failed to kick user: {e}")
 
-    @slash(description="Ban a user from the server", guild_only=True)
+    @slash(description="Ban a user from the server", guild_only=True, bot_permissions=["ban_members"])
     async def ban(self, ctx: Context, user: discord.User, reason: str | None = None, delete_days: int = 0) -> None:
         """Ban a user from the server."""
         guild = ctx.guild
@@ -177,7 +177,7 @@ class ModerationPlugin(Plugin):
         except discord.HTTPException as e:
             await ctx.respond(f"❌ Failed to ban user: {e}")
 
-    @slash(description="Unban a previously banned user", guild_only=True)
+    @slash(description="Unban a previously banned user", guild_only=True, bot_permissions=["ban_members"])
     async def unban(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Unban a user."""
         guild = ctx.guild
@@ -200,7 +200,7 @@ class ModerationPlugin(Plugin):
         except discord.HTTPException as e:
             await ctx.respond(f"❌ Failed to unban user: {e}")
 
-    @slash(description="Timeout a user (temporary mute)", guild_only=True)
+    @slash(description="Timeout a user (temporary mute)", guild_only=True, bot_permissions=["moderate_members"])
     async def timeout(self, ctx: Context, user: discord.User, minutes: int, reason: str | None = None) -> None:
         """Timeout a user for specified minutes (1-40320 = up to 28 days)."""
         guild = ctx.guild
@@ -252,23 +252,19 @@ class ModerationPlugin(Plugin):
             await ctx.respond(f"⏳ {msg}")
             return
 
-        # Load warnings for user
-        cfg_obj = await self.config.store.load(guild.id)
-        warnings = cfg_obj.get_other("warnings", {})
+        # Append the warning atomically so concurrent /warn calls don't lose one
         user_id_str = str(user.id)
 
-        if user_id_str not in warnings:
-            warnings[user_id_str] = []
+        def _apply(cfg) -> int:
+            warnings = cfg.get_other("warnings", {})
+            warnings.setdefault(user_id_str, []).append({
+                "reason": reason or "No reason provided",
+                "moderator": str(ctx.user.id),
+            })
+            cfg.set_other("warnings", warnings)
+            return len(warnings[user_id_str])
 
-        warnings[user_id_str].append({
-            "reason": reason or "No reason provided",
-            "moderator": str(ctx.user.id),
-        })
-
-        cfg_obj.set_other("warnings", warnings)
-        await self.config.store.save(cfg_obj)
-
-        warn_count = len(warnings[user_id_str])
+        warn_count = await self.config.store.mutate(guild.id, _apply)
         auto_mute_threshold = cfg.get("auto_warn_threshold", 3)
 
         await ctx.respond(f"⚠️ Warned {user.mention}. Warning #{warn_count}")
@@ -315,7 +311,7 @@ class ModerationPlugin(Plugin):
 
         await ctx.respond(embed=embed)
 
-    @slash(description="Add mute role to a user", guild_only=True)
+    @slash(description="Add mute role to a user", guild_only=True, bot_permissions=["manage_roles"])
     async def mute(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Mute a user by adding mute role."""
         guild = ctx.guild
@@ -350,7 +346,7 @@ class ModerationPlugin(Plugin):
         except discord.HTTPException as e:
             await ctx.respond(f"❌ Failed to mute user: {e}")
 
-    @slash(description="Remove mute role from a user", guild_only=True)
+    @slash(description="Remove mute role from a user", guild_only=True, bot_permissions=["manage_roles"])
     async def unmute(self, ctx: Context, user: discord.User, reason: str | None = None) -> None:
         """Unmute a user by removing mute role."""
         guild = ctx.guild

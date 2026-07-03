@@ -1,5 +1,6 @@
 """Tests for easycord.plugins.levels — LevelsPlugin."""
 import json
+import time
 import discord
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -268,6 +269,28 @@ async def test_award_xp_independent_users_no_cooldown_sharing(plugin):
     assert plugin.get_entry(1, 2)["xp"] == 10
 
 
+async def test_award_xp_prunes_only_expired_cooldowns(tmp_path, monkeypatch):
+    # Regression for B-006: an over-threshold cooldown map must prune only the
+    # expired entries, never `.clear()` everything (which would let the whole
+    # server bypass the XP cooldown at once).
+    monkeypatch.setattr("easycord.plugins.levels._COOLDOWN_PRUNE_THRESHOLD", 1)
+    quiet = LevelsPlugin(
+        xp_per_message=10,
+        cooldown_seconds=60.0,
+        data_dir=str(tmp_path / "levels"),
+        announce_levelups=False,
+    )
+    now = time.monotonic()
+    quiet._cooldowns[100][7] = now - 120  # expired -> pruned
+    quiet._cooldowns[200][8] = now        # within window -> kept
+
+    await quiet._award_xp(_make_message(guild_id=1, user_id=42))
+
+    assert 100 not in quiet._cooldowns          # expired guild fully removed
+    assert quiet._cooldowns[200][8] == now      # active cooldown preserved
+    assert 42 in quiet._cooldowns[1]            # acting user recorded
+
+
 async def test_award_xp_posts_levelup_embed(plugin):
     # Give enough XP to be one short of level 1 so next message levels up.
     await plugin.add_xp(1, 42, 90)
@@ -373,6 +396,25 @@ async def test_give_xp_announces_levelup(plugin):
     await plugin.give_xp(ctx, member, 150)  # triggers level 1
     response = ctx.respond.call_args[0][0]
     assert "Level up" in response
+
+
+async def test_give_xp_assigns_role_reward_on_levelup(plugin):
+    await plugin._store.update_config(1, lambda c: c.update({"role_rewards": {str(1): 999}}))
+    role = MagicMock(spec=discord.Role)
+    role.mention = "@Member"
+    ctx = _make_ctx(guild_id=1, user_id=1)
+    ctx.guild.get_role = MagicMock(return_value=role)
+    member = _make_member(user_id=2)
+    await plugin.give_xp(ctx, member, 150)  # crosses into level 1
+    member.add_roles.assert_called_once_with(role, reason="Reached level 1")
+    assert role.mention in ctx.respond.call_args[0][0]
+
+
+async def test_give_xp_no_role_when_no_reward_configured(plugin):
+    ctx = _make_ctx(guild_id=1, user_id=1)
+    member = _make_member(user_id=2)
+    await plugin.give_xp(ctx, member, 150)  # levels up, but no rewards configured
+    member.add_roles.assert_not_called()
 
 
 # ── /set_rank and /remove_rank slash commands ─────────────────────────────────

@@ -1,12 +1,13 @@
 """Tests for TicketsPlugin pure functions and store logic."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 
 from easycord.plugins.tickets import (
+    TicketsPlugin,
     _format_duration,
     _format_transcript,
     _is_support,
@@ -179,3 +180,39 @@ class TestTicketEmbed:
     def test_color_is_green(self) -> None:
         embed = _ticket_embed(self._data())
         assert embed.color == discord.Color.green()
+
+
+class TestFinishCloseTranscript:
+    async def test_fetches_most_recent_messages_not_oldest(self) -> None:
+        """The transcript must capture the most recent 100 messages (the
+        resolution), so history() is fetched with oldest_first=False."""
+        from datetime import datetime, timezone
+
+        plugin = TicketsPlugin.__new__(TicketsPlugin)
+        recorded: dict = {}
+
+        def history(*, limit=None, oldest_first=None):
+            recorded["limit"] = limit
+            recorded["oldest_first"] = oldest_first
+
+            async def _gen():
+                for _ in ():  # empty async generator
+                    yield
+
+            return _gen()
+
+        thread = MagicMock(spec=discord.Thread)
+        thread.history = history
+        thread.edit = AsyncMock()
+
+        data = {
+            "opened_at": datetime.now(timezone.utc).isoformat(),
+            "ticket_number": 1,
+            "creator_id": 1,
+            "claimed_by": None,
+        }
+        # No log channel / guild -> skip posting; we only assert the fetch direction.
+        await plugin._finish_close(thread, data, None, None)
+
+        assert recorded["oldest_first"] is False
+        assert recorded["limit"] == 100

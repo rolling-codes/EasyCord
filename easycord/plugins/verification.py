@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.server_config import ServerConfigStore
 
 if TYPE_CHECKING:
@@ -285,7 +286,7 @@ class VerificationPlugin(Plugin):
             return
 
         channel = ctx.guild.get_channel(channel_id)
-        if channel is None or not hasattr(channel, "send"):
+        if not isinstance(channel, SENDABLE_CHANNEL_TYPES):
             await ctx.respond(
                 "The configured channel was not found. Run `/verification_setup` again.",
                 ephemeral=True,

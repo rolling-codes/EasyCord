@@ -14,8 +14,8 @@ from easycord import (
     on,
     slash,
 )
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.plugins._config_manager import PluginConfigManager
-from easycord.plugins._utils import SENDABLE_CHANNEL_TYPES
 
 if TYPE_CHECKING:
     from easycord import Context, Orchestrator
@@ -220,7 +220,7 @@ class AIModeratorPlugin(Plugin):
     # Slash commands for config
     # ────────────────────────────────────────────────────────────
 
-    @slash(description="Enable or disable AI moderation", guild_only=True)
+    @slash(description="Enable or disable AI moderation", guild_only=True, permissions=["manage_guild"])
     async def mod_enable(self, ctx: Context, enabled: bool) -> None:
         """Enable/disable moderation."""
         assert ctx.guild is not None
@@ -240,7 +240,7 @@ class AIModeratorPlugin(Plugin):
         embed.add_field(name="Rules", value=", ".join(cfg.get("rules", [])), inline=False)
         await ctx.respond(embed=embed)
 
-    @slash(description="Set confidence threshold (0.0-1.0)", guild_only=True)
+    @slash(description="Set confidence threshold (0.0-1.0)", guild_only=True, permissions=["manage_guild"])
     async def mod_threshold(self, ctx: Context, threshold: float) -> None:
         """Set confidence threshold."""
         assert ctx.guild is not None
@@ -248,7 +248,7 @@ class AIModeratorPlugin(Plugin):
         await self._update_config(ctx.guild.id, confidence_threshold=threshold)
         await ctx.send(f"✅ Threshold set to {threshold*100:.0f}%")
 
-    @slash(description="Set action level: notify_only, warn, auto_delete", guild_only=True)
+    @slash(description="Set action level: notify_only, warn, auto_delete", guild_only=True, permissions=["manage_guild"])
     async def mod_action_level(self, ctx: Context, level: str) -> None:
         """Set action level."""
         assert ctx.guild is not None
@@ -258,7 +258,7 @@ class AIModeratorPlugin(Plugin):
         await self._update_config(ctx.guild.id, action_level=level)
         await ctx.send(f"✅ Action level set to {level}")
 
-    @slash(description="Add rule to check: spam, abuse, nsfw", guild_only=True)
+    @slash(description="Add rule to check: spam, abuse, nsfw", guild_only=True, permissions=["manage_guild"])
     async def mod_add_rule(self, ctx: Context, rule: str) -> None:
         """Add moderation rule."""
         assert ctx.guild is not None
@@ -272,7 +272,7 @@ class AIModeratorPlugin(Plugin):
             await self._update_config(ctx.guild.id, rules=rules)
         await ctx.send(f"✅ Added rule: {rule}")
 
-    @slash(description="Remove rule", guild_only=True)
+    @slash(description="Remove rule", guild_only=True, permissions=["manage_guild"])
     async def mod_remove_rule(self, ctx: Context, rule: str) -> None:
         """Remove moderation rule."""
         assert ctx.guild is not None

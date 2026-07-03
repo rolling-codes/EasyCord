@@ -514,7 +514,7 @@ def _in_project_files(options: PluginScaffoldOptions) -> tuple[dict[str, str], P
     files = {
         "plugins/__init__.py": "",
         f"plugins/{mod}.py": f'''\
-            from easycord import Plugin, slash_command
+            from easycord import Plugin, slash
 
 
             class {cls}(Plugin):
@@ -523,7 +523,7 @@ def _in_project_files(options: PluginScaffoldOptions) -> tuple[dict[str, str], P
                 author = "{manifest.author}"
                 description = "{manifest.description}"
 
-                @slash_command(description="Say hello")
+                @slash(description="Say hello")
                 async def hello(self, ctx):
                     await ctx.respond(f"Hello, {{ctx.user.display_name}}!")
             ''',
@@ -583,7 +583,7 @@ def _package_files(options: PluginScaffoldOptions) -> tuple[dict[str, str], Plug
             ''',
         f"{pkg}/__init__.py": f"from .plugin import {cls}\n\n__all__ = [\"{cls}\"]\n",
         f"{pkg}/plugin.py": f'''\
-            from easycord import Plugin, slash_command
+            from easycord import Plugin, slash
 
 
             class {cls}(Plugin):
@@ -592,7 +592,7 @@ def _package_files(options: PluginScaffoldOptions) -> tuple[dict[str, str], Plug
                 author = "{manifest.author}"
                 description = "{manifest.description}"
 
-                @slash_command(description="Say hello")
+                @slash(description="Say hello")
                 async def hello(self, ctx):
                     await ctx.respond(f"Hello, {{ctx.user.display_name}}!")
             ''',

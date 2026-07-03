@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 
 import discord
 
+from .helpers.channel import SENDABLE_CHANNEL_TYPES
+
 if TYPE_CHECKING:
     from .context import Context
     from .server_config import ServerConfigStore
@@ -109,7 +111,7 @@ class AuditLog:
             )
             return
 
-        if not hasattr(channel, "send"):
+        if not isinstance(channel, SENDABLE_CHANNEL_TYPES):
             logger.warning(
                 "AuditLog: channel %s is not messageable; skipping audit post",
                 channel_id,

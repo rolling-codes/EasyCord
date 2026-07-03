@@ -56,16 +56,21 @@ class RolePersistencePlugin(Plugin):
         if member.bot:
             return
 
-        # Get managed/assignable roles (skip @everyone, @here, @bot roles)
-        roles = [r.id for r in member.roles if r.is_assignable() and not r.managed]
+        # Record the member's role set. Exclude only @everyone and managed
+        # (integration / booster) roles. Do NOT filter by the bot's current
+        # hierarchy here — a role that is above the bot at leave time should
+        # still be remembered; assignability is re-checked at restore time.
+        roles = [r.id for r in member.roles if not r.is_default() and not r.managed]
+        if not roles:
+            return
 
-        if roles:
-            cfg_obj = await self.config.store.load(member.guild.id)
-            saved_roles = cfg_obj.get_other("saved_roles", {})
+        def _apply(cfg) -> None:
+            saved_roles = cfg.get_other("saved_roles", {})
             saved_roles[str(member.id)] = roles
-            cfg_obj.set_other("saved_roles", saved_roles)
-            await self.config.store.save(cfg_obj)
-            logger.info("Saved %d roles for member %s in guild %s", len(roles), member.id, member.guild.id)
+            cfg.set_other("saved_roles", saved_roles)
+
+        await self.config.store.mutate(member.guild.id, _apply)
+        logger.info("Saved %d roles for member %s in guild %s", len(roles), member.id, member.guild.id)
 
     @on("member_join")
     async def _on_member_join(self, member: discord.Member) -> None:
@@ -78,28 +83,36 @@ class RolePersistencePlugin(Plugin):
             return
 
         cfg_obj = await self.config.store.load(member.guild.id)
-        saved_roles = cfg_obj.get_other("saved_roles", {})
-        role_ids = saved_roles.get(str(member.id), [])
-
+        role_ids = cfg_obj.get_other("saved_roles", {}).get(str(member.id))
         if not role_ids:
             return
 
-        roles_to_add = []
-        for role_id in role_ids:
-            role = member.guild.get_role(role_id)
-            if role:
-                roles_to_add.append(role)
+        # Resolve saved IDs against the guild's current roles. Assignability is
+        # checked here (at restore), not at save time, so a role that was above
+        # the bot when the member left can still be restored once the bot's
+        # position improves.
+        resolved = [role for rid in role_ids if (role := member.guild.get_role(rid))]
+        roles_to_add = [r for r in resolved if r.is_assignable()]
 
+        restored_ok = False
         if roles_to_add:
             try:
                 await member.add_roles(*roles_to_add, reason="RolePersistencePlugin: restoring roles")
+                restored_ok = True
                 logger.info("Restored %d roles for member %s in guild %s", len(roles_to_add), member.id, member.guild.id)
             except discord.Forbidden:
                 logger.error("Cannot restore roles for member %s in guild %s", member.id, member.guild.id)
             except discord.HTTPException as e:
                 logger.error("Failed to restore roles: %s", e)
 
-            # Clean up saved roles
-            del saved_roles[str(member.id)]
-            cfg_obj.set_other("saved_roles", saved_roles)
-            await self.config.store.save(cfg_obj)
+        # Drop the saved record only when the restore actually succeeded, or when
+        # none of the saved roles still exist in the guild (a stale entry that can
+        # never be restored). A Forbidden/HTTP failure — or roles that exist but
+        # aren't currently assignable — keep the record so a later rejoin retries.
+        if restored_ok or not resolved:
+            def _cleanup(cfg) -> None:
+                saved_roles = cfg.get_other("saved_roles", {})
+                saved_roles.pop(str(member.id), None)
+                cfg.set_other("saved_roles", saved_roles)
+
+            await self.config.store.mutate(member.guild.id, _cleanup)

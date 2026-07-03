@@ -5,10 +5,17 @@ import asyncio
 import contextlib
 import copy
 import json
+import logging
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from time import perf_counter
+from typing import Any, Callable, TypeVar
+
+T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
+
 
 
 class ServerConfig:  # pylint: disable=too-many-public-methods
@@ -144,8 +151,14 @@ class ServerConfig:  # pylint: disable=too-many-public-methods
 class ServerConfigStore:
     """Loads and saves per-guild config as JSON files.
 
-    Files are written under ``base_dir/<guild_id>.json``.
-    Saves are atomic (write-to-temp + rename) and protected by per-guild locks.
+    Files are written under ``base_dir/<guild_id>.json``. Saves are atomic
+    (write-to-temp + rename).
+
+    A per-guild lock makes each individual ``load()`` or ``save()`` call atomic,
+    **but not** a ``load`` → modify → ``save`` sequence: two callers can each
+    load, mutate, and save, and the second save silently overwrites the first
+    (last-write-wins). For any read-modify-write, use :meth:`mutate`, which holds
+    the per-guild lock across the whole load/modify/save span.
     """
 
     def __init__(self, base_dir: str = ".easycord/server-config") -> None:
@@ -156,36 +169,77 @@ class ServerConfigStore:
     def _path(self, guild_id: int) -> Path:
         return self._base / f"{guild_id}.json"
 
+    def _load_unlocked(self, guild_id: int) -> ServerConfig:
+        """Read a guild's config from disk without taking the lock.
+
+        Callers must already hold ``self._locks[guild_id]``.
+        """
+        path = self._path(guild_id)
+        if not path.exists():
+            return ServerConfig(guild_id)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return ServerConfig(guild_id, json.load(f))
+        except (json.JSONDecodeError, OSError) as exc:
+            raise RuntimeError(
+                f"Failed to load config for guild {guild_id}: {exc}"
+            ) from exc
+
+    def _save_unlocked(self, config: ServerConfig) -> None:
+        """Atomically write a guild's config to disk without taking the lock.
+
+        Callers must already hold ``self._locks[config.guild_id]``.
+        """
+        path = self._path(config.guild_id)
+        tmp = path.with_suffix(".tmp")
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(config.to_dict(), f, indent=2)
+            os.replace(tmp, path)
+        except (OSError, TypeError, ValueError) as exc:
+            with contextlib.suppress(OSError):
+                if tmp.exists():
+                    tmp.unlink()
+            raise RuntimeError(
+                f"Failed to save config for guild {config.guild_id}: {exc}"
+            ) from exc
+
     async def load(self, guild_id: int) -> ServerConfig:
         """Load config for a guild; returns an empty config if none exists."""
         async with self._locks[guild_id]:
-            path = self._path(guild_id)
-            if not path.exists():
-                return ServerConfig(guild_id)
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    return ServerConfig(guild_id, json.load(f))
-            except (json.JSONDecodeError, OSError) as exc:
-                raise RuntimeError(
-                    f"Failed to load config for guild {guild_id}: {exc}"
-                ) from exc
+            return self._load_unlocked(guild_id)
 
     async def save(self, config: ServerConfig) -> None:
         """Persist a guild's config to disk atomically."""
         async with self._locks[config.guild_id]:
-            path = self._path(config.guild_id)
-            tmp = path.with_suffix(".tmp")
-            try:
-                with open(tmp, "w", encoding="utf-8") as f:
-                    json.dump(config.to_dict(), f, indent=2)
-                os.replace(tmp, path)
-            except (OSError, TypeError, ValueError) as exc:
-                with contextlib.suppress(OSError):
-                    if tmp.exists():
-                        tmp.unlink()
-                raise RuntimeError(
-                    f"Failed to save config for guild {config.guild_id}: {exc}"
-                ) from exc
+            self._save_unlocked(config)
+
+    async def mutate(self, guild_id: int, fn: Callable[[ServerConfig], T]) -> T:
+        """Atomic read-modify-write under the per-guild lock.
+
+        Loads the guild config, applies ``fn`` (which mutates the config in
+        place and may return a value), then persists it — all while holding the
+        per-guild lock, so concurrent mutations can't lose each other's writes.
+
+        ``fn`` MUST be a fast, synchronous, local operation. Never perform
+        Discord or other network I/O inside ``fn``: it runs while the per-guild
+        lock is held, and awaiting the network there would serialize every other
+        writer behind a remote call. Do that work outside ``mutate``.
+        """
+        async with self._locks[guild_id]:
+            config = self._load_unlocked(guild_id)
+            start = perf_counter()
+            result = fn(config)
+            elapsed_ms = (perf_counter() - start) * 1000
+            if elapsed_ms > 50.0:
+                logger.warning(
+                    "Slow config mutation callback for guild %d: took %.2fms (threshold: 50ms). "
+                    "Callbacks must not perform blocked or I/O operations.",
+                    guild_id,
+                    elapsed_ms,
+                )
+            self._save_unlocked(config)
+            return result
 
     async def delete(self, guild_id: int) -> None:
         """Remove a guild's config file."""

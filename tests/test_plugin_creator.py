@@ -108,7 +108,7 @@ def test_in_project_scaffold_creates_local_safe_plugin(tmp_path: Path) -> None:
     test_source = (tmp_path / "tests" / "test_greetings.py").read_text(encoding="utf-8")
 
     assert "class GreetingsPlugin(Plugin):" in plugin_source
-    assert '@slash_command(description="Say hello")' in plugin_source
+    assert '@slash(description="Say hello")' in plugin_source
     assert "ctx.respond" in plugin_source
     assert 'Bot(auto_sync=False, db_backend="memory")' in test_source
     assert "DISCORD_TOKEN" not in test_source

@@ -67,7 +67,11 @@ class Plugin:
         return self._bot
 
     async def on_load(self) -> None:
-        """Called once after the plugin is added and the bot is ready.
+        """Called after the plugin is registered with add_plugin().
+
+        During initial startup this fires inside setup_hook() — the bot is not
+        yet fully ready and guild data is not available. Use on_ready() if you
+        need the bot to be connected and guilds to be populated.
 
         Override this to run setup code (e.g. connecting to a database).
         """

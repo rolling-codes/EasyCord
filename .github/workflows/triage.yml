@@ -35,18 +35,11 @@ jobs:
               labels: ['triage'],
             });
 
-            await github.rest.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
-              assignees: ['tee'],
-            });
-
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
-              body: "Thanks for the report! This has been assigned for review. We'll follow up soon.",
+              body: "Thanks for the report! This has been triaged and we'll follow up soon.",
             });
 
       - name: Label PR by title prefix

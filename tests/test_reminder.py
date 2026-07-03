@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
+import discord
 import pytest
 
 from easycord.plugins.reminder import ReminderPlugin, _reminder_embed
@@ -20,7 +21,7 @@ def _ctx(guild_id: int = 100, user_id: int = 1) -> MagicMock:
     ctx.user = MagicMock()
     ctx.user.id = user_id
     ctx.respond = AsyncMock()
-    ctx.channel = MagicMock()
+    ctx.channel = MagicMock(spec=discord.TextChannel)
     ctx.channel.id = 55
     ctx.is_admin = True
     ctx.member = MagicMock()
@@ -80,6 +81,7 @@ class TestPureFunctions:
         reminder = {"id": 1, "message": "hello", "fire_at": "not-a-date"}
         embed = _reminder_embed(reminder)
         assert embed.description == "hello"
+        assert embed.footer.text is not None
         assert "unknown time" in embed.footer.text
 
     def test_reminder_embed_empty_message(self) -> None:
@@ -98,6 +100,17 @@ class TestPureFunctions:
     def test_parse_duration_days(self) -> None:
         from easycord.plugins.reminder import _parse_duration as pd
         assert pd("2d") == 172800
+
+    def test_parse_duration_seconds(self) -> None:
+        from easycord.plugins.reminder import _parse_duration as pd
+        assert pd("45s") == 45
+
+    def test_parse_duration_invalid_raises(self) -> None:
+        import pytest as _pytest
+
+        from easycord.plugins.reminder import _parse_duration as pd
+        with _pytest.raises(ValueError):
+            pd("not-a-duration")
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +223,7 @@ class TestReminderCommands:
         import asyncio
         from unittest.mock import patch
 
-        with patch.object(asyncio, "create_task", return_value=MagicMock()):
+        with patch.object(asyncio, "create_task", side_effect=lambda c: (c.close(), MagicMock())[1]):
             await p.remind(ctx, "30m", "Buy milk")
 
         ctx.respond.assert_called_once()
@@ -255,7 +268,7 @@ class TestReminderCommands:
         import asyncio
         from unittest.mock import patch
 
-        with patch.object(asyncio, "create_task", return_value=MagicMock()):
+        with patch.object(asyncio, "create_task", side_effect=lambda c: (c.close(), MagicMock())[1]):
             await p.remind(ctx, "1h", "Test message")
         ctx.respond.reset_mock()
 
@@ -278,7 +291,7 @@ class TestReminderCommands:
         import asyncio
         from unittest.mock import patch
 
-        with patch.object(asyncio, "create_task", return_value=MagicMock()):
+        with patch.object(asyncio, "create_task", side_effect=lambda c: (c.close(), MagicMock())[1]):
             await p.remind(ctx, "2h", "Call dentist")
         ctx.respond.reset_mock()
 

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
-from easycord.plugins._utils import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.server_config import ServerConfigStore
 
 if TYPE_CHECKING:
@@ -299,9 +299,13 @@ class PollsPlugin(Plugin):
             return
         if ctx.guild is None:
             return
+        channel = ctx.channel
+        if not isinstance(channel, SENDABLE_CHANNEL_TYPES):
+            await ctx.respond(ctx.t("polls.channel_required", default="This command must be used in a channel."), ephemeral=True)
+            return
 
         guild_id = ctx.guild.id
-        channel_id: int = ctx.channel.id  # type: ignore[union-attr]
+        channel_id: int = channel.id
         end_dt = datetime.now(timezone.utc) + timedelta(seconds=duration)
 
         embed = build_poll_embed(question, options, {}, seconds_remaining=float(duration))

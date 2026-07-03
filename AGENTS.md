@@ -14,11 +14,17 @@ pytest tests/
 # Run a single test
 pytest tests/test_memory_safety.py::test_conversation_memory_evicts_oldest_over_cap -v
 
+# Blocking lint gate (critical errors only) + per-plugin test-count thresholds
+ruff check easycord tests --select E9,F63,F7,F82
+python scripts/verify_plugin_tests.py
+
 # Build distribution package
 python -m build
 ```
 
 Tests use `pytest-asyncio` with `asyncio_mode = "auto"` — async tests need no manual event loop setup.
+
+The CI PR gate (`.github/workflows/tests.yml`) runs, in order: critical-error ruff (blocking) → full `ruff check .` (advisory) → `check_release_metadata.py` → `verify_plugin_tests.py` → `pytest`, across Python 3.10/3.11/3.12.
 
 ## Architecture
 
@@ -53,7 +59,7 @@ EasyCord is a Discord bot framework layered as follows:
 - Use `ctx.user` / `ctx.member` — `ctx.author` does not exist.
 - `ctx.is_admin` is a property, not a method — do not call it as `ctx.is_admin()`.
 - Cooldown sentinels default to `float("-inf")`, not `0.0` — ensures first-message events pass on fresh runners.
-- CI workflows pin to `actions/checkout@v4` and `actions/setup-python@v5`.
+- CI workflows pin to `actions/checkout@v7` and `actions/setup-python@v5` (dependabot manages major bumps; keep in sync with `.github/workflows/`).
 
 ## Branch / repo state
 

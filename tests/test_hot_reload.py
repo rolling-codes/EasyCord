@@ -361,3 +361,58 @@ async def test_in_flight_coroutine_completes_after_reload():
     await asyncio.gather(in_flight)
 
     assert completed == ["done"]
+
+
+# ── reload/dispatch serialization lock ────────────────────────────────────────
+
+
+def test_get_reload_lock_is_idempotent():
+    """The bot-wide reload lock is created once and reused."""
+    bot = _make_bot()
+    first = bot._get_reload_lock()
+    second = bot._get_reload_lock()
+    assert first is second
+    assert isinstance(first, asyncio.Lock)
+
+
+async def test_reload_lock_held_across_swap():
+    """The reload lock is held while remove/add/on_reload run, so a command
+    dispatch gated on it cannot interleave with a half-removed registry."""
+    bot = _make_bot()
+    observed: dict[str, bool] = {}
+
+    class LockProbe(Plugin):
+        async def on_reload(self) -> None:
+            lock = getattr(bot, "_reload_lock", None)
+            observed["locked_during_on_reload"] = bool(lock is not None and lock.locked())
+
+    original = LockProbe()
+    bot.add_plugin(original)
+
+    fake_module = types.ModuleType("fake")
+    fake_module.LockProbe = LockProbe  # type: ignore[attr-defined]
+
+    with patch("inspect.getmodule", return_value=fake_module):
+        with patch("importlib.reload", return_value=fake_module):
+            await bot._hot_reload_plugin(original)
+
+    assert observed.get("locked_during_on_reload") is True
+    # Lock is released once the swap finishes.
+    assert not bot._reload_lock.locked()
+
+
+async def test_hot_reload_loop_activates_dispatch_gate():
+    """Starting the dev watcher flips the flag that makes command dispatch
+    acquire the reload lock (lock-free in production where the loop never runs)."""
+    import pytest
+
+    bot = _make_bot()
+    assert getattr(bot, "_hot_reload_active", False) is False
+
+    # The flag is set before the first sleep; raise from sleep to exit the loop.
+    with patch("asyncio.sleep", new_callable=AsyncMock, side_effect=asyncio.CancelledError):
+        with pytest.raises(asyncio.CancelledError):
+            await bot._hot_reload_loop()
+
+    assert bot._hot_reload_active is True
+    assert isinstance(bot._reload_lock, asyncio.Lock)

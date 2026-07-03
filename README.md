@@ -1,37 +1,51 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.50.2-blue)
+![Version](https://img.shields.io/badge/v-5.51.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1300%2B-brightgreen)
+[![Discord.py](https://img.shields.io/badge/discord.py-2.7%2B-blueviolet)](https://discordpy.readthedocs.io/)
 
-> A production-grade Discord bot framework built on discord.py. Slash commands, events, components, modals, plugins, middleware, per-guild storage, localization, and optional AI orchestration — all with decorator-based APIs and no boilerplate. **AI is optional.** A fully-featured bot needs zero AI dependencies.
+> **Production-grade Discord bot framework** for building scalable, maintainable bots with clean, type-safe code.
+>
+> Slash commands, context menus, modal forms, components with dynamic routing, plugins with dependency management, per-guild storage, multi-language i18n, conversation memory, optional AI orchestration, middleware pipeline, lifecycle hooks, and task scheduling—all with **zero boilerplate**.
+>
+> **Built for scale**: 1300+ tests, atomic database operations, concurrent plugin safety, proper error isolation, and comprehensive type hints. Deploy with confidence.
+
+### Why EasyCord?
+
+- **No boilerplate.** Decorators do the work. Define commands in two lines, not thirty.
+- **Type-safe.** Full Pyright support. Catch bugs at dev time, not runtime.
+- **Plugin-native.** Modular, testable, reusable. Build plugins in minutes, not hours.
+- **Optional AI.** Includes conversation memory and multi-provider LLM orchestration. Use it or ignore it.
+- **Tested.** 1300+ tests covering concurrency, crashes, race conditions, and edge cases.
+- **Async-first.** Proper lock safety, atomic database operations, isolated error handling. Won't silently corrupt state.
 
 ## Documentation
 
-**[Browse all guides →](docs/README.md)** — organized by what you want to do, with a complete index.
+**New here?** Start with [Your First Bot (Day 1)](#your-first-bot-day-1) below, then jump to [Browse all guides →](docs/README.md).
 
-| | |
+**Guides organized by what you want to do:**
+
+| Core Learning Path | What to read |
 |---|---|
-| [Getting Started](docs/getting-started.md) | Install, write your first command, add plugins, configure storage |
-| [Interactions](docs/interactions.md) | Slash commands, context menus, components, modals, and autocomplete |
-| [Command Sync](docs/command-sync.md) | Preview, diff, and apply Discord command registration |
-| [Dynamic Component Routing](docs/components-dynamic-routing.md) | Typed URL-style routes for buttons and select menus with TTL support |
-| [Middleware Patterns](docs/middleware-patterns.md) | Built-in guards, rate limiting, logging, and custom middleware |
-| [Error Handling](docs/error-handling.md) | Per-command, plugin-scoped, and global error handler waterfall |
-| [Event Bus](docs/event-bus.md) | Async pub/sub between plugins — decouple cross-plugin communication |
-| [Lifecycle Hooks](docs/hooks.md) | `before_command`, `after_command`, `on_plugin_load`, `on_plugin_unload` |
-| [Deprecation Helpers](docs/deprecation.md) | `@deprecated` and `@version_introduced` for API lifecycle management |
-| [Testing Commands](docs/testing.md) | `PluginTestSuite`, `FakeContextBuilder`, and offline `invoke_*` helpers |
-| [Plugin Authoring](docs/plugin-authoring.md) | Build, validate, and distribute reusable plugin packages |
-| [Developer Toolkit](docs/developer-toolkit.md) | CLI scaffolding, offline testing, interaction inspection, and diagnostics |
-| [Hot-Reload Development](docs/hot-reload-development.md) | Watch plugin files and reload code without restarting the bot |
-| [Type Checking](docs/type-checking.md) | Pyright configuration and common plugin type patterns |
-| [Task Scheduling](docs/task-scheduling.md) | `@task` decorator — background tasks, intervals, error restart |
-| [Subcommand Groups](docs/subcommand-groups.md) | `SlashGroup` — subcommand namespaces and permission gates |
-| [Interactive UI](docs/context-interactive-ui.md) | `ctx.confirm()`, `ctx.paginate()`, `ctx.ask_form()`, `ctx.choose()`, `ctx.prompt()` |
-| [Conversation Memory](docs/conversation-memory.md) | Multi-turn AI context, eviction, `ctx.ai()` vs `Orchestrator` |
-| [Built-in Plugins](docs/builtin-plugins.md) | All 28 bundled plugins — commands, setup, and storage requirements |
-| [Context Reference](docs/context-reference.md) | Full `Context` API — responses, DMs, moderation, channels, members |
+| **Installation & first command** | [Getting Started](docs/getting-started.md) |
+| **Add commands (slash, buttons, forms)** | [Building Commands](docs/building-commands.md) — slash, groups, buttons, modals, dynamic routing |
+| **Control who can run commands** | [Request Lifecycle](docs/request-lifecycle.md) — middleware, error handlers, lifecycle hooks |
+| **Split code into plugins** | [Organizing Code](docs/organizing-code.md) — plugins, task scheduling, event bus |
+| **Store per-guild data** | [Storage & State](docs/database-guide.md) — databases, concurrency, backends |
+| **Test your commands** | [Testing Commands](docs/testing.md) — offline testing without Discord |
+
+| Specialized Topics |  |
+|---|---|
+| [Interactive UI](docs/context-interactive-ui.md) | Confirm, paginate, choose, prompt, ask_form |
+| [Command Sync](docs/command-sync.md) | Preview, diff, and apply Discord registration |
+| [AI Features](docs/conversation-memory.md) | Optional: multi-turn memory, provider selection |
+| [Built-in Plugins](docs/builtin-plugins.md) | 28 ready-made plugins (levels, economy, tags, moderation, etc.) |
+| [Hot-Reload Development](docs/hot-reload-development.md) | Reload code without restarting |
+| [Type Checking](docs/type-checking.md) | Pyright configuration |
+| [Deprecation Helpers](docs/deprecation.md) | `@deprecated` and `@version_introduced` |
+| [Developer Toolkit](docs/developer-toolkit.md) | CLI for scaffolding, inspection, diagnostics |
+| [Full Context Reference](docs/context-reference.md) | Complete `Context` API |
 | [Examples](examples/) | Working bot code |
 
 ---
@@ -39,7 +53,7 @@
 ## Installation
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.50.2/easycord-5.50.2-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.51.0/easycord-5.51.0-py3-none-any.whl"
 ```
 
 Or clone and install locally:
@@ -54,35 +68,90 @@ pip install -e ".[dev]"
 
 ---
 
-## Quickstart
+## Your First Bot (Day 1)
 
-```python
-from easycord import Bot
-
-bot = Bot()
-
-@bot.slash(description="Ping the bot")
-async def ping(ctx):
-    await ctx.respond("Pong!")
-
-bot.run("YOUR_TOKEN")
+### 1. Create a new bot project
+```bash
+easycord new my-bot
+cd my-bot
+pip install -e ".[dev]"
 ```
 
-Save as `bot.py` and run it. `/ping` appears in Discord automatically.
+### 2. Write your first command
+Open `my_bot/bot.py` and replace the placeholder:
+
+```python
+from easycord import Bot, Plugin, slash
+
+class GreetingPlugin(Plugin):
+    @slash(description="Greet a user")
+    async def greet(self, ctx, user: str):
+        """Say hello to someone."""
+        await ctx.respond(f"Hello, {user}! 👋")
+
+bot = Bot()
+bot.add_plugin(GreetingPlugin())
+
+if __name__ == "__main__":
+    bot.run("YOUR_DISCORD_BOT_TOKEN")
+```
+
+### 3. Run it
+```bash
+python -m my_bot.bot
+```
+
+Type `/greet alice` in Discord. It works instantly.
+
+### 4. Test it offline (no bot running needed)
+```python
+# In tests/test_bot.py
+from easycord.testing import invoke
+from my_bot.bot import bot, GreetingPlugin
+
+async def test_greet():
+    plugin = GreetingPlugin()
+    ctx = await invoke(bot, "greet alice")
+    assert "Hello, alice" in ctx.last_response
+```
+
+Run: `pytest tests/test_bot.py`
+
+### What you just did
+- ✅ Created a slash command with one decorator
+- ✅ Added a typed parameter (`user: str`)
+- ✅ Tested it without running Discord at all
+- ✅ Have a foundation for 28 built-in plugins (levels, economy, tags, moderation, etc.)
+
+### Next steps
+
+**Pick your path:**
+
+| Path | What to do |
+|---|---|
+| **Extend with plugins** | See [examples/with-builtin-plugins.py](examples/with-builtin-plugins.py) for a bot that loads default plugins (tags, levels, polls, welcome) + opt-in plugins (moderation, economy, reminders). Then read [Built-in Plugins](docs/builtin-plugins.md). |
+| **Build custom commands** | Follow [Building Commands](docs/building-commands.md) to add buttons, modals, groups, autocomplete. |
+| **Organize into plugins** | Follow [Organizing Code](docs/organizing-code.md) to split code into reusable plugins. |
+| **Add permissions & control** | Follow [Request Lifecycle](docs/request-lifecycle.md) for guards, rate limits, error handlers. |
+| **Store persistent data** | Follow [Storage & State](docs/database-guide.md) for per-guild SQLite or in-memory storage. |
+| **Test without Discord** | Follow [Testing Commands](docs/testing.md) to test offline. |
+| **Add AI features** | Follow [Conversation Memory](docs/conversation-memory.md) for optional LLM integration. |
 
 ---
 
-## Start a project with the CLI
+## Advanced: Start a larger project with templates
+
+If you want a pre-configured structure for a specific use case:
 
 ```bash
 easycord new my-bot --template plugin
 cd my-bot
 pip install -e ".[dev]"
-pytest
-easycord doctor bot:bot
+pytest  # runs example tests
+easycord doctor bot:bot  # validates your setup
 ```
 
-The generated project includes `bot.py`, one example plugin, `.env.example`, `pyproject.toml`, and a starter pytest file. Four templates are available:
+Templates available (choose one based on your use case):
 
 | Template | What it generates |
 |---|---|
@@ -957,4 +1026,4 @@ EasyCord is released under the **MIT License**.
 - See `pyproject.toml` for the canonical license metadata.
 - Copyright (c) 2026 Rolling Codes.
 
-Release: [v5.50.2](https://github.com/rolling-codes/EasyCord/releases/tag/v5.50.2) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
+Release: [v5.51.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.51.0) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)

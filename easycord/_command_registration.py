@@ -4,13 +4,27 @@ from __future__ import annotations
 import inspect
 import logging
 import re
-from typing import Callable, Union
+from typing import TYPE_CHECKING, Any, Callable, Protocol, Union
+
+if TYPE_CHECKING:
+    from .context import Context
+    from .registry import InteractionRegistry
 
 import discord
 from discord import app_commands
 from discord.app_commands import locale_str
 
 from ._command_callbacks import build_context_menu_callback
+
+
+class _BotBaseLike(Protocol):
+    """Structural bot type used to avoid importing _BotBase and creating cycles."""
+
+    tree: app_commands.CommandTree[Any]
+    registry: InteractionRegistry
+    _plugins: list[Any]
+    _dispatch_framework_error: Callable[..., Any]
+
 
 logger = logging.getLogger("easycord")
 
@@ -76,11 +90,11 @@ def _validate_command(
 
 
 def register_slash(
-    bot: object,
+    bot: _BotBaseLike,
     func: Callable,
     *,
     callback_builder: Callable[..., Callable],
-    context_factory: Callable[[discord.Interaction], object],
+    context_factory: Callable[[discord.Interaction], Context],
     name: str,
     description: str,
     guild_id: int | None,
@@ -88,6 +102,7 @@ def register_slash(
     require_admin: bool = False,
     ephemeral: bool = False,
     permissions: list[str] | None = None,
+    bot_permissions: list[str] | None = None,
     cooldown: float | None = None,
     cooldown_rate: int = 1,
     cooldown_bucket: str = "user",
@@ -109,6 +124,7 @@ def register_slash(
         require_admin=require_admin,
         ephemeral=ephemeral,
         permissions=permissions,
+        bot_permissions=bot_permissions,
         cooldown=cooldown,
         cooldown_rate=cooldown_rate,
         cooldown_bucket=cooldown_bucket,
@@ -166,7 +182,7 @@ def register_slash(
 
 
 def _register_autocomplete_handler(
-    bot: object,
+    bot: _BotBaseLike,
     cmd: app_commands.Command,
     *,
     name: str,
@@ -174,7 +190,7 @@ def _register_autocomplete_handler(
     handler: Callable,
     source_plugin: str | None,
     guild_id: int | None,
-    context_factory: Callable[[discord.Interaction], object],
+    context_factory: Callable[[discord.Interaction], Context],
 ) -> None:
     sig = inspect.signature(handler)
     params = list(sig.parameters.values())
@@ -236,10 +252,10 @@ def _register_autocomplete_handler(
 
 
 def register_context_menu(
-    bot: object,
+    bot: _BotBaseLike,
     func: Callable,
     *,
-    context_factory: Callable[[discord.Interaction], object],
+    context_factory: Callable[[discord.Interaction], Context],
     chain_builder: Callable,
     name: str,
     menu_type: discord.AppCommandType,
@@ -277,8 +293,10 @@ def register_context_menu(
         context_factory=context_factory,
         chain_builder=chain_builder,
     )
-    callback.__signature__ = inspect.Signature(
-        parameters=[interaction_param, target_param]
+    setattr(
+        callback,
+        "__signature__",
+        inspect.Signature(parameters=[interaction_param, target_param]),
     )
     menu = app_commands.ContextMenu(
         name=locale_str(name),
@@ -306,10 +324,12 @@ def register_context_menu(
 
 def inject_choices(callback: Callable, choices: dict[str, list]) -> None:
     """Stamp discord.py's internal choices attribute onto a command callback."""
-    if not hasattr(callback, "__discord_app_commands_param_choices__"):
-        callback.__discord_app_commands_param_choices__ = {}
+    param_choices = getattr(callback, "__discord_app_commands_param_choices__", None)
+    if param_choices is None:
+        param_choices = {}
+        setattr(callback, "__discord_app_commands_param_choices__", param_choices)
     for param_name, values in choices.items():
-        callback.__discord_app_commands_param_choices__[param_name] = [
+        param_choices[param_name] = [
             app_commands.Choice(name=str(v), value=v) for v in values
         ]
 

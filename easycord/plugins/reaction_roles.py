@@ -51,28 +51,25 @@ class ReactionRolesPlugin(Plugin):
         return all_mappings.get(str(message_id), {})
 
     async def _set_mapping(self, guild_id: int, message_id: int, emoji: str, role_id: int) -> None:
-        """Add/update emoji->role mapping for a message."""
+        """Add/update emoji->role mapping for a message atomically."""
+        def _apply(cfg) -> None:
+            all_mappings = cfg.get_other("reaction_roles", {})
+            if str(message_id) not in all_mappings:
+                all_mappings[str(message_id)] = {}
+            all_mappings[str(message_id)][emoji] = role_id
+            cfg.set_other("reaction_roles", all_mappings)
 
-        cfg_obj = await self.config_store.load(guild_id)
-        all_mappings = cfg_obj.get_other("reaction_roles", {})
-
-        if str(message_id) not in all_mappings:
-            all_mappings[str(message_id)] = {}
-
-        all_mappings[str(message_id)][emoji] = role_id
-        cfg_obj.set_other("reaction_roles", all_mappings)
-        await self.config_store.save(cfg_obj)
+        await self.config_store.mutate(guild_id, _apply)
 
     async def _remove_mapping(self, guild_id: int, message_id: int, emoji: str) -> None:
-        """Remove emoji->role mapping for a message."""
+        """Remove emoji->role mapping for a message atomically."""
+        def _apply(cfg) -> None:
+            all_mappings = cfg.get_other("reaction_roles", {})
+            if str(message_id) in all_mappings and emoji in all_mappings[str(message_id)]:
+                del all_mappings[str(message_id)][emoji]
+                cfg.set_other("reaction_roles", all_mappings)
 
-        cfg_obj = await self.config_store.load(guild_id)
-        all_mappings = cfg_obj.get_other("reaction_roles", {})
-
-        if str(message_id) in all_mappings and emoji in all_mappings[str(message_id)]:
-            del all_mappings[str(message_id)][emoji]
-            cfg_obj.set_other("reaction_roles", all_mappings)
-            await self.config_store.save(cfg_obj)
+        await self.config_store.mutate(guild_id, _apply)
 
     @on("raw_reaction_add")
     async def _on_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
@@ -155,33 +152,44 @@ class ReactionRolesPlugin(Plugin):
         if payload.guild_id is None:
             return
 
-
+        # raw_message_delete fires for every deleted message; keep the common
+        # (no mapping) case a pure read so we don't write the config on each one.
         cfg_obj = await self.config_store.load(payload.guild_id)
-        all_mappings = cfg_obj.get_other("reaction_roles", {})
+        if str(payload.message_id) not in cfg_obj.get_other("reaction_roles", {}):
+            return
 
-        if str(payload.message_id) in all_mappings:
+        def _apply(cfg) -> bool:
+            all_mappings = cfg.get_other("reaction_roles", {})
+            if str(payload.message_id) not in all_mappings:
+                return False
             del all_mappings[str(payload.message_id)]
-            cfg_obj.set_other("reaction_roles", all_mappings)
-            await self.config_store.save(cfg_obj)
+            cfg.set_other("reaction_roles", all_mappings)
+            return True
+
+        if await self.config_store.mutate(payload.guild_id, _apply):
             logger.info("Cleaned up reaction roles for deleted message %s", payload.message_id)
 
     @on("guild_role_delete")
     async def _on_role_delete(self, role: discord.Role) -> None:
         """Clean up deleted role from all mappings."""
-
         cfg_obj = await self.config_store.load(role.guild.id)
         all_mappings = cfg_obj.get_other("reaction_roles", {})
+        if not any(role.id in mappings.values() for mappings in all_mappings.values()):
+            return
 
-        modified = False
-        for message_id, mappings in list(all_mappings.items()):
-            for emoji, role_id in list(mappings.items()):
-                if role_id == role.id:
-                    del mappings[emoji]
-                    modified = True
-            if not mappings:
-                del all_mappings[message_id]
+        def _apply(cfg) -> bool:
+            mappings_by_msg = cfg.get_other("reaction_roles", {})
+            modified = False
+            for message_id, mappings in list(mappings_by_msg.items()):
+                for emoji, role_id in list(mappings.items()):
+                    if role_id == role.id:
+                        del mappings[emoji]
+                        modified = True
+                if not mappings:
+                    del mappings_by_msg[message_id]
+            if modified:
+                cfg.set_other("reaction_roles", mappings_by_msg)
+            return modified
 
-        if modified:
-            cfg_obj.set_other("reaction_roles", all_mappings)
-            await self.config_store.save(cfg_obj)
+        if await self.config_store.mutate(role.guild.id, _apply):
             logger.info("Cleaned up deleted role %s from reaction roles", role.name)

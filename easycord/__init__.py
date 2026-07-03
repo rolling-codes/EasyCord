@@ -16,7 +16,7 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
-__version__ = "5.50.2"
+__version__ = "5.51.0"
 
 from .audit import AuditLog
 from .bot import Bot
@@ -28,6 +28,8 @@ from .context_builder import ContextBuilder
 from .database import DatabaseConfig, EasyCordDatabase, GuildRecord, MemoryDatabase, SQLiteDatabase
 from .config import BotConfig
 from .decorators import ai_tool, autocomplete, command_error, component, cooldown, deprecated, describe, install_type, message_command, modal, on, premium_required, require_permissions, slash, slash_command, task, user_command, version_introduced
+from .event_bus import EventBus
+from .hooks import HookRegistry
 from .i18n import LocalizationManager, format_number, format_date
 from .group import SlashGroup
 from .plugin import Plugin
@@ -52,6 +54,7 @@ from .orchestrator import FallbackStrategy, Orchestrator, ProviderStrategy, RunC
 from .tool_limits import RateLimit, ToolLimiter
 from .conversation_memory import Conversation, ConversationMemory, ConversationTurn
 from .helpers import ConfigHelpers, ContextHelpers, RateLimitHelpers, ToolHelpers
+from .helpers.channel import SENDABLE_CHANNEL_TYPES
 from .managers import FrameworkManager, SecurityManager
 from .utils import EasyEmbed, Paginator
 from .validators import ChoiceSet, Duration, Range, Regex, Snowflake, URL, ValidationError
@@ -111,6 +114,7 @@ __all__ = [
     "EmbedCard",
     "DatabaseConfig",
     "EasyCordDatabase",
+    "EventBus",
     "FallbackStrategy",
     "format_doctor_report",
     "format_interaction_inventory",
@@ -122,6 +126,7 @@ __all__ = [
     "EasyEmbed",
     "FrameworkManager",
     "GuildRecord",
+    "HookRegistry",
     "InfoEmbed",
     "install_type",
     "ModalBuilder",
@@ -149,6 +154,7 @@ __all__ = [
     "Regex",
     "RunContext",
     "require_permissions",
+    "SENDABLE_CHANNEL_TYPES",
     "SelectMenuBuilder",
     "SlashGroup",
     "SuccessEmbed",

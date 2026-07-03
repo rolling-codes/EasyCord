@@ -2,13 +2,36 @@
   "pythonVersion": "3.10",
   "typeCheckingMode": "standard",
   "include": ["easycord", "tests", "examples"],
-  "exclude": ["**/__pycache__", "**/.claude", "**/worktrees", "build", "dist"],
-  "reportMissingImports": true,
-  "reportUndefinedVariable": true,
+  "extraPaths": ["."],
+  "exclude": ["**/node_modules", "**/__pycache__", "**/.*", "**/worktrees", "build", "dist"],
+
+  "reportMissingImports": "error",
+  "reportUndefinedVariable": "error",
+  "reportPossiblyUnboundVariable": "error",
+
+  "reportReturnType": "warning",
+  "reportArgumentType": "warning",
+  "reportOptionalMemberAccess": "warning",
   "reportAttributeAccessIssue": "warning",
-  "reportReturnType": true,
-  "reportMissingTypeArgument": "warning",
+
+  "reportFunctionMemberAccess": "warning",
+  "reportIncompatibleMethodOverride": "none",
+  "reportMissingTypeArgument": "none",
   "reportUnknownMemberType": "none",
   "reportUnknownVariableType": "none",
-  "reportUnknownArgumentType": "none"
+  "reportUnknownArgumentType": "none",
+
+  "executionEnvironments": [
+    {
+      "root": "tests",
+      "reportArgumentType": "none",
+      "reportAttributeAccessIssue": "none",
+      "reportMissingTypeArgument": "none",
+      "reportOptionalCall": "none",
+      "reportOperatorIssue": "none",
+      "reportCallIssue": "none",
+      "reportGeneralTypeIssues": "none",
+      "reportOptionalMemberAccess": "none"
+    }
+  ]
 }

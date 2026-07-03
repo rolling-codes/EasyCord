@@ -180,3 +180,76 @@ class TestValidatePluginPermissions:
         # Must not raise
         mixin._validate_plugin_permissions(plugin)
         assert caplog.records == []
+
+
+# ---------------------------------------------------------------------------
+# Dispatch-time bot_permissions check (build_slash_callback)
+# ---------------------------------------------------------------------------
+
+class TestBotPermissionsDispatch:
+    """A command declaring bot_permissions= is blocked at dispatch when the bot
+    lacks the permission, instead of running and raising Forbidden mid-way."""
+
+    async def test_bot_permission_missing_blocks_dispatch(self) -> None:
+        from easycord import Bot
+        from easycord.testing import invoke
+
+        ran: list[str] = []
+
+        class ModPlugin(Plugin):
+            @slash(description="Kick a user", bot_permissions=["kick_members"])
+            async def kick(self, ctx) -> None:
+                ran.append("kick")
+                await ctx.respond("kicked")
+
+        bot = Bot(auto_sync=False)
+        bot.add_plugin(ModPlugin())
+
+        # invoke() defaults is_admin=True, so the *user* passes; only the bot lacks it.
+        ctx = await invoke(bot, "kick", permissions={"kick_members": False})
+
+        assert ran == []  # command body never executed
+        assert ctx.last_response is not None
+        assert "missing" in ctx.last_response.lower()
+        assert "kick_members" in ctx.last_response
+        assert ctx.was_ephemeral
+
+    async def test_bot_permission_present_allows_dispatch(self) -> None:
+        from easycord import Bot
+        from easycord.testing import invoke
+
+        ran: list[str] = []
+
+        class ModPlugin(Plugin):
+            @slash(description="Kick a user", bot_permissions=["kick_members"])
+            async def kick(self, ctx) -> None:
+                ran.append("kick")
+                await ctx.respond("kicked")
+
+        bot = Bot(auto_sync=False)
+        bot.add_plugin(ModPlugin())
+
+        ctx = await invoke(bot, "kick", permissions={"kick_members": True})
+
+        assert ran == ["kick"]
+        assert ctx.last_response == "kicked"
+
+    async def test_command_without_bot_permissions_is_unaffected(self) -> None:
+        from easycord import Bot
+        from easycord.testing import invoke
+
+        ran: list[str] = []
+
+        class PingPlugin(Plugin):
+            @slash(description="Ping")
+            async def ping(self, ctx) -> None:
+                ran.append("ping")
+                await ctx.respond("pong")
+
+        bot = Bot(auto_sync=False)
+        bot.add_plugin(PingPlugin())
+
+        ctx = await invoke(bot, "ping", permissions={"kick_members": False})
+
+        assert ran == ["ping"]
+        assert ctx.last_response == "pong"

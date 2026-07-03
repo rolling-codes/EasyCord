@@ -10,9 +10,11 @@ EasyCord is a Discord bot framework (Python 3.10+, depends on `discord.py>=2.7.1
 
 **Decorators** — `decorators.py`: `@slash` / `@slash_command`, `@autocomplete`, `@on`, `@component`, `@modal`, `@message_command`, `@user_command`, `@task`, `@ai_tool`, `@cooldown`, `@require_permissions`, `@install_type`, and `@premium_required`. Primary extension points for bot authors.
 
-**Interaction registry** — `registry.py`: authoritative EasyCord inventory for slash commands, context menus, components, modals, and autocomplete callbacks. Discord sync still goes through `discord.app_commands.CommandTree`.
+**Interaction registry** — `registry.py`: authoritative EasyCord inventory for slash commands, context menus, components, modals, and autocomplete callbacks. Discord sync still goes through `discord.app_commands.CommandTree`. Dynamic component route patterns are compiled to regex eagerly at registration (not lazily at resolve time), avoiding first-press jitter.
 
-**Plugin system** — `plugin.py` defines `Plugin`. Bundled plugins live in `plugins/`. `bot.load_builtin_plugins()` loads the starter set from `builtin_plugins.py` (welcome, tags, polls, levels). Load other plugins explicitly with `bot.add_plugin(...)`; unload/reload existing plugin instances with `bot.remove_plugin()` / `bot.reload_plugin()`.
+**Command dispatch guards** — `build_slash_callback` (`_command_callbacks.py`) enforces, in order: guild-only, invoking-user permissions (`permissions=`/`require_admin`), then the *bot's own* permissions (`bot_permissions=`, validated against `ctx.bot_permissions`), then premium and cooldown. `bot_permissions` is opt-in per command so a privileged action fails fast with a clear message instead of raising `Forbidden` mid-execution.
+
+**Plugin system** — `plugin.py` defines `Plugin`. Bundled plugins live in `plugins/`. `bot.load_builtin_plugins()` loads the starter set from `builtin_plugins.py` (welcome, tags, polls, levels). Load other plugins explicitly with `bot.add_plugin(...)`; unload/reload existing plugin instances with `bot.remove_plugin()` / `bot.reload_plugin()`. Dev hot-reload (`_hot_reload_plugin`) performs the swap under the bot-wide `_reload_lock`; command dispatch acquires the same lock while the dev watcher is active so an interaction never hits a half-removed registry (production stays lock-free).
 
 **Config and testing** — `config.py` defines `BotConfig` for env/file startup, including guild-scoped command sync. `testing.py` provides `FakeContext` and `invoke()` for command tests without a Discord connection.
 
@@ -25,7 +27,7 @@ EasyCord is a Discord bot framework (Python 3.10+, depends on `discord.py>=2.7.1
 
 **Plugin AI tools** — `@ai_tool` on plugin methods can declare safety level, admin/guild requirements, role/user gates, timeouts, and rate limits; they register automatically into `bot.tool_registry`.
 
-**Localization** — `i18n.py` (`LocalizationManager`): fallback chain (user → guild → system → default). Diagnostic modes: `SILENT`, `WARN`, `STRICT`.
+**Localization** — `i18n.py` (`LocalizationManager`): fallback chain (user → guild → system → default). Diagnostic modes: `SILENT`, `WARN`, `STRICT`. Resolution metrics (`track_metrics=True`) are updated under an internal `threading.Lock` via `_record_metric`, so counters stay correct on sharded/multi-thread deployments.
 
 **Middleware** — `middleware.py`: logging, auth, rate limiting applied around command dispatch.
 

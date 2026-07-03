@@ -88,6 +88,7 @@ class OpenClawPlugin(Plugin):
         """Show OpenClaw help and current task summary."""
         if not await self._authorize(ctx):
             return
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         task = self._active.get(ctx.guild.id)
         if task:
             message = self._format_status(task)
@@ -107,6 +108,7 @@ class OpenClawPlugin(Plugin):
         """Start one autonomous task for the current guild."""
         if not await self._authorize(ctx):
             return
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         if not self.orchestrator:
             detail = (
                 "External OpenClaw clients are adapter-ready but not implemented in v1."
@@ -150,6 +152,7 @@ class OpenClawPlugin(Plugin):
         """Show current task state."""
         if not await self._authorize(ctx):
             return
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         task = self._active.get(ctx.guild.id)
         if not task:
             await ctx.respond("No OpenClaw task is running for this server.", ephemeral=True)
@@ -161,6 +164,7 @@ class OpenClawPlugin(Plugin):
         """Cancel the running task for this guild."""
         if not await self._authorize(ctx):
             return
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         guild_id = ctx.guild.id
         task = self._active.get(guild_id)
         if not task:
@@ -184,6 +188,7 @@ class OpenClawPlugin(Plugin):
         """Show recent task history for this guild."""
         if not await self._authorize(ctx):
             return
+        assert ctx.guild is not None  # guaranteed by guild_only=True
         history = await self._load_history(ctx.guild.id)
         if not history:
             await ctx.respond("No OpenClaw task history for this server.", ephemeral=True)
@@ -217,6 +222,7 @@ class OpenClawPlugin(Plugin):
                 await self._record_history(task)
                 return
 
+            assert self.orchestrator is not None  # guaranteed by openclaw_task authorization
             runner = Orchestrator(strategy=self.orchestrator.strategy, tools=registry)
             result = await asyncio.wait_for(
                 runner.run(
@@ -278,6 +284,8 @@ class OpenClawPlugin(Plugin):
         source = getattr(bot, "tool_registry", None)
         if source is None and self.orchestrator is not None:
             source = self.orchestrator.tools
+        if source is None:
+            return ToolRegistry(), []
         sandbox = ToolRegistry()
         blocked: list[str] = []
         allowed_names = set(self.allowed_tools)

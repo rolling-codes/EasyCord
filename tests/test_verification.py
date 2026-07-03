@@ -268,7 +268,7 @@ class TestVerificationSetupCommand:
             await plugin._store.save(cfg)
 
         # Mock guild.get_channel to return a plain mock (has .send by default)
-        mock_channel = MagicMock()
+        mock_channel = MagicMock(spec=discord.TextChannel)
         mock_message = MagicMock()
         mock_message.id = 12345
         mock_channel.send = AsyncMock(return_value=mock_message)

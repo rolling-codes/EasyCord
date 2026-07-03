@@ -243,14 +243,15 @@ class EconomyPlugin(Plugin):
         assert ctx.guild is not None  # guaranteed by guild_only=True
         # Decide and persist the outcome under the lock; do all Discord I/O
         # after releasing it so response latency never stalls the guild.
+        # claimed stays None when today's reward was already taken.
+        claimed: tuple[int, str, str, int] | None = None
         async with self._balance_lock(ctx.guild.id):
             cfg_obj = await self.config.store.load(ctx.guild.id)
 
             daily_claims = cfg_obj.get_other("daily_claims", {})
             today = datetime.now(timezone.utc).date().isoformat()
-            already_claimed = daily_claims.get(str(ctx.user.id)) == today
 
-            if not already_claimed:
+            if daily_claims.get(str(ctx.user.id)) != today:
                 cfg = cfg_obj.get_other("economy") or _DEFAULTS
                 reward = cfg.get("daily_reward", 100)
                 currency = cfg.get("currency_name", "Credits")
@@ -264,14 +265,16 @@ class EconomyPlugin(Plugin):
                 cfg_obj.set_other("balances", balances)
                 cfg_obj.set_other("daily_claims", daily_claims)
                 await self.config.store.save(cfg_obj)
+                claimed = (reward, currency, symbol, new_balance)
 
-        if already_claimed:
+        if claimed is None:
             await ctx.respond(
                 "⏰ You already claimed today's reward. Try again tomorrow!",
                 ephemeral=True,
             )
             return
 
+        reward, currency, symbol, new_balance = claimed
         await ctx.respond(f"{symbol} Claimed **{reward}** {currency}! New balance: **{new_balance}**")
 
     @slash(description="Top earners leaderboard", guild_only=True)

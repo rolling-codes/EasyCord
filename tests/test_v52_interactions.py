@@ -14,8 +14,16 @@ from easycord.testing import FakeInteraction, invoke_autocomplete
 from easycord.validators import ChoiceSet, Duration, Range, Regex, Snowflake, URL, ValidationError
 
 
-def test_slash_command_alias_is_public_alias() -> None:
-    assert slash_command is slash
+def test_slash_command_is_deprecated_alias_for_slash() -> None:
+    with pytest.warns(DeprecationWarning, match="slash_command is deprecated"):
+        decorator = slash_command(description="hi")
+
+    async def cmd(self, ctx):  # pragma: no cover - body never runs
+        pass
+
+    decorated = decorator(cmd)
+    assert decorated._is_slash is True
+    assert decorated._slash_desc == "hi"
 
 
 async def test_registry_tracks_slash_and_context_menu_inventory() -> None:

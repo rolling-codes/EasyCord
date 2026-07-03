@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.server_config import ServerConfigStore
 from easycord.plugins.giveaway import _parse_duration  # noqa: F401 — re-exported for tests
 
@@ -206,7 +207,11 @@ class ReminderPlugin(Plugin):
 
         guild_id = ctx.guild.id
         user_id = ctx.user.id
-        channel_id: int = ctx.channel.id  # type: ignore[union-attr]
+        channel = ctx.channel
+        if not isinstance(channel, SENDABLE_CHANNEL_TYPES):
+            await ctx.respond("This command must be used in a channel.", ephemeral=True)
+            return
+        channel_id: int = channel.id
 
         now = datetime.now(timezone.utc)
         fire_at = now + timedelta(seconds=seconds)

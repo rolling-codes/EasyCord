@@ -483,9 +483,10 @@ class TestTagsPlugin:
     def _make_store(self, tmp_path) -> TagsStore:
         return TagsStore(str(tmp_path / "tags"))
 
-    def test_set_and_get(self, tmp_path) -> None:
+    @pytest.mark.asyncio
+    async def test_set_and_get(self, tmp_path) -> None:
         store = self._make_store(tmp_path)
-        store.set(100, "hello", "Hello World!", author_id=1)
+        await store.set(100, "hello", "Hello World!", author_id=1)
         entry = store.get(100, "hello")
         assert entry is not None
         assert entry["text"] == "Hello World!"
@@ -495,21 +496,24 @@ class TestTagsPlugin:
         store = self._make_store(tmp_path)
         assert store.get(100, "no_such_tag") is None
 
-    def test_delete_removes_tag(self, tmp_path) -> None:
+    @pytest.mark.asyncio
+    async def test_delete_removes_tag(self, tmp_path) -> None:
         store = self._make_store(tmp_path)
-        store.set(100, "bye", "Goodbye!", author_id=1)
-        store.delete(100, "bye")
+        await store.set(100, "bye", "Goodbye!", author_id=1)
+        await store.delete(100, "bye")
         assert store.get(100, "bye") is None
 
-    def test_delete_nonexistent_no_error(self, tmp_path) -> None:
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_no_error(self, tmp_path) -> None:
         store = self._make_store(tmp_path)
-        store.delete(100, "phantom_tag")  # must not raise
+        await store.delete(100, "phantom_tag")  # must not raise
 
-    def test_list_names_sorted(self, tmp_path) -> None:
+    @pytest.mark.asyncio
+    async def test_list_names_sorted(self, tmp_path) -> None:
         store = self._make_store(tmp_path)
-        store.set(100, "zebra", "z", author_id=1)
-        store.set(100, "alpha", "a", author_id=1)
-        store.set(100, "middle", "m", author_id=1)
+        await store.set(100, "zebra", "z", author_id=1)
+        await store.set(100, "alpha", "a", author_id=1)
+        await store.set(100, "middle", "m", author_id=1)
         names = store.list_names(100)
         assert names == ["alpha", "middle", "zebra"]
 
@@ -529,7 +533,7 @@ class TestTagsPlugin:
     @pytest.mark.asyncio
     async def test_plugin_delete_non_owner_non_admin_blocked(self, tmp_path) -> None:
         plugin = TagsPlugin(data_dir=str(tmp_path / "tags"))
-        plugin._store.set(100, "mytag", "content", author_id=999)
+        await plugin._store.set(100, "mytag", "content", author_id=999)
 
         ctx = _make_ctx(user_id=1, is_admin=False)
         ctx.guild.get_member = MagicMock(return_value=None)
@@ -541,7 +545,7 @@ class TestTagsPlugin:
     @pytest.mark.asyncio
     async def test_plugin_delete_by_owner_succeeds(self, tmp_path) -> None:
         plugin = TagsPlugin(data_dir=str(tmp_path / "tags"))
-        plugin._store.set(100, "mytag", "content", author_id=1)
+        await plugin._store.set(100, "mytag", "content", author_id=1)
 
         ctx = _make_ctx(user_id=1, is_admin=False)
         ctx.guild.get_member = MagicMock(return_value=None)

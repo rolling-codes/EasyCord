@@ -41,17 +41,18 @@ def _days_until(month: int, day: int, today: datetime.date) -> int:
     try:
         candidate = datetime.date(this_year, month, day)
     except ValueError:
-        # Feb 29 in a non-leap year — push to next leap year
-        candidate = datetime.date(this_year + 1, month, day)
-        # Advance until we find a valid date
-        for delta in range(4):
+        # Feb 29 in a non-leap year: find the next year in the leap cycle where
+        # the date is valid and not in the past. Avoid an unguarded
+        # datetime.date(this_year + 1, ...) here — next year may also be
+        # non-leap (e.g. 2026 -> 2027), which would raise uncaught.
+        for delta in range(8):
             try:
                 candidate = datetime.date(this_year + delta, month, day)
-                if candidate >= today:
-                    return (candidate - today).days
             except ValueError:
                 continue
-        return (candidate - today).days
+            if candidate >= today:
+                return (candidate - today).days
+        return 0  # unreachable for real calendar dates
 
     if candidate < today:
         try:
