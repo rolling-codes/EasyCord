@@ -6,8 +6,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from easycord.middleware import (
+    AnalyticsStore,
     admin_only,
     allowed_roles,
+    analytics_middleware,
     boost_only,
     build_chain,
     catch_errors,
@@ -555,3 +557,119 @@ class TestCatchErrors:
 
         await mw(ctx, proceed)
         ctx.respond.assert_called_once_with("Custom error!", ephemeral=True)
+
+
+# ---------------------------------------------------------------------------
+# AnalyticsStore unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestAnalyticsStore:
+    def test_record_and_query_global(self) -> None:
+        store = AnalyticsStore()
+        store.record("ping", 100)
+        store.record("ping", 100)
+        store.record("ban", 200)
+        result = store.query()
+        assert result["ping"] == 2
+        assert result["ban"] == 1
+
+    def test_query_filters_by_guild(self) -> None:
+        store = AnalyticsStore()
+        store.record("ping", 100)
+        store.record("ping", 200)
+        store.record("ban", 100)
+        assert store.query(guild_id=100) == {"ping": 1, "ban": 1}
+        assert store.query(guild_id=200) == {"ping": 1}
+
+    def test_query_unknown_guild_returns_empty(self) -> None:
+        store = AnalyticsStore()
+        store.record("ping", 100)
+        assert store.query(guild_id=999) == {}
+
+    def test_record_dm_uses_none_guild(self) -> None:
+        store = AnalyticsStore()
+        store.record("help", None)
+        store.record("help", None)
+        result = store.query()
+        assert result["help"] == 2
+
+    def test_record_none_command_is_no_op(self) -> None:
+        store = AnalyticsStore()
+        store.record(None, 100)
+        assert store.query() == {}
+
+    def test_query_global_sums_across_guilds(self) -> None:
+        store = AnalyticsStore()
+        store.record("ping", 1)
+        store.record("ping", 2)
+        store.record("ping", None)
+        assert store.query()["ping"] == 3
+
+
+# ---------------------------------------------------------------------------
+# analytics_middleware integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestAnalyticsMiddleware:
+    @pytest.mark.asyncio
+    async def test_increments_counter_in_guild(self) -> None:
+        store = AnalyticsStore()
+        mw = analytics_middleware(store)
+        guild = MagicMock()
+        guild.id = 42
+        ctx = _ctx(guild=guild, command_name="ping")
+        called = []
+
+        async def proceed():
+            called.append(True)
+
+        await mw(ctx, proceed)
+        assert called
+        assert store.query(guild_id=42) == {"ping": 1}
+
+    @pytest.mark.asyncio
+    async def test_increments_counter_in_dm(self) -> None:
+        store = AnalyticsStore()
+        mw = analytics_middleware(store)
+        ctx = _ctx(guild=None, command_name="help")
+
+        async def proceed():
+            pass
+
+        await mw(ctx, proceed)
+        assert store.query() == {"help": 1}
+
+    @pytest.mark.asyncio
+    async def test_auto_creates_store_when_none_passed(self) -> None:
+        mw = analytics_middleware()
+        store = mw._analytics_store  # type: ignore[attr-defined]
+        assert isinstance(store, AnalyticsStore)
+        guild = MagicMock()
+        guild.id = 7
+        ctx = _ctx(guild=guild, command_name="ban")
+
+        async def proceed():
+            pass
+
+        await mw(ctx, proceed)
+        assert store.query(guild_id=7) == {"ban": 1}
+
+    @pytest.mark.asyncio
+    async def test_proceeds_after_recording(self) -> None:
+        store = AnalyticsStore()
+        mw = analytics_middleware(store)
+        ctx = _ctx(guild=None, command_name="ping")
+        sentinel = []
+
+        async def proceed():
+            sentinel.append("ok")
+
+        await mw(ctx, proceed)
+        assert sentinel == ["ok"]
+
+    def test_middleware_carries_store_attribute(self) -> None:
+        store = AnalyticsStore()
+        mw = analytics_middleware(store)
+        assert getattr(mw, "_analytics_store", None) is store

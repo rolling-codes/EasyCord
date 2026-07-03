@@ -22,6 +22,28 @@ else:
 logger = logging.getLogger("easycord")
 
 
+class PluginDependencyError(RuntimeError):
+    """Raised when a plugin's declared dependencies are not yet loaded.
+
+    Check the ``missing`` attribute for the list of missing plugin names.
+
+    Example::
+
+        try:
+            bot.add_plugin(InventoryPlugin())
+        except PluginDependencyError as e:
+            print(f"Load {e.missing} first")
+    """
+
+    def __init__(self, plugin_class: str, missing: list[str]) -> None:
+        self.plugin_class = plugin_class
+        self.missing = missing
+        super().__init__(
+            f"{plugin_class} requires plugins {missing!r} to be loaded first. "
+            "Call add_plugin() in dependency order."
+        )
+
+
 def _iter_methods(plugin: object) -> list[tuple[str, Any]]:
     """Return ``(name, method)`` pairs for *plugin*'s bound methods.
 
@@ -67,6 +89,12 @@ class _PluginsMixin(_MixinBase):
                 f"{type(plugin).__name__} is already added to this bot. "
                 "Create a new instance if you need a second copy."
             )
+        required: tuple[str, ...] = getattr(type(plugin), "requires", ())
+        if required:
+            loaded_names = {p.name for p in self._plugins}
+            missing = [n for n in required if n not in loaded_names]
+            if missing:
+                raise PluginDependencyError(type(plugin).__name__, missing)
         plugin._bot = self  # type: ignore[assignment]  # ``self`` is the composed Bot at runtime
         self._plugins.append(plugin)
         self._scan_methods(plugin)
@@ -344,6 +372,40 @@ class _PluginsMixin(_MixinBase):
             key: dict(value)
             for key, value in getattr(self, "_task_statuses", {}).items()
         }
+
+    # ── Per-guild plugin feature flags ───────────────────────────
+
+    def disable_plugin(self, name: str, guild_id: int) -> None:
+        """Disable a named plugin for a specific guild.
+
+        Any slash command whose ``source`` plugin matches *name* will return an
+        ephemeral "disabled in this server" response when invoked from *guild_id*.
+        In-memory only — does not persist across restarts.
+
+        Example::
+
+            bot.disable_plugin("economy", guild_id=123456)
+        """
+        disabled: dict[int, set[str]] = getattr(self, "_guild_disabled_plugins", {})
+        disabled.setdefault(guild_id, set()).add(name)
+        self._guild_disabled_plugins = disabled  # type: ignore[attr-defined]
+
+    def enable_plugin(self, name: str, guild_id: int) -> None:
+        """Re-enable a plugin that was disabled for a specific guild.
+
+        No-op if the plugin was not disabled for that guild.
+        """
+        disabled: dict[int, set[str]] = getattr(self, "_guild_disabled_plugins", {})
+        if guild_id in disabled:
+            disabled[guild_id].discard(name)
+
+    def is_plugin_enabled(self, name: str, guild_id: int) -> bool:
+        """Return ``True`` if the named plugin is enabled for *guild_id*.
+
+        Defaults to ``True`` — plugins are enabled unless explicitly disabled.
+        """
+        disabled: dict[int, set[str]] = getattr(self, "_guild_disabled_plugins", {})
+        return name not in disabled.get(guild_id, set())
 
     def _validate_plugin_permissions(self, plugin: Plugin) -> None:
         """Warn if the bot lacks Discord permissions required by the plugin's commands.

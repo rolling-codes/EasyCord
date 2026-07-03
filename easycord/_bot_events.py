@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Callable, Literal
 
 import discord
 
-from .middleware import MiddlewareFn
+from .middleware import AnalyticsStore, MiddlewareFn
 
 if TYPE_CHECKING:
     from ._bot_base import _BotBase
@@ -87,6 +87,9 @@ class _EventsMixin(_MixinBase):
                 f"middleware must be callable, got {type(middleware).__name__!r}"
             )
         self._middleware.append(middleware)
+        store = getattr(middleware, "_analytics_store", None)
+        if isinstance(store, AnalyticsStore):
+            self._analytics_store = store  # type: ignore[attr-defined]
         return middleware
 
     def on_error(self, func: Callable) -> Callable:

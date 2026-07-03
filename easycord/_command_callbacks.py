@@ -103,6 +103,34 @@ def build_slash_callback(
         if ephemeral:
             ctx._force_ephemeral = True
 
+        if ctx.guild is not None:
+            _registry = getattr(bot, "registry", None)
+            _check = getattr(bot, "is_plugin_enabled", None)
+            if _registry is not None and _check is not None:
+                _cmd = command_name or func.__name__
+                # Registry keys are scoped: "global:<name>" for global commands,
+                # "guild:<id>:<name>" for guild-restricted ones.
+                _entry = (
+                    _registry.slash_commands.get(f"global:{_cmd}")
+                    or _registry.slash_commands.get(f"guild:{ctx.guild.id}:{_cmd}")
+                )
+                if _entry and _entry.source:
+                    # entry.source stores _instance_id; resolve to plugin.name
+                    _plugin_name: str = _entry.source
+                    for _p in getattr(bot, "_plugins", []):
+                        if getattr(_p, "_instance_id", None) == _entry.source:
+                            _plugin_name = _p.name
+                            break
+                    if not _check(_plugin_name, ctx.guild.id):
+                        await ctx.respond(
+                            ctx.t(
+                                "errors.plugin_disabled",
+                                default="This feature is disabled in this server.",
+                            ),
+                            ephemeral=True,
+                        )
+                        return
+
         async def invoke() -> None:
             if guild_only and not ctx.guild:
                 await ctx.respond(

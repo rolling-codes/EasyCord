@@ -1,5 +1,33 @@
 # Changelog
 
+## EasyCord v5.52.0 - 2026-07-03
+
+### Added
+
+**Plugin dependency declarations** (`easycord/plugin.py`, `easycord/_bot_plugins.py`):
+- `Plugin.requires: tuple[str, ...]` class attribute — declare plugin load-order requirements.
+- `bot.add_plugin()` raises `PluginDependencyError(RuntimeError)` with `.missing` and `.plugin_class` attrs when a required plugin isn't loaded yet.
+- `PluginDependencyError` is exported from `easycord`.
+
+**Analytics middleware** (`easycord/middleware.py`):
+- `AnalyticsStore` dataclass tracks invocation counts per `(command_name, guild_id)`.
+- `analytics_middleware(store=None)` factory — attach to `bot.use()` to start collecting.
+- Auto-wires the store to `bot._analytics_store` when `bot.use()` detects the `_analytics_store` attribute on the returned middleware.
+- `bot.command_stats(guild_id=None)` queries aggregate or per-guild command counts.
+- `AnalyticsStore` and `analytics_middleware` are exported from `easycord`.
+
+**Per-guild plugin feature flags** (`easycord/_bot_plugins.py`, `easycord/_command_callbacks.py`):
+- `bot.disable_plugin(name, guild_id)` — silently blocks all commands from a plugin in a specific guild.
+- `bot.enable_plugin(name, guild_id)` — re-enables a plugin for a guild.
+- `bot.is_plugin_enabled(name, guild_id)` — query current state (default `True`).
+- Disabled commands return an ephemeral "This feature is disabled in this server." response; DM invocations are unaffected.
+
+### Tests
+
+- `tests/test_plugin_power_pack.py` — 24 tests covering dependency declarations, flag methods, `PluginDependencyError` attributes, and end-to-end dispatch guard (integration tests using real `Bot` + `invoke()`).
+- `tests/test_middleware.py` — 11 new tests for `AnalyticsStore` and `analytics_middleware`.
+- 1438 tests total.
+
 ## EasyCord v5.51.0 - 2026-07-01
 
 ### Fixed

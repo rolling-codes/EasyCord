@@ -5,6 +5,7 @@ import contextlib
 import logging
 import time
 from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 
 from .context import Context
@@ -323,4 +324,65 @@ def catch_errors(
                 )
                 await ctx.respond(text, ephemeral=True)
 
+    return handler
+
+
+@dataclass
+class AnalyticsStore:
+    """In-memory invocation counter for slash commands.
+
+    Populated automatically by :func:`analytics_middleware`. Query via
+    :meth:`query` or through :meth:`Bot.command_stats`.
+
+    Example::
+
+        store = AnalyticsStore()
+        bot.use(analytics_middleware(store))
+        # ... after commands run ...
+        print(store.query(guild_id=123))  # {"ping": 5, "ban": 2}
+    """
+
+    counts: dict[tuple[str, int | None], int] = field(default_factory=dict)
+
+    def record(self, command: str | None, guild_id: int | None) -> None:
+        """Increment the counter for *command* in *guild_id* (or DMs when ``None``)."""
+        if command is None:
+            return
+        key = (command, guild_id)
+        self.counts[key] = self.counts.get(key, 0) + 1
+
+    def query(self, guild_id: int | None = None) -> dict[str, int]:
+        """Return invocation counts, optionally filtered to a single guild.
+
+        When *guild_id* is ``None`` all guilds (and DMs) are summed per command.
+        """
+        if guild_id is None:
+            result: dict[str, int] = {}
+            for (cmd, _), n in self.counts.items():
+                result[cmd] = result.get(cmd, 0) + n
+            return result
+        return {cmd: n for (cmd, gid), n in self.counts.items() if gid == guild_id}
+
+
+def analytics_middleware(store: AnalyticsStore | None = None) -> MiddlewareFn:
+    """Track slash command invocation counts per command per guild.
+
+    Creates a new :class:`AnalyticsStore` if none is provided. The returned
+    function carries the store on its ``_analytics_store`` attribute so
+    ``bot.use()`` wires :meth:`Bot.command_stats` automatically.
+
+    Example::
+
+        bot.use(analytics_middleware())
+        # ... after some commands run ...
+        stats = bot.command_stats(guild_id=123)  # {"ping": 5, "ban": 2}
+        all_stats = bot.command_stats()           # sum across all guilds
+    """
+    used_store = store or AnalyticsStore()
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        used_store.record(ctx.command_name, ctx.guild.id if ctx.guild else None)
+        await proceed()
+
+    handler._analytics_store = used_store  # type: ignore[attr-defined]
     return handler

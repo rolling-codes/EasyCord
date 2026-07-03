@@ -14,6 +14,11 @@ class Plugin:
     add it to your bot with ``bot.add_plugin()``. Commands and handlers are
     registered automatically.
 
+    Declare dependencies on other plugins with ``requires``::
+
+        class InventoryPlugin(Plugin):
+            requires = ("economy",)   # economy must be loaded first
+
     Example::
 
         from easycord import Plugin, slash, on
@@ -32,6 +37,13 @@ class Plugin:
                 await member.send(f"Welcome to {member.guild.name}!")
 
         bot.add_plugin(GreetPlugin())
+    """
+
+    requires: tuple[str, ...] = ()
+    """Plugin names that must be loaded before this plugin.
+
+    ``add_plugin()`` raises :exc:`PluginDependencyError` if any required
+    plugin is not already registered on the bot.
     """
 
     def __init__(self) -> None:

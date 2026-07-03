@@ -16,7 +16,7 @@ Quick start::
     bot.run("YOUR_TOKEN")
 """
 
-__version__ = "5.51.0"
+__version__ = "5.52.0"
 
 from .audit import AuditLog
 from .bot import Bot
@@ -33,6 +33,7 @@ from .hooks import HookRegistry
 from .i18n import LocalizationManager, format_number, format_date
 from .group import SlashGroup
 from .plugin import Plugin
+from ._bot_plugins import PluginDependencyError
 from .plugin_creator import (
     PluginCheck,
     PluginCheckReport,
@@ -48,6 +49,7 @@ from .plugin_creator import (
     load_plugin_manifest,
     validate_plugin_manifest,
 )
+from .middleware import AnalyticsStore, analytics_middleware
 from .server_config import ServerConfig, ServerConfigStore
 from .tools import ToolCall, ToolDef, ToolRegistry, ToolResult, ToolSafety, audit_tool_registry
 from .orchestrator import FallbackStrategy, Orchestrator, ProviderStrategy, RunContext
