@@ -200,8 +200,9 @@ def install_type(
             dm_channel=user,
             private_channel=user,
         )
-        func._slash_allowed_installs = installs
-        func._slash_allowed_contexts = contexts
+        _f: Any = func
+        _f._slash_allowed_installs = installs
+        _f._slash_allowed_contexts = contexts
         return func
 
     return decorator
@@ -246,9 +247,10 @@ def cooldown(
         raise ValueError("cooldown bucket must be 'user', 'guild', or 'global'")
 
     def decorator(func: Callable) -> Callable:
-        func._slash_cooldown = per
-        func._slash_cooldown_rate = rate
-        func._slash_cooldown_bucket = bucket
+        _f: Any = func
+        _f._slash_cooldown = per
+        _f._slash_cooldown_rate = rate
+        _f._slash_cooldown_bucket = bucket
         return func
 
     return decorator
@@ -272,7 +274,8 @@ def require_permissions(*permissions: str) -> Callable:
     """
 
     def decorator(func: Callable) -> Callable:
-        func._slash_permissions = list(permissions)
+        _f: Any = func
+        _f._slash_permissions = list(permissions)
         return func
 
     return decorator
@@ -294,7 +297,8 @@ def premium_required(func: Callable) -> Callable:
             async def exclusive(self, ctx):
                 await ctx.respond("Welcome, premium member!")
     """
-    func._slash_premium_required = True
+    _f: Any = func
+    _f._slash_premium_required = True
     return func
 
 
@@ -310,14 +314,15 @@ def autocomplete(option_name: str, *, command: str | None = None) -> Callable:
         raise ValueError("autocomplete option name must be non-empty")
 
     def decorator(func: Callable) -> Callable:
+        _f: Any = func
         if command is not None:
-            func._is_autocomplete = True
-            func._autocomplete_option = option_name
-            func._autocomplete_command = command
+            _f._is_autocomplete = True
+            _f._autocomplete_option = option_name
+            _f._autocomplete_command = command
             return func
         callbacks = dict(getattr(func, "_slash_autocomplete_handlers", {}))
         callbacks[option_name] = func
-        func._slash_autocomplete_handlers = callbacks
+        _f._slash_autocomplete_handlers = callbacks
         return func
 
     return decorator
@@ -467,10 +472,11 @@ def task(
         raise ValueError("task backoff must be non-negative")
 
     def decorator(func: Callable) -> Callable:
-        func._is_task = True
-        func._task_interval = interval
-        func._task_restart = restart
-        func._task_backoff = backoff
+        _f: Any = func
+        _f._is_task = True
+        _f._task_interval = interval
+        _f._task_restart = restart
+        _f._task_backoff = backoff
         return func
 
     return decorator
@@ -508,9 +514,10 @@ def on(event: str, *, on_cleanup: Callable | None = None) -> Callable:
     """
 
     def decorator(func: Callable) -> Callable:
-        func._is_event = True
-        func._event_name = event
-        func._event_cleanup = on_cleanup
+        _f: Any = func
+        _f._is_event = True
+        _f._event_name = event
+        _f._event_cleanup = on_cleanup
         return func
 
     return decorator
@@ -526,12 +533,13 @@ def user_command(
 ) -> Callable:
     """Mark a Plugin method as a right-click User context menu command."""
     def decorator(func: Callable) -> Callable:
-        func._is_user_command = True
-        func._context_menu_name = name or func.__name__
-        func._context_menu_guild = guild_id
-        func._context_menu_nsfw = nsfw
-        func._context_menu_allowed_contexts = allowed_contexts
-        func._context_menu_allowed_installs = allowed_installs
+        _f: Any = func
+        _f._is_user_command = True
+        _f._context_menu_name = name or func.__name__
+        _f._context_menu_guild = guild_id
+        _f._context_menu_nsfw = nsfw
+        _f._context_menu_allowed_contexts = allowed_contexts
+        _f._context_menu_allowed_installs = allowed_installs
         return func
     return decorator
 
@@ -546,12 +554,13 @@ def message_command(
 ) -> Callable:
     """Mark a Plugin method as a right-click Message context menu command."""
     def decorator(func: Callable) -> Callable:
-        func._is_message_command = True
-        func._context_menu_name = name or func.__name__
-        func._context_menu_guild = guild_id
-        func._context_menu_nsfw = nsfw
-        func._context_menu_allowed_contexts = allowed_contexts
-        func._context_menu_allowed_installs = allowed_installs
+        _f: Any = func
+        _f._is_message_command = True
+        _f._context_menu_name = name or func.__name__
+        _f._context_menu_guild = guild_id
+        _f._context_menu_nsfw = nsfw
+        _f._context_menu_allowed_contexts = allowed_contexts
+        _f._context_menu_allowed_installs = allowed_installs
         return func
     return decorator
 
@@ -562,10 +571,11 @@ def component(id_or_func=None, *, scoped: bool = True, ttl: float | None = None)
         raise ValueError("component ttl must be greater than zero")
 
     def _apply(func: Callable, custom_id: str | None) -> Callable:
-        func._is_component = True
-        func._component_id = custom_id or func.__name__
-        func._component_scoped = scoped
-        func._component_ttl = ttl
+        _f: Any = func
+        _f._is_component = True
+        _f._component_id = custom_id or func.__name__
+        _f._component_scoped = scoped
+        _f._component_ttl = ttl
         return func
 
     if callable(id_or_func):
@@ -580,9 +590,10 @@ def component(id_or_func=None, *, scoped: bool = True, ttl: float | None = None)
 def modal(id_or_func=None, *, scoped: bool = True) -> Callable:
     """Mark a Plugin method as a modal submission handler."""
     def _apply(func: Callable, custom_id: str | None) -> Callable:
-        func._is_modal = True
-        func._modal_id = custom_id or func.__name__
-        func._modal_scoped = scoped
+        _f: Any = func
+        _f._is_modal = True
+        _f._modal_id = custom_id or func.__name__
+        _f._modal_scoped = scoped
         return func
 
     if callable(id_or_func):
@@ -655,18 +666,19 @@ def ai_tool(
     """
 
     def decorator(func: Callable) -> Callable:
-        func._is_ai_tool = True
-        func._ai_tool_name = func.__name__
-        func._ai_tool_description = description
-        func._ai_tool_parameters = parameters or {}
-        func._ai_tool_safety = safety
-        func._ai_tool_require_guild = require_guild
-        func._ai_tool_require_admin = require_admin
-        func._ai_tool_allowed_roles = allowed_roles or []
-        func._ai_tool_allowed_users = allowed_users or []
-        func._ai_tool_timeout_ms = timeout_ms
-        func._ai_tool_rate_limit = rate_limit
-        func._ai_tool_permissions = permissions or []
+        _f: Any = func
+        _f._is_ai_tool = True
+        _f._ai_tool_name = func.__name__
+        _f._ai_tool_description = description
+        _f._ai_tool_parameters = parameters or {}
+        _f._ai_tool_safety = safety
+        _f._ai_tool_require_guild = require_guild
+        _f._ai_tool_require_admin = require_admin
+        _f._ai_tool_allowed_roles = allowed_roles or []
+        _f._ai_tool_allowed_users = allowed_users or []
+        _f._ai_tool_timeout_ms = timeout_ms
+        _f._ai_tool_rate_limit = rate_limit
+        _f._ai_tool_permissions = permissions or []
         return func
 
     return decorator
@@ -692,8 +704,9 @@ def subscribe(event: str) -> Callable:
         raise ValueError("Event name must be a non-empty string")
 
     def decorator(func: Callable) -> Callable:
-        func._is_subscription = True
-        func._subscription_event = event
+        _f: Any = func
+        _f._is_subscription = True
+        _f._subscription_event = event
         return func
 
     return decorator
