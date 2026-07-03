@@ -66,7 +66,7 @@ class AutoRolePlugin(Plugin):
             return
         if delay > 0:
             await asyncio.sleep(delay)
-        roles = [guild.get_role(rid) for rid in role_ids if guild.get_role(rid) is not None]
+        roles = [role for rid in role_ids if (role := guild.get_role(rid)) is not None]
         if roles:
             try:
                 await member.add_roles(*roles, reason="AutoRolePlugin")
