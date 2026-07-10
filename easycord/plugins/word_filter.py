@@ -143,7 +143,7 @@ class WordFilterPlugin(Plugin):
         word_list = "\n".join(f"• {w}" for w in words)
         await ctx.respond(f"**Blocked words:**\n{word_list}", ephemeral=True)
 
-    @slash(description="Set the filter action: 'delete', 'warn', or 'both'.", permissions=["manage_guild"])
+    @slash(description="Set the filter action: 'delete', 'warn', or 'both'.", permissions=["manage_guild"], bot_permissions=["manage_messages"])
     async def filter_action(self, ctx: "Context", action: str) -> None:
         if action not in ("delete", "warn", "both"):
             await ctx.respond("Action must be 'delete', 'warn', or 'both'.", ephemeral=True)

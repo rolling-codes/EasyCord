@@ -259,7 +259,7 @@ class StarboardPlugin(Plugin):
 
     # ── Slash commands ────────────────────────────────────────
 
-    @slash(description="Set the channel for starboard messages.", permissions=["manage_guild"], guild_only=True)
+    @slash(description="Set the channel for starboard messages.", permissions=["manage_guild"], guild_only=True, bot_permissions=["send_messages"])
     async def starboard_channel(self, ctx: Context, channel: discord.TextChannel) -> None:
         assert ctx.guild is not None  # guaranteed by guild_only=True
         await self._update_config(ctx.guild.id, channel_id=channel.id)

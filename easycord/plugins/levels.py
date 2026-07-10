@@ -1,11 +1,14 @@
 """Per-guild XP leveling and named rank system for bots."""
 from __future__ import annotations
 
+import logging
 import time
 from collections import defaultdict
 from typing import Any
 
 import discord
+
+logger = logging.getLogger(__name__)
 
 from easycord import Plugin, slash, on
 from ._levels_data import (
@@ -188,8 +191,12 @@ class LevelsPlugin(Plugin):
         try:
             await member.add_roles(role, reason=f"Reached level {level}")
             return role
-        except discord.HTTPException:
-            return None  # bot may lack manage_roles or the role may be above its top role
+        except discord.HTTPException as exc:
+            logger.warning(
+                "Failed to grant level %s role reward to %s in guild %s: %s",
+                level, member.id, guild.id, exc,
+            )
+            return None
 
     # ── Event: award XP on message ────────────────────────────
 

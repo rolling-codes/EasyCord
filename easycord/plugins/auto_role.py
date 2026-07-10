@@ -66,12 +66,15 @@ class AutoRolePlugin(Plugin):
             return
         if delay > 0:
             await asyncio.sleep(delay)
-        roles = [guild.get_role(rid) for rid in role_ids if guild.get_role(rid) is not None]
+        roles = [role for rid in role_ids if (role := guild.get_role(rid)) is not None]
         if roles:
             try:
                 await member.add_roles(*roles, reason="AutoRolePlugin")
-            except discord.Forbidden:
-                logger.warning("Missing permission to assign roles in guild %s", guild.id)
+            except discord.HTTPException as exc:
+                logger.warning(
+                    "Failed to assign auto-roles in guild %s (member %s may have left or bot lacks permissions): %s",
+                    guild.id, member.id, exc,
+                )
 
     # ── Slash commands ────────────────────────────────────────
 

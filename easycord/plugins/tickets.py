@@ -309,7 +309,7 @@ class TicketsPlugin(Plugin):
             ephemeral=True,
         )
 
-    @slash(description="Open a new support ticket.", guild_only=True)
+    @slash(description="Open a new support ticket.", guild_only=True, bot_permissions=["create_private_threads"])
     async def ticket_open(self, ctx: Context, topic: str = "") -> None:
         """Create a private thread for your support request."""
         if ctx.guild is None:
@@ -381,7 +381,7 @@ class TicketsPlugin(Plugin):
             f"Your ticket has been opened: {thread.mention}", ephemeral=True
         )
 
-    @slash(description="Close the current ticket thread.", guild_only=True)
+    @slash(description="Close the current ticket thread.", guild_only=True, bot_permissions=["manage_threads"])
     async def ticket_close(self, ctx: Context, reason: str = "") -> None:
         """Close this support ticket and post a transcript to the log channel."""
         if ctx.guild is None:
@@ -462,7 +462,7 @@ class TicketsPlugin(Plugin):
 
         await ctx.respond(f"Ticket claimed by {ctx.user.mention}.")
 
-    @slash(description="Add a user to this ticket thread.", guild_only=True)
+    @slash(description="Add a user to this ticket thread.", guild_only=True, bot_permissions=["manage_threads"])
     async def ticket_add(self, ctx: Context, user: discord.Member) -> None:
         """Add a member to the current ticket thread (support team only)."""
         if ctx.guild is None:
