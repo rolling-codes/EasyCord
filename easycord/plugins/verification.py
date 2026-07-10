@@ -225,7 +225,7 @@ class VerificationPlugin(Plugin):
                     panel_message_id,
                 )
 
-    @slash(description="Set the verified role and channel for the verification panel.", guild_only=True, bot_permissions=["manage_roles", "send_messages"])
+    @slash(description="Set the verified role and channel for the verification panel.", guild_only=True)
     async def verification_setup(
         self,
         ctx: Context,
@@ -262,7 +262,7 @@ class VerificationPlugin(Plugin):
             ephemeral=True,
         )
 
-    @slash(description="Post the verification panel in the configured channel.", guild_only=True, bot_permissions=["send_messages"])
+    @slash(description="Post the verification panel in the configured channel.", guild_only=True)
     async def verification_panel(self, ctx: Context) -> None:
         """Post a persistent embed with a Verify button in the configured channel."""
         if ctx.guild is None:

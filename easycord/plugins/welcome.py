@@ -115,7 +115,7 @@ class WelcomePlugin(Plugin):
 
     # ── Slash commands ────────────────────────────────────────
 
-    @slash(description="Set the channel for welcome messages.", permissions=["manage_guild"], bot_permissions=["send_messages"])
+    @slash(description="Set the channel for welcome messages.", permissions=["manage_guild"])
     async def set_welcome_channel(self, ctx, channel: discord.TextChannel) -> None:
         guild = require_guild(ctx)
         if guild is None:
@@ -139,7 +139,7 @@ class WelcomePlugin(Plugin):
         self._update(guild.id, goodbye_channel=channel.id)
         await ctx.respond(f"Goodbye messages will be posted in {channel.mention}.", ephemeral=True)
 
-    @slash(description="Assign a role automatically when a member joins.", permissions=["manage_guild"], bot_permissions=["manage_roles"])
+    @slash(description="Assign a role automatically when a member joins.", permissions=["manage_guild"])
     async def set_auto_role(self, ctx, role: discord.Role) -> None:
         guild = require_guild(ctx)
         if guild is None:
