@@ -2,6 +2,20 @@
 
 This file provides guidance to Codex when working with code in this repository.
 
+# Hard Rule — Graphify is the Knowledge Base
+
+When any question about EasyCord's architecture, module relationships, data flows, or cross-cutting patterns arises, query the knowledge graph **before** reading source files manually.
+
+Graph location: `graphify-out/graph.json` (relative to repo root)
+
+```text
+/graphify query "<question>"
+/graphify path "NodeA" "NodeB"
+/graphify explain "NodeName"
+```
+
+The graph is already built. Do not rebuild it unless explicitly asked. Do not read vault files at `C:\Users\Tom\Desktop\Wiki` — that system is deprecated.
+
 ## Commands
 
 ```bash
