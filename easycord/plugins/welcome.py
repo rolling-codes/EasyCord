@@ -92,7 +92,10 @@ class WelcomePlugin(Plugin):
         embed = discord.Embed(description=text, color=discord.Color.green())
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.set_footer(text=f"Member #{member.guild.member_count}")
-        await channel.send(embed=embed)
+        try:
+            await channel.send(embed=embed)
+        except discord.HTTPException:
+            pass  # bot may lack send permission in the configured welcome channel
 
     @on("member_remove")
     async def _on_member_remove(self, member: discord.Member) -> None:
@@ -111,7 +114,10 @@ class WelcomePlugin(Plugin):
         )
         text = format_template(template, user=str(member), server=member.guild.name)
         embed = discord.Embed(description=text, color=discord.Color.red())
-        await channel.send(embed=embed)
+        try:
+            await channel.send(embed=embed)
+        except discord.HTTPException:
+            pass  # bot may lack send permission in the configured goodbye channel
 
     # ── Slash commands ────────────────────────────────────────
 

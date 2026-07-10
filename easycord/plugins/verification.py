@@ -296,7 +296,26 @@ class VerificationPlugin(Plugin):
         question: str | None = data.get("question")
         embed = _build_panel_embed(question)
         view = _VerifyView(self, guild_id)
-        message = await channel.send(embed=embed, view=view)
+        # The panel goes to the *configured* channel, not the invocation
+        # channel, so a decorator-level bot_permissions preflight can't cover
+        # it — the send itself must be guarded.
+        try:
+            message = await channel.send(embed=embed, view=view)
+        except discord.Forbidden:
+            logger.error("Missing permission to post verification panel in channel %s", channel_id)
+            await ctx.respond(
+                f"❌ I don't have permission to post in {channel.mention}. "
+                "Grant me Send Messages there and try again.",
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as exc:
+            logger.error("Failed to post verification panel: %s", exc)
+            await ctx.respond(
+                "❌ Failed to post the verification panel. Please try again.",
+                ephemeral=True,
+            )
+            return
         self.bot.add_view(view, message_id=message.id)
 
         async with self._guild_lock(guild_id):

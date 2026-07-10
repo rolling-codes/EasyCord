@@ -19,6 +19,30 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 | B-014 | 2026-07-09 | invite_tracker | MEDIUM | Fixed | on_load swallowed discord.Forbidden; now catches discord.HTTPException |
 | B-015 | 2026-07-09 | levels plugin | MEDIUM | Fixed | _grant_level_reward caught Forbidden only; HTTPException could escape |
 | B-016 | 2026-07-09 | auto_role plugin | MEDIUM | Fixed | add_roles after asyncio.sleep had no exception handler |
+| B-021 | 2026-07-10 | verification, welcome | MEDIUM | Fixed | Unguarded `channel.send` in `verification_panel` (surfaced by dropping bot_permissions preflight, PR #78 review) and in welcome/goodbye event handlers — Forbidden escaped the command/dispatcher |
+
+---
+
+## B-021 — Unguarded sends in verification_panel and welcome event handlers
+- **Where:** `easycord/plugins/verification.py` `verification_panel` (panel send to the
+  *configured* channel); `easycord/plugins/welcome.py` `_on_member_join` welcome send and
+  `_on_member_remove` goodbye send.
+- **Symptom:** if the bot lacks Send Messages in the configured channel,
+  `verification_panel` raised `discord.Forbidden` out of the slash command (surfaced by
+  Codex review on PR #78 after the bot_permissions preflight was dropped), and the
+  welcome/goodbye sends raised into the event dispatcher.
+- **Root cause:** the dropped `bot_permissions=["send_messages"]` preflight checked the
+  *invocation* channel, so it never actually covered these sends — the target is a
+  *configured* channel. Removing it exposed that the sends themselves were unguarded,
+  same event-path class as B-014/B-015/B-016.
+- **Fix:** `verification_panel` wraps the send in Forbidden/HTTPException handlers with
+  ephemeral error responses (nothing persisted on failure); welcome/goodbye sends get
+  `except discord.HTTPException: pass`, matching the auto-role guard above them.
+- **Tests:** `test_verification.py::test_panel_send_forbidden_responds_ephemeral_error`,
+  `test_plugin_commands.py::test_welcome_send_failure_does_not_escape`.
+- **Lesson:** decorator-level `bot_permissions` can only validate the invocation channel.
+  Any send to a channel taken from config must carry its own Forbidden/HTTPException
+  guard, whether the decorator preflight exists or not.
 
 ---
 
