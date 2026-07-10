@@ -300,3 +300,23 @@ class TestWelcomePluginConfig:
         except discord.HTTPException:
             pytest.fail("welcome send failure escaped _on_member_join")
         channel.send.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_goodbye_send_failure_does_not_escape(self, plugin) -> None:
+        """A Forbidden goodbye-message send must not raise out of the
+        member_remove event handler."""
+        plugin._write_config(1, {"goodbye_channel": 999})
+
+        channel = MagicMock(spec=discord.TextChannel)
+        channel.send = AsyncMock(side_effect=discord.Forbidden(MagicMock(), "no perms"))
+        member = MagicMock(spec=discord.Member)
+        member.guild = MagicMock()
+        member.guild.id = 1
+        member.guild.name = "Guild"
+        member.guild.get_channel = MagicMock(return_value=channel)
+
+        try:
+            await plugin._on_member_remove(member)
+        except discord.HTTPException:
+            pytest.fail("goodbye send failure escaped _on_member_remove")
+        channel.send.assert_awaited_once()
