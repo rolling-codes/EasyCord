@@ -44,7 +44,7 @@ def _orchestrator_text(text: str) -> MagicMock:
     return orch
 
 
-def _make_plugin(tmp_path, orchestrator: MagicMock) -> AIModeratorPlugin:
+def _make_plugin(tmp_path, orchestrator: MagicMock | None) -> AIModeratorPlugin:
     """Construct an AIModeratorPlugin with a temp config store (no real I/O)."""
     p = AIModeratorPlugin.__new__(AIModeratorPlugin)
     Plugin.__init__(p)
