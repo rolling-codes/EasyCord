@@ -63,18 +63,17 @@ class EventBus:
         if event not in self._listeners:
             return
 
-        tasks = []
         for callback in list(self._listeners.get(event, [])):
             try:
                 if inspect.iscoroutinefunction(callback):
-                    tasks.append(callback(**payload))
+                    await callback(**payload)
                 else:
                     callback(**payload)
             except Exception as e:
-                logger.error("Error in EventBus subscriber for event %r: %s", event, e, exc_info=True)
-
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for res in results:
-                if isinstance(res, Exception):
-                    logger.error("Error in EventBus async subscriber for event %r: %s", event, res, exc_info=res)
+                logger.error(
+                    "Error in EventBus subscriber %r for event %r: %s",
+                    getattr(callback, "__qualname__", repr(callback)),
+                    event,
+                    e,
+                    exc_info=True,
+                )

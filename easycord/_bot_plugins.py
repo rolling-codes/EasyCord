@@ -153,14 +153,20 @@ class _PluginsMixin(_MixinBase):
                 guild = discord.Object(id=method._context_menu_guild) if method._context_menu_guild else None
                 try:
                     self.tree.remove_command(method._context_menu_name, type=discord.AppCommandType.user, guild=guild)
-                except Exception:
-                    pass  # Command not registered or already removed
+                except Exception:  # noqa: BLE001
+                    logger.debug(
+                        "Could not remove user command %r during unload",
+                        method._context_menu_name,
+                    )
             if getattr(method, "_is_message_command", False):
                 guild = discord.Object(id=method._context_menu_guild) if method._context_menu_guild else None
                 try:
                     self.tree.remove_command(method._context_menu_name, type=discord.AppCommandType.message, guild=guild)
-                except Exception:
-                    pass  # Command not registered or already removed
+                except Exception:  # noqa: BLE001
+                    logger.debug(
+                        "Could not remove message command %r during unload",
+                        method._context_menu_name,
+                    )
             if getattr(method, "_is_component", False):
                 custom_id = method._component_id
                 if getattr(method, "_component_scoped", True):

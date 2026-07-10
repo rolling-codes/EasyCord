@@ -84,15 +84,13 @@ def build_slash_callback(
         # current user/guild, so no O(n) full-dict scan happens on hot paths.
         background_tasks: set = getattr(bot, "_background_tasks", set())
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = None
-        if loop is not None and loop.is_running():
-            sweep_task = loop.create_task(
+            sweep_task = asyncio.get_running_loop().create_task(
                 _cooldown_sweep_loop(cooldown_last_used, cooldown)
             )
             background_tasks.add(sweep_task)
             sweep_task.add_done_callback(background_tasks.discard)
+        except RuntimeError:
+            pass  # no running event loop; sweep scheduled at first dispatch instead
 
     effective_permissions = list(permissions or [])
     if require_admin and "administrator" not in effective_permissions:

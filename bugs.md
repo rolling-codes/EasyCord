@@ -15,6 +15,10 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 | B-008 | 2026-06-30 | openclaw plugin | LOW | Fixed (v5.51.0) | Optional member access: asserts/guards added in the v5.51.0 release commit; pyright clean 2026-07-02 — see the Release v5.51.0 section |
 | B-018 | 2026-07-02 | starboard plugin | HIGH | Fixed | `cfg.get("enabled")` without default read a missing key as disabled — starboard dead after `/starboard_channel` alone |
 | B-019 | 2026-07-02 | plugins (pattern) | MEDIUM | Closed (verified benign) | No-default `cfg.get("enabled")` in auto_responder, economy, member_logging, role_persistence, ai_moderator verified benign against each plugin's config-creation path — see B-019 section |
+| B-013 | 2026-07-09 | auto_responder | HIGH | Fixed | TOCTOU race in trigger add/remove; also cfg.get("enabled") without default |
+| B-014 | 2026-07-09 | invite_tracker | MEDIUM | Fixed | on_load swallowed discord.Forbidden; now catches discord.HTTPException |
+| B-015 | 2026-07-09 | levels plugin | MEDIUM | Fixed | _grant_level_reward caught Forbidden only; HTTPException could escape |
+| B-016 | 2026-07-09 | auto_role plugin | MEDIUM | Fixed | add_roles after asyncio.sleep had no exception handler |
 
 ---
 
@@ -223,10 +227,28 @@ Added per-guild `asyncio.Lock` to TagsStore._get_lock().
 Made set() and delete() async with lock protection.
 Added atomic delete_if_authorized() method to prevent TOCTOU race in authorization check.
 
-## Deferred to v5.52.0
-- B-013: auto_responder.py TOCTOU (needs mutate refactor)
-- B-014: on_ready exception logging (4 plugins)
-- B-015: levels.py HTTPException narrowing
-- B-016: auto_role.py exception handling after sleep
+## Fixed in v5.52.0
+
+### B-013 — auto_responder.py TOCTOU race (FIXED)
+Replaced `_add_trigger` / `_add_regex_trigger` / `_remove_trigger` load→modify→save
+with `ServerConfigStore.mutate()`. Also fixed the sibling `cfg.get("enabled")` bug
+(same root cause as B-018/B-019): changed to `cfg.get("enabled", True)` in `_on_message`
+so a section created by a trigger-add before the defaults path runs doesn't silently
+disable the plugin. Regression tests: 22 tests in `tests/test_auto_responder.py`.
+
+### B-014 — invite_tracker.py on_load network I/O swallowed (FIXED)
+`_refresh_invite_cache` now catches `discord.HTTPException` (parent of `discord.Forbidden`)
+instead of `discord.Forbidden` alone, and logs the failure with `logger.warning`.
+
+### B-015 — levels.py HTTPException not narrowed (FIXED)
+`_grant_level_reward` now catches `discord.HTTPException` (covers `discord.Forbidden` as
+a subclass) and logs a `logger.warning` instead of letting the exception escape.
+
+### B-016 — auto_role.py exception after sleep (FIXED)
+Post-sleep `member.add_roles()` call now caught under `discord.HTTPException` with a
+`logger.warning`. Walrus-operator refactor also applied (`role for rid ... if (role := ...) is not None`)
+to correctly narrow the type and avoid double lookups.
+
+## Deferred
 - LocalizationManager thread-safety (metrics atomicity)
 - Hot-reload command dispatch race (architectural)

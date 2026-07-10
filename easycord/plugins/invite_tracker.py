@@ -66,8 +66,8 @@ class InviteTrackerPlugin(Plugin):
             invites = await guild.invites()
             cache = {invite.code: (invite.uses or 0) for invite in invites}
             self._invite_cache[guild_id] = cache
-        except discord.Forbidden:
-            logger.warning("No permission to view invites in guild %s", guild_id)
+        except discord.HTTPException as exc:
+            logger.warning("Could not fetch invites for guild %s: %s", guild_id, exc)
 
     async def _log_invite(self, member: discord.Member, invite_code: str | None) -> None:
         """Log member join via invite."""

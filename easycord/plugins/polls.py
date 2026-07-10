@@ -278,6 +278,7 @@ class PollsPlugin(Plugin):
     @slash(
         description="Create a button-based poll. 2–5 options, optional duration in seconds.",
         guild_only=True,
+        bot_permissions=["send_messages"],
     )
     async def poll(
         self,

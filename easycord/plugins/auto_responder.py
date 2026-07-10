@@ -42,9 +42,9 @@ class AutoResponderPlugin(Plugin):
         /responder_remove <keyword>  — Remove trigger
     """
 
-    def __init__(self):
+    def __init__(self, *, store_path: str = ".easycord/auto-responder") -> None:
         super().__init__()
-        self.config = PluginConfigManager(".easycord/auto-responder")
+        self.config = PluginConfigManager(store_path)
 
     async def on_load(self) -> None:
         """Initialize auto-responder plugin."""
@@ -65,7 +65,7 @@ class AutoResponderPlugin(Plugin):
             return
 
         cfg = await self._get_config(message.guild.id)
-        if not cfg.get("enabled"):
+        if not cfg.get("enabled", True):
             return
 
         content_lower = message.content.lower()
@@ -94,10 +94,12 @@ class AutoResponderPlugin(Plugin):
 
     async def _add_trigger(self, guild_id: int, keyword: str, response: str) -> None:
         """Add literal keyword trigger."""
+        def _apply(cfg) -> None:
+            section = cfg.get_other("auto_responder") or {}
+            section.setdefault("triggers", {})[keyword] = response
+            cfg.set_other("auto_responder", section)
 
-        cfg = await self._get_config(guild_id)
-        cfg["triggers"][keyword] = response
-        await self._update_config(guild_id, triggers=cfg["triggers"])
+        await self.config.store.mutate(guild_id, _apply)
 
     async def _add_regex_trigger(self, guild_id: int, pattern: str, response: str) -> None:
         """Add regex trigger (validate pattern first)."""
@@ -106,26 +108,28 @@ class AutoResponderPlugin(Plugin):
         except re.error as e:
             raise ValueError(f"Invalid regex: {e}") from e
 
+        def _apply(cfg) -> None:
+            section = cfg.get_other("auto_responder") or {}
+            section.setdefault("regex_triggers", {})[pattern] = response
+            cfg.set_other("auto_responder", section)
 
-        cfg = await self._get_config(guild_id)
-        cfg["regex_triggers"][pattern] = response
-        await self._update_config(guild_id, regex_triggers=cfg["regex_triggers"])
+        await self.config.store.mutate(guild_id, _apply)
 
     async def _remove_trigger(self, guild_id: int, keyword: str) -> bool:
         """Remove trigger. Return True if found."""
+        def _apply(cfg) -> bool:
+            section = cfg.get_other("auto_responder") or {}
+            triggers = section.get("triggers", {})
+            regex_triggers = section.get("regex_triggers", {})
+            found = False
+            if keyword in triggers:
+                del triggers[keyword]
+                found = True
+            elif keyword in regex_triggers:
+                del regex_triggers[keyword]
+                found = True
+            if found:
+                cfg.set_other("auto_responder", section)
+            return found
 
-        cfg = await self._get_config(guild_id)
-        triggers = cfg.get("triggers", {})
-        regex_triggers = cfg.get("regex_triggers", {})
-
-        found = False
-        if keyword in triggers:
-            del triggers[keyword]
-            found = True
-        elif keyword in regex_triggers:
-            del regex_triggers[keyword]
-            found = True
-
-        if found:
-            await self._update_config(guild_id, triggers=triggers, regex_triggers=regex_triggers)
-        return found
+        return await self.config.store.mutate(guild_id, _apply)
