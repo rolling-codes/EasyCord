@@ -12,8 +12,7 @@ The following versions of EasyCord are currently being supported with active sec
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability, please report it via our private disclosure pipeline by emailing **security@example.com**. 
-We aim to acknowledge all reports within **48 hours**. Please do not disclose the vulnerability publicly until we have had a chance to investigate and release a patch.
+Contact meWe aim to acknowledge all reports within **48 hours**. Please do not disclose the vulnerability publicly until we have had a chance to investigate and release a patch.
 
 ## Scope & Vulnerability Taxonomy
 
