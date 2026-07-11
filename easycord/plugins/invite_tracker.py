@@ -142,3 +142,8 @@ class InviteTrackerPlugin(Plugin):
 
         if invite.guild.id in self._invite_cache and invite.code in self._invite_cache[invite.guild.id]:
             del self._invite_cache[invite.guild.id][invite.code]
+
+    @on("guild_remove")
+    async def _on_guild_remove(self, guild: discord.Guild) -> None:
+        """Prune the invite cache when the bot leaves a guild (B-007)."""
+        self._invite_cache.pop(guild.id, None)
