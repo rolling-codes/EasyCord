@@ -57,7 +57,9 @@ class MemberLoggingPlugin(Plugin):
         cfg = await self._get_config(guild.id)
         channel_id = cfg.get("log_channel")
 
-        if not channel_id or not cfg.get("enabled"):
+        # A stored section can exist without the "enabled" key (manual config
+        # edit / partial update); absence must not read as disabled (B-020).
+        if not channel_id or not cfg.get("enabled", True):
             return
 
         channel = guild.get_channel(channel_id)

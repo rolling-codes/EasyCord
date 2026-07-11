@@ -120,6 +120,15 @@ class TestEconomyPlugin:
         assert balance == 0
 
     @pytest.mark.asyncio
+    async def test_on_message_awards_when_enabled_key_missing(self, plugin) -> None:
+        """Issue #74 / B-020: a stored section missing the "enabled" key (manual
+        config-file edit or partial update) must not silently disable rewards."""
+        await plugin.config.update(100, "economy", message_reward=1)
+        msg = _make_message(guild_id=100, author_id=1, content="hello")
+        await plugin._on_message(msg)
+        assert await plugin._get_balance(100, 1) == 1
+
+    @pytest.mark.asyncio
     async def test_on_message_ignores_empty_content(self, plugin) -> None:
         msg = _make_message(content="")
         with patch.object(plugin, "_get_config", new=AsyncMock(return_value=ECONOMY_DEFAULTS)):

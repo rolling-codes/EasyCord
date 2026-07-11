@@ -216,7 +216,9 @@ class EconomyPlugin(Plugin):
             return
 
         cfg = await self._get_config(message.guild.id)
-        if not cfg.get("enabled"):
+        # A stored section can exist without the "enabled" key (manual config
+        # edit / partial update); absence must not read as disabled (B-020).
+        if not cfg.get("enabled", True):
             return
 
         reward = cfg.get("message_reward", 1)

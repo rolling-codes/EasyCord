@@ -14,11 +14,12 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 | B-007 | 2026-06-30 | invite_tracker | LOW | Won't fix (noted) | `_invite_cache` not pruned on guild-remove (bounded by guild count) |
 | B-008 | 2026-06-30 | openclaw plugin | LOW | Fixed (v5.51.0) | Optional member access: asserts/guards added in the v5.51.0 release commit; pyright clean 2026-07-02 — see the Release v5.51.0 section |
 | B-018 | 2026-07-02 | starboard plugin | HIGH | Fixed | `cfg.get("enabled")` without default read a missing key as disabled — starboard dead after `/starboard_channel` alone |
-| B-019 | 2026-07-02 | plugins (pattern) | MEDIUM | Closed (verified benign) | No-default `cfg.get("enabled")` in auto_responder, economy, member_logging, role_persistence, ai_moderator verified benign against each plugin's config-creation path — see B-019 section |
+| B-019 | 2026-07-02 | plugins (pattern) | MEDIUM | Superseded by B-020 | No-default `cfg.get("enabled")` sweep closed as benign against internal config-creation paths only; B-020 reopened it for the manual-edit / partial-update threat model |
 | B-013 | 2026-07-09 | auto_responder | HIGH | Fixed | TOCTOU race in trigger add/remove; also cfg.get("enabled") without default |
 | B-014 | 2026-07-09 | invite_tracker | MEDIUM | Fixed | on_load swallowed discord.Forbidden; now catches discord.HTTPException |
 | B-015 | 2026-07-09 | levels plugin | MEDIUM | Fixed | _grant_level_reward caught Forbidden only; HTTPException could escape |
 | B-016 | 2026-07-09 | auto_role plugin | MEDIUM | Fixed | add_roles after asyncio.sleep had no exception handler |
+| B-020 | 2026-07-10 | plugins (pattern) | MEDIUM | Fixed | Issue #74: no-default `cfg.get("enabled")` in economy, role_persistence, member_logging silently disabled features when the key was missing (manual config edit / partial update) — supersedes B-019's benign verdict |
 | B-021 | 2026-07-10 | verification, welcome | MEDIUM | Fixed | Unguarded `channel.send` in `verification_panel` (surfaced by dropping bot_permissions preflight, PR #78 review) and in welcome/goodbye event handlers — Forbidden escaped the command/dispatcher |
 
 ---
@@ -48,6 +49,32 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 
 ---
 
+## B-020 — no-default `cfg.get("enabled")` reopened for manual config edits (issue #74)
+- **Where:** `easycord/plugins/economy.py:219` (`_on_message` reward gate),
+  `easycord/plugins/role_persistence.py:53,79` (both member handlers),
+  `easycord/plugins/member_logging.py:60` (`_log_to_channel` gate).
+- **Symptom:** a config section that exists without the `enabled` key reads as
+  disabled — the plugin silently stops working with no log output.
+- **Root cause:** same as B-018 — `cfg.get("enabled")` without a default. B-019
+  closed these sites as benign because no *internal* code path creates a partial
+  section, but that verdict didn't cover an admin editing the config JSON directly
+  or an external tool doing a partial update (issue #74's threat model). Any
+  existing non-empty section bypasses the `_get_config()` defaults path.
+- **Fix:** `cfg.get("enabled", True)` at all four sites, matching each plugin's
+  `_DEFAULTS`. `ai_moderator.py:183,237` made *explicit* as
+  `cfg.get("enabled", False)` — moderation is opt-in by design, so a missing key
+  correctly reads as disabled there (no behavior change). `auto_responder.py:68`
+  was already fixed by B-013.
+- **Tests:** missing-`enabled`-key regression tests added in
+  `test_plugin_logic.py`, `test_role_persistence.py`, `test_plugins_new.py`, and
+  `test_ai_moderator.py` (the last pins the intentional opt-in default).
+- **Lesson:** B-019's two-condition rule (truthy default + internal partial-write
+  path) under-scoped the threat model. The config file is user-editable state:
+  every `enabled` read must carry an explicit default regardless of internal
+  write paths. B-018's lesson stands unqualified.
+
+---
+
 ## B-018 — Starboard silently disabled after configuring only the channel
 - **Where:** `easycord/plugins/starboard.py` — `_on_reaction_add`, `_on_reaction_remove`,
   `starboard_config` display.
@@ -69,7 +96,7 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 
 ---
 
-## B-019 — no-default `cfg.get("enabled")` sweep (CLOSED — verified benign)
+## B-019 — no-default `cfg.get("enabled")` sweep (SUPERSEDED by B-020)
 - **Where:** the five plugins flagged after B-018: `auto_responder.py:68`,
   `economy.py:219`, `member_logging.py:60`, `role_persistence.py:53,79`,
   `ai_moderator.py:183,237`.
@@ -90,6 +117,9 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
   the key AND (b) an `update()`-style path can create the section before the defaults
   path runs. Check both conditions before filing sweep items — presence of the
   no-default read alone is not sufficient.
+- **Superseded (2026-07-10):** issue #74 pointed out this verification only covered
+  internal code paths — a manual config-file edit or partial external update can
+  strip `enabled` from an existing section. Reopened and fixed as B-020.
 
 ---
 

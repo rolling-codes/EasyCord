@@ -44,7 +44,7 @@ def _orchestrator_text(text: str) -> MagicMock:
     return orch
 
 
-def _make_plugin(tmp_path, orchestrator: MagicMock) -> AIModeratorPlugin:
+def _make_plugin(tmp_path, orchestrator: MagicMock | None) -> AIModeratorPlugin:
     """Construct an AIModeratorPlugin with a temp config store (no real I/O)."""
     p = AIModeratorPlugin.__new__(AIModeratorPlugin)
     Plugin.__init__(p)
@@ -194,6 +194,22 @@ class TestNoActionPaths:
         orch = _orchestrator("delete", 0.99)
         plugin = _make_plugin(tmp_path, orch)
         await plugin._update_config(GUILD, enabled=False, action_level="auto_delete")
+        msg = _make_message()
+
+        await plugin._on_message(msg)
+
+        orch.run.assert_not_called()
+        msg.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_missing_enabled_key_keeps_moderation_off(self, tmp_path) -> None:
+        """Issue #74 / B-020 counterpart: _DEFAULTS has enabled=False (opt-in
+        moderation), so a config section missing the "enabled" key must keep
+        moderation OFF — unlike the enabled-by-default plugins."""
+        orch = _orchestrator("delete", 0.99)
+        plugin = _make_plugin(tmp_path, orch)
+        # Partial update creates the section without "enabled".
+        await plugin._update_config(GUILD, action_level="auto_delete")
         msg = _make_message()
 
         await plugin._on_message(msg)

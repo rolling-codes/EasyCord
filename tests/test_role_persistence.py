@@ -131,6 +131,25 @@ async def test_successful_restore_clears_record(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_missing_enabled_key_still_saves_and_restores(tmp_path) -> None:
+    """Issue #74 / B-020: a config section that exists without the "enabled" key
+    (manual config-file edit or partial update) must not silently disable the
+    plugin — the missing key falls back to the _DEFAULTS value (True)."""
+    plugin = _make_plugin(tmp_path)
+    # Simulate a manually-edited section: present, but without "enabled".
+    await plugin.config.update(GUILD, "role_persistence", edited_by_hand=True)
+
+    role = _role(100)
+    guild = _guild({100: role})
+    await plugin._on_member_remove(_member(guild, roles=[role]))
+    assert (await _saved_ids(plugin)) == {str(MEMBER): [100]}
+
+    rejoin = _member(guild)
+    await plugin._on_member_join(rejoin)
+    rejoin.add_roles.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_all_saved_roles_deleted_clears_stale_entry(tmp_path) -> None:
     plugin = _make_plugin(tmp_path)
     role = _role(100)
