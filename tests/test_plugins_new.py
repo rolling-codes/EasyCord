@@ -694,6 +694,22 @@ class TestMemberLoggingPlugin:
         guild.get_channel.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_log_to_channel_sends_when_enabled_key_missing(self, tmp_path) -> None:
+        """Issue #74 / B-020: a section with log_channel set but no "enabled" key
+        (manual config-file edit or partial update) must still log — the missing
+        key falls back to the _DEFAULTS value (True)."""
+        p = self._make_plugin(tmp_path)
+        await p.config.update(100, "member_logging", log_channel=12345)
+        channel = MagicMock(spec=discord.TextChannel)
+        channel.send = AsyncMock()
+        guild = MagicMock(spec=discord.Guild)
+        guild.id = 100
+        guild.get_channel.return_value = channel
+        embed = MagicMock(spec=discord.Embed)
+        await p._log_to_channel(guild, embed)
+        channel.send.assert_awaited_once_with(embed=embed)
+
+    @pytest.mark.asyncio
     async def test_on_member_update_no_changes_no_log(self, tmp_path) -> None:
         """_on_member_update does not log when nothing changed."""
         p = self._make_plugin(tmp_path)

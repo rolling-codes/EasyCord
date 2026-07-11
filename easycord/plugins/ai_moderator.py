@@ -180,7 +180,9 @@ class AIModeratorPlugin(Plugin):
             return
 
         cfg = await self._get_config(message.guild.id)
-        if not cfg.get("enabled"):
+        # Moderation is opt-in: _DEFAULTS has enabled=False, so a missing key
+        # correctly reads as disabled. Explicit default per B-020 convention.
+        if not cfg.get("enabled", False):
             return
 
         # Analyze message
@@ -234,7 +236,7 @@ class AIModeratorPlugin(Plugin):
         assert ctx.guild is not None
         cfg = await self._get_config(ctx.guild.id)
         embed = discord.Embed(title="Moderation Config", color=discord.Color.blurple())
-        embed.add_field(name="Enabled", value=str(cfg.get("enabled")), inline=True)
+        embed.add_field(name="Enabled", value=str(cfg.get("enabled", False)), inline=True)
         embed.add_field(name="Action Level", value=cfg.get("action_level", "unknown"), inline=True)
         embed.add_field(name="Confidence Threshold", value=f"{cfg.get('confidence_threshold', 0.85)*100:.0f}%", inline=True)
         embed.add_field(name="Rules", value=", ".join(cfg.get("rules", [])), inline=False)

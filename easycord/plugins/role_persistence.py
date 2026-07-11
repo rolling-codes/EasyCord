@@ -50,7 +50,9 @@ class RolePersistencePlugin(Plugin):
     async def _on_member_remove(self, member: discord.Member) -> None:
         """Save member's roles when they leave."""
         cfg = await self._get_config(member.guild.id)
-        if not cfg.get("enabled"):
+        # A stored section can exist without the "enabled" key (manual config
+        # edit / partial update); absence must not read as disabled (B-020).
+        if not cfg.get("enabled", True):
             return
 
         if member.bot:
@@ -76,7 +78,8 @@ class RolePersistencePlugin(Plugin):
     async def _on_member_join(self, member: discord.Member) -> None:
         """Restore member's previous roles on rejoin."""
         cfg = await self._get_config(member.guild.id)
-        if not cfg.get("enabled"):
+        # Absence of "enabled" must not read as disabled (B-020).
+        if not cfg.get("enabled", True):
             return
 
         if member.bot:
