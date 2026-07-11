@@ -4,11 +4,10 @@ import time
 import warnings
 
 import easycord.bot as bot_module
-from easycord.bot import Bot
 
 
-def _make_bot() -> Bot:
-    return Bot(auto_sync=False, db_backend="memory")
+def _make_bot() -> bot_module.Bot:
+    return bot_module.Bot(auto_sync=False, db_backend="memory")
 
 
 def test_prune_removes_expired_and_keeps_valid() -> None:
@@ -189,3 +188,24 @@ def test_prune_no_eviction_at_or_below_cap(monkeypatch) -> None:
     bot._prune_cooldown_registries(now)
 
     assert set(cooldown_dict) == {"y", "w"}
+
+
+async def test_remove_plugin_prunes_cooldown_registry() -> None:
+    """Cooldown registry entry removed from bot._cooldown_registries on plugin unload."""
+    from easycord import Plugin
+    from easycord.decorators import slash as slash_decorator
+
+    class _CoolPlugin(Plugin):
+        @slash_decorator(description="test cooldown cmd", cooldown=5.0)
+        async def cool_cmd(self, ctx):
+            await ctx.respond("ok")
+
+    bot = _make_bot()
+    plugin = _CoolPlugin()
+    bot.add_plugin(plugin)
+    assert len(bot._cooldown_registries) == 1
+
+    await bot.remove_plugin(plugin)
+    assert len(bot._cooldown_registries) == 0
+
+    await bot.close()

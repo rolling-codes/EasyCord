@@ -32,6 +32,7 @@ def build_slash_callback(
     sig = inspect.signature(func)
     user_params = list(sig.parameters.values())[1:]
     cooldown_last_used: dict[Any, list[float]] = {}
+    _registry_entry: tuple | None = None
     if cooldown is not None:
         if cooldown_rate < 1:
             raise ValueError("cooldown_rate must be at least 1")
@@ -40,7 +41,8 @@ def build_slash_callback(
         # (Bot._prune_cooldown_registries: expiry + _COOLDOWN_MAX_ENTRIES cap).
         # No per-callback sweep task is scheduled.
         if hasattr(bot, "_cooldown_registries"):
-            bot._cooldown_registries.append((cooldown_last_used, cooldown))
+            _registry_entry = (cooldown_last_used, cooldown)
+            bot._cooldown_registries.append(_registry_entry)
     if cooldown_bucket not in {"user", "guild", "global"}:
         raise ValueError("cooldown_bucket must be 'user', 'guild', or 'global'")
 
@@ -237,6 +239,8 @@ def build_slash_callback(
     cast(Any, callback).__signature__ = sig.replace(
         parameters=[interaction_param] + user_params
     )
+    if _registry_entry is not None:
+        cast(Any, callback)._cooldown_registry_entry = _registry_entry
     return callback
 
 
