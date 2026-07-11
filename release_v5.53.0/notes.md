@@ -41,7 +41,7 @@ No breaking changes. Drop-in upgrade from v5.52.0.
 
 ## Install
 
-```
+```bash
 pip install easycord==5.53.0
 ```
 

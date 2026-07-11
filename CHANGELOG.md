@@ -3,6 +3,7 @@
 ## EasyCord v5.53.0 - 2026-07-11
 
 ### Added
+
 - `tests/test_bot_permissions_adoption.py` — 16 regression tests pinning
   `bot_permissions` denial/allow behaviour and B-021 structural guard
   (config-setter commands must not declare `bot_permissions`)
@@ -13,6 +14,7 @@
 - `tests/test_p1_bug_sweep.py` — regression net for B-007 / B-015 / B-016
 
 ### Fixed
+
 - B-007: `InviteTrackerPlugin._invite_cache` now pruned on `guild_remove`
 - B-015: `LevelsPlugin._grant_level_reward` exception narrowed to
   `discord.HTTPException` (was `Forbidden`-only)
@@ -25,6 +27,7 @@
 - CLI scaffold collision when plugin slug matched an existing directory
 
 ### Tests
+
 Total: 1513 (was 1438 in v5.52.0)
 
 ## EasyCord v5.52.0 - 2026-07-03
