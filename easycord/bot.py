@@ -32,6 +32,12 @@ from .builtin_tools import register_builtin_tools
 
 logger = logging.getLogger("easycord")
 
+# Hard cap on bucket entries per cooldown registry. User-keyed buckets are
+# attacker-influenceable (one entry per distinct user within the window), so
+# pruning evicts the oldest buckets — smallest max(timestamps) — once a
+# registry exceeds this many keys, bounding memory even under a key flood.
+_COOLDOWN_MAX_ENTRIES = 50_000
+
 
 class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Client):
     """
@@ -431,7 +437,14 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         cleanup_task.add_done_callback(self._log_task_exception)
 
     def _prune_cooldown_registries(self, now: float) -> None:
-        """Prune expired timestamps from all cooldown registries."""
+        """Prune expired timestamps from all cooldown registries.
+
+        Two passes per registry: normal expiry (drop timestamps older than the
+        cooldown window, and keys left empty), then a hard cap — if the
+        registry still exceeds ``_COOLDOWN_MAX_ENTRIES`` keys, evict the
+        oldest buckets (smallest ``max(timestamps)``) down to the cap so a
+        flood of distinct bucket keys cannot grow memory without bound.
+        """
         for cooldown_dict, window in self._cooldown_registries:
             try:
                 for key in list(cooldown_dict.keys()):
@@ -443,6 +456,19 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
                         cooldown_dict[key] = valid
                     else:
                         cooldown_dict.pop(key, None)
+                overflow = len(cooldown_dict) - _COOLDOWN_MAX_ENTRIES
+                if overflow > 0:
+                    oldest_first = sorted(
+                        cooldown_dict.items(),
+                        key=lambda item: max(item[1], default=float("-inf")),
+                    )
+                    for key, _ in oldest_first[:overflow]:
+                        cooldown_dict.pop(key, None)
+                    logger.debug(
+                        "cooldown registry over cap (%d): evicted %d oldest bucket(s)",
+                        _COOLDOWN_MAX_ENTRIES,
+                        overflow,
+                    )
             except Exception:
                 logger.exception("Error pruning cooldown registry; skipping")
 
