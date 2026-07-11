@@ -11,6 +11,7 @@ import re
 import sys
 import textwrap
 import platform
+import warnings
 from typing import Literal, Sequence
 
 from .bot import Bot
@@ -56,8 +57,20 @@ def _module_name(name: str) -> str:
     if not lowered:
         return "plugin"
     if lowered[0].isdigit():
-        return f"plugin_{lowered}"
-    return lowered
+        lowered = f"plugin_{lowered}"
+    renamed = lowered
+    if renamed.startswith("test_"):
+        renamed = f"bot_{renamed}"
+    if renamed.endswith("_test"):
+        renamed = f"{renamed}_plugin"
+    if renamed != lowered:
+        warnings.warn(
+            f"Project name {name!r} maps to module {lowered!r}, which pytest "
+            f"would collect as a test file; renamed to {renamed!r}.",
+            UserWarning,
+            stacklevel=2,
+        )
+    return renamed
 
 
 def _load_bot(spec: str) -> Bot:
@@ -100,6 +113,7 @@ def _base_project_files(name: str) -> dict[str, str]:
 
             [tool.pytest.ini_options]
             asyncio_mode = "auto"
+            testpaths = ["tests"]
             ''',
     }
 

@@ -16,6 +16,9 @@ class EventBus:
     def subscribe(self, event: str, callback: Callable[..., Any]) -> None:
         """Subscribe a callback to a specific event.
 
+        Callbacks for the same event are invoked in registration order:
+        :meth:`publish` calls them in the order they were subscribed.
+
         Parameters
         ----------
         event:
@@ -52,6 +55,11 @@ class EventBus:
 
     async def publish(self, event: str, **payload: Any) -> None:
         """Publish an event, invoking all subscribed callbacks.
+
+        Listeners are invoked sequentially in registration order (the order
+        they were passed to :meth:`subscribe`). A raising callback is logged
+        with its ``__qualname__`` and does not stop later callbacks from
+        running.
 
         Parameters
         ----------

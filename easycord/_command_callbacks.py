@@ -1,7 +1,6 @@
 """Callback builders for Discord application commands."""
 from __future__ import annotations
 
-import asyncio
 import inspect
 import logging
 import time
@@ -10,40 +9,6 @@ from typing import Any, Callable, cast
 import discord
 
 logger = logging.getLogger("easycord")
-
-# Entries idle longer than this (seconds) are eligible for background pruning.
-_COOLDOWN_TTL = 3600.0
-# How often the background sweep runs (seconds).
-_COOLDOWN_SWEEP_INTERVAL = 600.0
-
-
-async def _cooldown_sweep_loop(
-    cooldown_last_used: dict[int, list[float]],
-    cooldown_window: float,
-) -> None:
-    """Background task: remove stale bucket entries every sweep interval.
-
-    An entry is stale when every timestamp it contains is older than the
-    command's cooldown window *and* the entry has been idle for at least
-    ``_COOLDOWN_TTL`` seconds.  Using ``max(cooldown_window, _COOLDOWN_TTL)``
-    as the expiry threshold ensures short-window commands still get their
-    entries pruned after a reasonable quiet period.
-    """
-    max_age = max(cooldown_window, _COOLDOWN_TTL)
-    while True:
-        await asyncio.sleep(_COOLDOWN_SWEEP_INTERVAL)
-        now = time.monotonic()
-        stale = [
-            key
-            for key, timestamps in list(cooldown_last_used.items())
-            if all(now - ts >= max_age for ts in timestamps)
-        ]
-        if stale:
-            for key in stale:
-                cooldown_last_used.pop(key, None)
-            logger.debug(
-                "cooldown sweep: pruned %d stale bucket(s)", len(stale)
-            )
 
 
 def build_slash_callback(
@@ -67,30 +32,19 @@ def build_slash_callback(
     sig = inspect.signature(func)
     user_params = list(sig.parameters.values())[1:]
     cooldown_last_used: dict[Any, list[float]] = {}
+    _registry_entry: tuple | None = None
     if cooldown is not None:
         if cooldown_rate < 1:
             raise ValueError("cooldown_rate must be at least 1")
+        # Memory reclamation is handled by the single bot-level
+        # _cooldown_cleanup_loop, which prunes every registry appended here
+        # (Bot._prune_cooldown_registries: expiry + _COOLDOWN_MAX_ENTRIES cap).
+        # No per-callback sweep task is scheduled.
         if hasattr(bot, "_cooldown_registries"):
-            bot._cooldown_registries.append((cooldown_last_used, cooldown))
+            _registry_entry = (cooldown_last_used, cooldown)
+            bot._cooldown_registries.append(_registry_entry)
     if cooldown_bucket not in {"user", "guild", "global"}:
         raise ValueError("cooldown_bucket must be 'user', 'guild', or 'global'")
-
-    if cooldown is not None:
-        # Schedule a background pruning task that removes stale bucket entries
-        # every _COOLDOWN_SWEEP_INTERVAL seconds.  Without this, bucket keys
-        # for users who issued a command once and went idle accumulate without
-        # bound — the TTL sweep ensures memory is reclaimed periodically.
-        # Per-invocation code below only ever touches the single key for the
-        # current user/guild, so no O(n) full-dict scan happens on hot paths.
-        background_tasks: set = getattr(bot, "_background_tasks", set())
-        try:
-            sweep_task = asyncio.get_running_loop().create_task(
-                _cooldown_sweep_loop(cooldown_last_used, cooldown)
-            )
-            background_tasks.add(sweep_task)
-            sweep_task.add_done_callback(background_tasks.discard)
-        except RuntimeError:
-            pass  # no running event loop at decoration time; sweep never starts
 
     effective_permissions = list(permissions or [])
     if require_admin and "administrator" not in effective_permissions:
@@ -285,6 +239,8 @@ def build_slash_callback(
     cast(Any, callback).__signature__ = sig.replace(
         parameters=[interaction_param] + user_params
     )
+    if _registry_entry is not None:
+        cast(Any, callback)._cooldown_registry_entry = _registry_entry
     return callback
 
 

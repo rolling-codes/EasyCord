@@ -137,6 +137,20 @@ class _PluginsMixin(_MixinBase):
                     else None
                 )
                 for cmd_name in [method._slash_name] + list(getattr(method, "_slash_aliases", [])):
+                    _existing_cmd = self.tree.get_command(cmd_name, guild=guild)
+                    if _existing_cmd is not None:
+                        _entry = getattr(
+                            getattr(_existing_cmd, "callback", None),
+                            "_cooldown_registry_entry",
+                            None,
+                        )
+                        if _entry is not None:
+                            _registries = getattr(self, "_cooldown_registries", None)
+                            if _registries is not None:
+                                try:
+                                    _registries.remove(_entry)
+                                except ValueError:
+                                    pass
                     try:
                         self.tree.remove_command(cmd_name, guild=guild)
                     except Exception:  # noqa: BLE001
