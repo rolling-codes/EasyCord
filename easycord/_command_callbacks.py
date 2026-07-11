@@ -90,7 +90,7 @@ def build_slash_callback(
             background_tasks.add(sweep_task)
             sweep_task.add_done_callback(background_tasks.discard)
         except RuntimeError:
-            pass  # no running event loop; sweep scheduled at first dispatch instead
+            pass  # no running event loop at decoration time; sweep never starts
 
     effective_permissions = list(permissions or [])
     if require_admin and "administrator" not in effective_permissions:

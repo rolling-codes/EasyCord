@@ -6,7 +6,7 @@ When any question about EasyCord's architecture, module relationships, data flow
 
 Graph location: `C:\Users\Tom\Code projects\EasyCord\graphify-out\graph.json`
 
-```
+```text
 /graphify query "<question>"
 /graphify path "NodeA" "NodeB"
 /graphify explain "NodeName"

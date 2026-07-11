@@ -1,11 +1,13 @@
 """Configurable welcome / goodbye plugin for bots."""
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import discord
 
 from easycord import Plugin, on, slash
+from easycord.helpers.channel import send_safe
 from ._shared import (
     channel_reference,
     format_template,
@@ -14,6 +16,8 @@ from ._shared import (
     role_reference,
     write_json_file,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class WelcomePlugin(Plugin):
@@ -72,8 +76,12 @@ class WelcomePlugin(Plugin):
             if role:
                 try:
                     await member.add_roles(role, reason="WelcomePlugin auto-role")
-                except discord.HTTPException:
-                    pass  # bot may lack manage_roles or the role may be above its top role
+                except discord.HTTPException as exc:
+                    # bot may lack manage_roles or the role may be above its top role
+                    logger.warning(
+                        "Failed to assign auto-role %s in guild %s: %s",
+                        role.id, member.guild.id, exc,
+                    )
 
         channel_id = cfg.get("welcome_channel")
         if not channel_id:
@@ -92,7 +100,7 @@ class WelcomePlugin(Plugin):
         embed = discord.Embed(description=text, color=discord.Color.green())
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.set_footer(text=f"Member #{member.guild.member_count}")
-        await channel.send(embed=embed)
+        await send_safe(channel, log=logger, what="welcome message", embed=embed)
 
     @on("member_remove")
     async def _on_member_remove(self, member: discord.Member) -> None:
@@ -111,11 +119,11 @@ class WelcomePlugin(Plugin):
         )
         text = format_template(template, user=str(member), server=member.guild.name)
         embed = discord.Embed(description=text, color=discord.Color.red())
-        await channel.send(embed=embed)
+        await send_safe(channel, log=logger, what="goodbye message", embed=embed)
 
     # ── Slash commands ────────────────────────────────────────
 
-    @slash(description="Set the channel for welcome messages.", permissions=["manage_guild"], bot_permissions=["send_messages"])
+    @slash(description="Set the channel for welcome messages.", permissions=["manage_guild"])
     async def set_welcome_channel(self, ctx, channel: discord.TextChannel) -> None:
         guild = require_guild(ctx)
         if guild is None:
@@ -139,7 +147,7 @@ class WelcomePlugin(Plugin):
         self._update(guild.id, goodbye_channel=channel.id)
         await ctx.respond(f"Goodbye messages will be posted in {channel.mention}.", ephemeral=True)
 
-    @slash(description="Assign a role automatically when a member joins.", permissions=["manage_guild"], bot_permissions=["manage_roles"])
+    @slash(description="Assign a role automatically when a member joins.", permissions=["manage_guild"])
     async def set_auto_role(self, ctx, role: discord.Role) -> None:
         guild = require_guild(ctx)
         if guild is None:

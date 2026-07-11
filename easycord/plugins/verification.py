@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.server_config import ServerConfigStore
 
 if TYPE_CHECKING:
@@ -225,7 +225,7 @@ class VerificationPlugin(Plugin):
                     panel_message_id,
                 )
 
-    @slash(description="Set the verified role and channel for the verification panel.", guild_only=True, bot_permissions=["manage_roles", "send_messages"])
+    @slash(description="Set the verified role and channel for the verification panel.", guild_only=True)
     async def verification_setup(
         self,
         ctx: Context,
@@ -262,7 +262,7 @@ class VerificationPlugin(Plugin):
             ephemeral=True,
         )
 
-    @slash(description="Post the verification panel in the configured channel.", guild_only=True, bot_permissions=["send_messages"])
+    @slash(description="Post the verification panel in the configured channel.", guild_only=True)
     async def verification_panel(self, ctx: Context) -> None:
         """Post a persistent embed with a Verify button in the configured channel."""
         if ctx.guild is None:
@@ -296,7 +296,19 @@ class VerificationPlugin(Plugin):
         question: str | None = data.get("question")
         embed = _build_panel_embed(question)
         view = _VerifyView(self, guild_id)
-        message = await channel.send(embed=embed, view=view)
+        # The panel goes to the *configured* channel, not the invocation
+        # channel, so a decorator-level bot_permissions preflight can't cover
+        # it — the send itself must be guarded.
+        message = await send_safe(
+            channel, log=logger, what="verification panel", embed=embed, view=view
+        )
+        if message is None:
+            await ctx.respond(
+                f"❌ I couldn't post the panel in {channel.mention}. "
+                "Check my permissions there and try again.",
+                ephemeral=True,
+            )
+            return
         self.bot.add_view(view, message_id=message.id)
 
         async with self._guild_lock(guild_id):

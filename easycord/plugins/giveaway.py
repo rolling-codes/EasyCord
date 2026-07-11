@@ -260,7 +260,7 @@ class GiveawayPlugin(Plugin):
 
         self._timers.get(guild_id, {}).pop(message_id, None)
 
-    @slash(description="Start a giveaway in the current channel.", guild_only=True, bot_permissions=["send_messages", "add_reactions"])
+    @slash(description="Start a giveaway in the current channel.", guild_only=True, bot_permissions=["send_messages"])
     async def giveaway(
         self,
         ctx: Context,

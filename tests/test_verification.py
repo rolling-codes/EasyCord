@@ -285,3 +285,57 @@ class TestVerificationSetupCommand:
         cfg = await plugin._store.load(guild_id)
         data = cfg.get_other("verification", {})
         assert data["panel_message_id"] == 12345
+
+    @pytest.mark.asyncio
+    async def test_panel_send_forbidden_responds_ephemeral_error(self, tmp_path) -> None:
+        """A Forbidden panel send must not escape the command. bot_permissions
+        preflight was dropped (it checked the invocation channel, not the
+        configured one), so the send itself must be guarded."""
+        plugin = _plugin(tmp_path)
+        guild_id = 100
+        ctx = _ctx(guild_id=guild_id)
+
+        async with plugin._guild_lock(guild_id):
+            cfg = await plugin._store.load(guild_id)
+            cfg.set_other("verification", {"role_id": 5, "channel_id": 99})
+            await plugin._store.save(cfg)
+
+        mock_channel = MagicMock(spec=discord.TextChannel)
+        mock_channel.mention = "#verify"
+        mock_channel.send = AsyncMock(side_effect=discord.Forbidden(MagicMock(), "no perms"))
+        ctx.guild.get_channel = MagicMock(return_value=mock_channel)
+        plugin._bot = MagicMock()
+
+        await plugin.verification_panel(ctx)
+
+        ctx.respond.assert_called_once()
+        call_args = ctx.respond.call_args
+        assert call_args.kwargs.get("ephemeral", False)
+        # Nothing persisted for a panel that never posted
+        cfg = await plugin._store.load(guild_id)
+        assert "panel_message_id" not in cfg.get_other("verification", {})
+
+    @pytest.mark.asyncio
+    async def test_panel_send_http_error_responds_ephemeral_error(self, tmp_path) -> None:
+        """A non-Forbidden HTTPException on the panel send must also be caught."""
+        plugin = _plugin(tmp_path)
+        guild_id = 100
+        ctx = _ctx(guild_id=guild_id)
+
+        async with plugin._guild_lock(guild_id):
+            cfg = await plugin._store.load(guild_id)
+            cfg.set_other("verification", {"role_id": 5, "channel_id": 99})
+            await plugin._store.save(cfg)
+
+        mock_channel = MagicMock(spec=discord.TextChannel)
+        mock_channel.mention = "#verify"
+        mock_channel.send = AsyncMock(side_effect=discord.HTTPException(MagicMock(), "boom"))
+        ctx.guild.get_channel = MagicMock(return_value=mock_channel)
+        plugin._bot = MagicMock()
+
+        await plugin.verification_panel(ctx)
+
+        ctx.respond.assert_called_once()
+        assert ctx.respond.call_args.kwargs.get("ephemeral", False)
+        cfg = await plugin._store.load(guild_id)
+        assert "panel_message_id" not in cfg.get_other("verification", {})
