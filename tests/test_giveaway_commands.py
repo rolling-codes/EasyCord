@@ -85,17 +85,21 @@ class TestPickWinners:
 class TestBuildEmbed:
     def test_active_embed_has_footer(self):
         embed = _build_embed("Nitro", 9_999_999, 2, 5, ended=False)
+        assert embed.title is not None
         assert "GIVEAWAY" in embed.title
+        assert embed.description is not None
         assert "Nitro" in embed.description
         assert embed.footer is not None
 
     def test_ended_embed_no_footer_text(self):
         embed = _build_embed("Steam key", 9_999_999, 1, 3, ended=True)
+        assert embed.description is not None
         assert "Ended" in embed.description
         assert embed.footer.text is None
 
     def test_entry_count_in_description(self):
         embed = _build_embed("Prize", 9_999_999, 1, 42, ended=False)
+        assert embed.description is not None
         assert "42" in embed.description
 
 

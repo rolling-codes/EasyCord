@@ -1,18 +1,22 @@
 # CLAUDE.md
 
-# Hard Rule — Graphify is the Knowledge Base
+# Hard Rule — Graph First, Always
 
-When any question about EasyCord's architecture, module relationships, data flows, or cross-cutting patterns arises, query the knowledge graph **before** reading source files manually.
+For **any** question about this codebase — what exists, how it connects, what a module does, bug history, test patterns, what changed — query the knowledge graph **before** opening any source file, doc file, or context file.
 
-Graph location: `C:\Users\Tom\Code projects\EasyCord\graphify-out\graph.json`
+Graph location: `C:\Users\Tom\Code projects\EasyCord\graphify-out\graph.json`  
+Interactive: `C:\Users\Tom\Code projects\EasyCord\graphify-out\graph.html` (open in browser)
 
-```text
-/graphify query "<question>"
-/graphify path "NodeA" "NodeB"
-/graphify explain "NodeName"
+```bash
+# Run from C:\Users\Tom\Code projects\EasyCord
+graphify query "<question>"          # BFS traversal — broad context
+graphify path "NodeA" "NodeB"        # shortest path between two concepts
+graphify explain "NodeName"          # plain-language node summary
 ```
 
-The graph is already built. Do not rebuild it unless explicitly asked. Do not read vault files at `C:\Users\Tom\Desktop\Wiki` — that system is deprecated.
+The graph (4,837 nodes, 10,488 edges, 225 communities, last updated 2026-07-11) covers code relationships, bugs B-001–B-021, Phase 1 completion state, CI changes, and planning artifacts. It is more accurate than the documentation files.
+
+**Documentation files are potentially stale.** The `## Context` links below and files under `docs/` and `context/` are secondary/fallback references. Do not treat them as authoritative; prefer graph query results. Do not rebuild the graph unless explicitly asked. Do not read vault files at `C:\Users\Tom\Desktop\Wiki` — that system is deprecated.
 
 ---
 
@@ -48,6 +52,8 @@ Reproduce a green run locally with: `ruff check --select E9,F63,F7,F82`, `ruff c
 The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easycord new`, `easycord doctor`, `easycord inspect`, `easycord sync-plan`, `easycord plugin create|check|discover`, `easycord test-template`, `easycord audit-tools`.
 
 ## Context
+
+> **Note:** these links may not reflect the current codebase. Prefer `graphify query` over opening them directly.
 
 - [Documentation index](docs/README.md) — goal-based entry to all 23 user-facing guides; start here when a topic isn't listed below
 - [Architecture](context/architecture.md) — layers, mixins, module map
