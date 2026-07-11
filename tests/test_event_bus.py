@@ -153,3 +153,76 @@ async def test_publish_kwargs_forwarded_to_callback():
     bus.subscribe("ev", handler)
     await bus.publish("ev", a=1, b="hello")
     assert received == {"a": 1, "b": "hello"}
+
+
+# ── REQ-04 observability regression guards (plan 01-04) ──────────────────────
+
+
+async def test_publish_sync_failure_log_names_handler(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """BUG (REQ-04): EventBus subscriber-failure logs once omitted the failing
+    handler's identity, making failures unattributable. Fixed: ``publish()``
+    logs ``getattr(callback, "__qualname__", repr(callback))``. Guards the
+    sync-callback except path.
+    """
+    bus = EventBus()
+
+    def sync_boom_handler() -> None:
+        raise RuntimeError("sync boom")
+
+    bus.subscribe("ev", sync_boom_handler)
+    with caplog.at_level(logging.ERROR, logger="easycord"):
+        await bus.publish("ev")
+
+    assert sync_boom_handler.__qualname__ in caplog.text
+    assert "sync boom" in caplog.text
+
+
+async def test_publish_async_failure_log_names_handler(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """BUG (REQ-04): the async publish path once collected bare coroutines,
+    discarding the callback reference, so gather-result error logs could not
+    name the failing handler. Fixed: each failure is logged with the handler's
+    ``__qualname__``. Guards the async-callback except path.
+    """
+    bus = EventBus()
+
+    async def async_boom_handler() -> None:
+        raise ValueError("async boom")
+
+    bus.subscribe("ev", async_boom_handler)
+    with caplog.at_level(logging.ERROR, logger="easycord"):
+        await bus.publish("ev")
+
+    assert async_boom_handler.__qualname__ in caplog.text
+    assert "async boom" in caplog.text
+
+
+async def test_listeners_fire_in_registration_order() -> None:
+    """Contract (REQ-04): listeners for an event are invoked in registration
+    order — ``_listeners`` is a ``dict[str, list]`` appended by ``subscribe``
+    and iterated in order by ``publish``. This guards the documented ordering
+    so ordering-dependent subscribers stay debuggable.
+    """
+    bus = EventBus()
+    order: list[str] = []
+
+    def first() -> None:
+        order.append("first")
+
+    async def second() -> None:
+        order.append("second")
+
+    def third() -> None:
+        order.append("third")
+
+    async def fourth() -> None:
+        order.append("fourth")
+
+    for callback in (first, second, third, fourth):
+        bus.subscribe("ev", callback)
+    await bus.publish("ev")
+
+    assert order == ["first", "second", "third", "fourth"]

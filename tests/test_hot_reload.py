@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import types
 from unittest.mock import AsyncMock, patch
 
-from easycord import Bot, Plugin
+import pytest
+
+from easycord import Bot, Plugin, message_command, user_command
 
 
 def _make_bot() -> Bot:
@@ -416,3 +419,44 @@ async def test_hot_reload_loop_activates_dispatch_gate():
 
     assert bot._hot_reload_active is True
     assert isinstance(bot._reload_lock, asyncio.Lock)
+
+
+# ── Context-menu unload observability (REQ-04 / plan 01-04) ───────────────────
+
+
+async def test_unload_context_menu_removal_failure_emits_debug_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """BUG (REQ-04): remove_plugin once swallowed user/message context-menu
+    removal failures with bare ``except Exception: pass``, hiding unload issues
+    that the slash branch already debug-logged. Fixed: both branches emit
+    ``logger.debug`` naming the command. Guards that a raising
+    ``tree.remove_command`` produces DEBUG records for BOTH context-menu types
+    and that unload still completes without raising.
+    """
+    bot = _make_bot()
+
+    class MenuPlugin(Plugin):
+        @user_command(name="Inspect User")
+        async def inspect_user(self, ctx, member) -> None:
+            pass
+
+        @message_command(name="Inspect Message")
+        async def inspect_message(self, ctx, message) -> None:
+            pass
+
+    plugin = MenuPlugin()
+    bot.add_plugin(plugin)
+
+    with patch.object(
+        bot.tree, "remove_command", side_effect=RuntimeError("tree failure")
+    ):
+        with caplog.at_level(logging.DEBUG, logger="easycord"):
+            await bot.remove_plugin(plugin)  # must not raise
+
+    assert plugin not in bot._plugins
+    assert "Could not remove user command 'Inspect User' during unload" in caplog.text
+    assert (
+        "Could not remove message command 'Inspect Message' during unload"
+        in caplog.text
+    )
