@@ -1,5 +1,32 @@
 # Changelog
 
+## EasyCord v5.53.0 - 2026-07-11
+
+### Added
+- `tests/test_bot_permissions_adoption.py` — 16 regression tests pinning
+  `bot_permissions` denial/allow behaviour and B-021 structural guard
+  (config-setter commands must not declare `bot_permissions`)
+- `tests/test_cli_scaffold.py` — CLI scaffold collision regression tests
+- `tests/test_cooldown_cleanup.py` — 10 tests for bot-level cooldown sweep
+  (expiry, `_COOLDOWN_MAX_ENTRIES` overflow eviction, plugin lifecycle cleanup)
+- `tests/test_event_bus.py` extensions — EventBus observability tests
+- `tests/test_p1_bug_sweep.py` — regression net for B-007 / B-015 / B-016
+
+### Fixed
+- B-007: `InviteTrackerPlugin._invite_cache` now pruned on `guild_remove`
+- B-015: `LevelsPlugin._grant_level_reward` exception narrowed to
+  `discord.HTTPException` (was `Forbidden`-only)
+- B-016: `auto_role._on_member_join` post-sleep `add_roles` now catches
+  full `discord.HTTPException` hierarchy
+- Cooldown sweep consolidated to single bot-level `_cooldown_cleanup_loop`;
+  per-callback sweep task removed; hard size cap (`_COOLDOWN_MAX_ENTRIES=50_000`)
+  added with oldest-bucket eviction; cooldown registry entry now cleaned up
+  on plugin unload via `remove_plugin`
+- CLI scaffold collision when plugin slug matched an existing directory
+
+### Tests
+Total: 1513 (was 1438 in v5.52.0)
+
 ## EasyCord v5.52.0 - 2026-07-03
 
 ### Added
