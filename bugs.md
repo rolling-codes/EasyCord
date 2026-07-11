@@ -35,9 +35,11 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
   *invocation* channel, so it never actually covered these sends — the target is a
   *configured* channel. Removing it exposed that the sends themselves were unguarded,
   same event-path class as B-014/B-015/B-016.
-- **Fix:** `verification_panel` wraps the send in Forbidden/HTTPException handlers with
-  ephemeral error responses (nothing persisted on failure); welcome/goodbye sends get
-  `except discord.HTTPException: pass`, matching the auto-role guard above them.
+- **Fix:** new `send_safe()` helper (`easycord/helpers/channel.py`) — sends to a
+  configured channel, absorbs Forbidden/HTTPException, logs a warning, returns the
+  message or `None`. Adopted by `verification_panel` (ephemeral error + nothing
+  persisted on `None`) and the welcome/goodbye sends. The auto-role `add_roles`
+  failure now logs a warning instead of a silent `pass`.
 - **Tests:** `test_verification.py::test_panel_send_forbidden_responds_ephemeral_error`,
   `test_plugin_commands.py::test_welcome_send_failure_does_not_escape`.
 - **Lesson:** decorator-level `bot_permissions` can only validate the invocation channel.

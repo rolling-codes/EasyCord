@@ -1,5 +1,5 @@
 """Helper utilities for common framework operations."""
-from .channel import SENDABLE_CHANNEL_TYPES
+from .channel import SENDABLE_CHANNEL_TYPES, send_safe
 from .config import ConfigHelpers
 from .context import ContextHelpers
 from .embed import EmbedBuilder
@@ -13,4 +13,5 @@ __all__ = [
     "ToolHelpers",
     "RateLimitHelpers",
     "SENDABLE_CHANNEL_TYPES",
+    "send_safe",
 ]

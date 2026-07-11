@@ -1,8 +1,13 @@
-"""Tests for helpers: config, tools, context, ratelimit."""
+"""Tests for helpers: config, tools, context, ratelimit, send_safe."""
 from __future__ import annotations
 
+import logging
+from unittest.mock import AsyncMock, MagicMock
+
+import discord
 import pytest
 
+from easycord.helpers.channel import send_safe
 from easycord.helpers.config import ConfigHelpers
 from easycord.helpers.tools import ToolHelpers
 from easycord.tools import ToolRegistry, ToolSafety
@@ -141,3 +146,38 @@ class TestToolHelpers:
     def test_get_tool_info_missing(self) -> None:
         registry = self._registry_with_tool()
         assert ToolHelpers.get_tool_info(registry, "ghost") is None
+
+# ---------------------------------------------------------------------------
+# send_safe
+# ---------------------------------------------------------------------------
+
+class TestSendSafe:
+    def _channel(self, *, send: AsyncMock) -> MagicMock:
+        channel = MagicMock(spec=discord.TextChannel)
+        channel.id = 999
+        channel.send = send
+        return channel
+
+    @pytest.mark.asyncio
+    async def test_returns_message_on_success(self) -> None:
+        message = MagicMock()
+        channel = self._channel(send=AsyncMock(return_value=message))
+        result = await send_safe(channel, log=logging.getLogger("t"), what="thing", content="hi")
+        assert result is message
+        channel.send.assert_awaited_once_with(content="hi")
+
+    @pytest.mark.asyncio
+    async def test_forbidden_returns_none_and_logs_warning(self, caplog) -> None:
+        channel = self._channel(send=AsyncMock(side_effect=discord.Forbidden(MagicMock(), "no perms")))
+        with caplog.at_level(logging.WARNING, logger="t"):
+            result = await send_safe(channel, log=logging.getLogger("t"), what="thing", content="hi")
+        assert result is None
+        assert any("Missing permission" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_http_error_returns_none_and_logs_warning(self, caplog) -> None:
+        channel = self._channel(send=AsyncMock(side_effect=discord.HTTPException(MagicMock(), "boom")))
+        with caplog.at_level(logging.WARNING, logger="t"):
+            result = await send_safe(channel, log=logging.getLogger("t"), what="thing", content="hi")
+        assert result is None
+        assert any("Failed to send" in r.message for r in caplog.records)

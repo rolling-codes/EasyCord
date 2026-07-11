@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.server_config import ServerConfigStore
 
 if TYPE_CHECKING:
@@ -299,20 +299,13 @@ class VerificationPlugin(Plugin):
         # The panel goes to the *configured* channel, not the invocation
         # channel, so a decorator-level bot_permissions preflight can't cover
         # it — the send itself must be guarded.
-        try:
-            message = await channel.send(embed=embed, view=view)
-        except discord.Forbidden:
-            logger.error("Missing permission to post verification panel in channel %s", channel_id)
+        message = await send_safe(
+            channel, log=logger, what="verification panel", embed=embed, view=view
+        )
+        if message is None:
             await ctx.respond(
-                f"❌ I don't have permission to post in {channel.mention}. "
-                "Grant me Send Messages there and try again.",
-                ephemeral=True,
-            )
-            return
-        except discord.HTTPException as exc:
-            logger.error("Failed to post verification panel: %s", exc)
-            await ctx.respond(
-                "❌ Failed to post the verification panel. Please try again.",
+                f"❌ I couldn't post the panel in {channel.mention}. "
+                "Check my permissions there and try again.",
                 ephemeral=True,
             )
             return
