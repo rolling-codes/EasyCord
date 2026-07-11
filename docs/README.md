@@ -81,6 +81,7 @@ Or jump straight to a specific goal:
 | Get type checking to work with Pyright | [Type Checking](type-checking.md) |
 | Publish my plugin to PyPI | [Plugin Authoring](plugin-authoring.md) |
 | Mark APIs as deprecated | [Deprecation Helpers](deprecation.md)
+| Contribute to EasyCord itself (fix, feature, release) | [Development Workflow](development-workflow.md) |
 
 ---
 
@@ -106,3 +107,4 @@ Or jump straight to a specific goal:
 | [Context Reference](context-reference.md) | Full `Context` API |
 | [Database Guide](database-guide.md) | Storage, concurrency, backends |
 | [Plugin Ecosystem Health](plugin-ecosystem-health.md) | Profiling and scaling |
+| [Development Workflow](development-workflow.md) | Contributing: fix/feature/release workflows |
