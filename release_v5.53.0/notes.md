@@ -47,5 +47,5 @@ pip install easycord==5.53.0
 
 ## Artifacts
 
-- `easycord-5.53.0-py3-none-any.whl`
-- `easycord-5.53.0.tar.gz`
+- [easycord-5.53.0-py3-none-any.whl](https://github.com/rolling-codes/EasyCord/releases/download/v5.53.0/easycord-5.53.0-py3-none-any.whl)
+- [easycord-5.53.0.tar.gz](https://github.com/rolling-codes/EasyCord/releases/download/v5.53.0/easycord-5.53.0.tar.gz)
