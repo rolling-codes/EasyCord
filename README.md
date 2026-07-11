@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.52.0-blue)
+![Version](https://img.shields.io/badge/v-5.53.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-1300%2B-brightgreen)
@@ -53,7 +53,7 @@
 ## Installation
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.52.0/easycord-5.52.0-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.53.0/easycord-5.53.0-py3-none-any.whl"
 ```
 
 Or clone and install locally:
@@ -1026,4 +1026,4 @@ EasyCord is released under the **MIT License**.
 - See `pyproject.toml` for the canonical license metadata.
 - Copyright (c) 2026 Rolling Codes.
 
-Release: [v5.52.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.52.0) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
+Release: [v5.53.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.53.0) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
