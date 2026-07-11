@@ -2,6 +2,8 @@
 
 Python 3.10+. MIT license. Contributions welcome.
 
+This file covers standards and conventions. For the end-to-end workflows — fixing a bug, adding a feature, shipping a release — see the [Development Workflow](docs/development-workflow.md) guide.
+
 ## Development setup
 
 ```bash
