@@ -543,8 +543,11 @@ def _doctor_report(target: str | None = None, *, fix_configs: bool = False) -> d
                                 f"{type(_plugin).__name__} guild "
                                 f"{_guild_json.stem}: {', '.join(_changes)}"
                             )
-                    except (json.JSONDecodeError, OSError, ValueError):
-                        pass
+                    except (json.JSONDecodeError, OSError, ValueError) as exc:
+                        schema_issues.append(
+                            f"{type(_plugin).__name__} guild "
+                            f"{_guild_json.stem}: unreadable config ({exc})"
+                        )
 
             if schema_issues:
                 _fixed = _apply_schema_fixes(schema_plugins) if fix_configs else 0
