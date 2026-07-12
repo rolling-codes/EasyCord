@@ -420,8 +420,12 @@ def _apply_schema_fixes(schema_plugins: list) -> int:
                 tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
                 tmp.replace(guild_json)
                 fixed += 1
-            except (json.JSONDecodeError, OSError, ValueError):
-                pass
+            except (json.JSONDecodeError, OSError, ValueError) as exc:
+                warnings.warn(
+                    f"Skipping schema fix for {guild_json}: {exc}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
     return fixed
 
 
