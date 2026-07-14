@@ -1,8 +1,14 @@
-"""Tests for ConfigSchema.apply() and PluginConfigManager.get_schema()."""
+"""Tests for ConfigSchema.apply(), PluginConfigManager.get_schema(), and
+_apply_schema_fixes() + _doctor_report() config-health checks."""
 from __future__ import annotations
 
 import copy
+import json
+import warnings
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from easycord.config_schema import ConfigSchema
 
@@ -161,3 +167,145 @@ async def test_get_schema_fast_path_skips_mutate_when_clean(tmp_path: Path) -> N
     result = await manager.get_schema(1234, schema)
     assert result["enabled"] is True
     assert mutate_calls == 0  # fast path — no write triggered
+
+
+# ---------------------------------------------------------------------------
+# _apply_schema_fixes() — unit tests
+# ---------------------------------------------------------------------------
+
+
+def _make_plugin(store_base: Path | None) -> SimpleNamespace:
+    """Minimal fake plugin: config.store._base = store_base (or config=None)."""
+    if store_base is None:
+        return SimpleNamespace(config=None)
+    return SimpleNamespace(config=SimpleNamespace(store=SimpleNamespace(_base=str(store_base))))
+
+
+def test_apply_schema_fixes_heals_dirty_guilds(tmp_path: Path) -> None:
+    from easycord.cli import _apply_schema_fixes
+
+    schema = ConfigSchema(key="myplugin", version=1, defaults=_DEFAULTS)
+    store_dir = tmp_path / "store"
+    store_dir.mkdir()
+    # Section missing 'count' and 'name' — schema.apply will backfill both
+    (store_dir / "1234.json").write_text(
+        json.dumps({"guild_id": 1234, "other": {"myplugin": {"enabled": False, "_v": 1}}}),
+        encoding="utf-8",
+    )
+
+    fixed = _apply_schema_fixes([(_make_plugin(store_dir), schema)])
+
+    assert fixed == 1
+    healed = json.loads((store_dir / "1234.json").read_text(encoding="utf-8"))
+    assert healed["other"]["myplugin"]["count"] == 0
+    assert healed["other"]["myplugin"]["name"] == "default"
+    assert healed["other"]["myplugin"]["_v"] == 1
+
+
+def test_apply_schema_fixes_skips_clean_guilds(tmp_path: Path) -> None:
+    from easycord.cli import _apply_schema_fixes
+
+    schema = ConfigSchema(key="myplugin", version=1, defaults=_DEFAULTS)
+    store_dir = tmp_path / "store"
+    store_dir.mkdir()
+    (store_dir / "5678.json").write_text(
+        json.dumps({"guild_id": 5678, "other": {"myplugin": {**_DEFAULTS, "_v": 1}}}),
+        encoding="utf-8",
+    )
+
+    fixed = _apply_schema_fixes([(_make_plugin(store_dir), schema)])
+    assert fixed == 0
+
+
+def test_apply_schema_fixes_skips_plugin_without_store() -> None:
+    from easycord.cli import _apply_schema_fixes
+
+    schema = ConfigSchema(key="myplugin", version=1, defaults=_DEFAULTS)
+    fixed = _apply_schema_fixes([(_make_plugin(None), schema)])
+    assert fixed == 0
+
+
+def test_apply_schema_fixes_warns_on_corrupt_json(tmp_path: Path) -> None:
+    from easycord.cli import _apply_schema_fixes
+
+    schema = ConfigSchema(key="myplugin", version=1, defaults=_DEFAULTS)
+    store_dir = tmp_path / "store"
+    store_dir.mkdir()
+    (store_dir / "bad.json").write_text("not valid json", encoding="utf-8")
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        fixed = _apply_schema_fixes([(_make_plugin(store_dir), schema)])
+
+    assert fixed == 0
+    assert any(issubclass(warning.category, RuntimeWarning) for warning in w)
+
+
+# ---------------------------------------------------------------------------
+# _doctor_report() config-health checks — filesystem level, no bot target
+# ---------------------------------------------------------------------------
+
+
+def test_doctor_report_detects_leftover_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    ec_root = tmp_path / ".easycord"
+    ec_root.mkdir()
+    (ec_root / "1234.tmp").write_text("residue", encoding="utf-8")
+
+    from easycord.cli import _doctor_report
+
+    report = _doctor_report()
+    assert isinstance(report["checks"], list)
+    codes = [c["code"] for c in report["checks"]]
+    assert "config.leftover_tmp" in codes
+    check = next(c for c in report["checks"] if c["code"] == "config.leftover_tmp")
+    assert check["ok"] is False
+    assert check["severity"] == "warning"
+
+
+def test_doctor_report_detects_corrupt_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    ec_root = tmp_path / ".easycord"
+    ec_root.mkdir()
+    (ec_root / "bad.json").write_text("{ not json", encoding="utf-8")
+
+    from easycord.cli import _doctor_report
+
+    report = _doctor_report()
+    assert isinstance(report["checks"], list)
+    codes = [c["code"] for c in report["checks"]]
+    assert "config.corrupt_json" in codes
+    check = next(c for c in report["checks"] if c["code"] == "config.corrupt_json")
+    assert check["ok"] is False
+    assert check["severity"] == "error"
+
+
+def test_doctor_report_healthy_config_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    ec_root = tmp_path / ".easycord"
+    ec_root.mkdir()
+    (ec_root / "1234.json").write_text(json.dumps({"guild_id": 1234}), encoding="utf-8")
+
+    from easycord.cli import _doctor_report
+
+    report = _doctor_report()
+    assert isinstance(report["checks"], list)
+    codes = [c["code"] for c in report["checks"]]
+    assert "config.health" in codes
+    check = next(c for c in report["checks"] if c["code"] == "config.health")
+    assert check["ok"] is True
+
+
+def test_doctor_report_no_easycord_dir_omits_config_health(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)  # no .easycord dir here
+
+    from easycord.cli import _doctor_report
+
+    report = _doctor_report()
+    assert isinstance(report["checks"], list)
+    codes = [c["code"] for c in report["checks"]]
+    assert "config.health" not in codes
+    assert "config.leftover_tmp" not in codes
+    assert "config.corrupt_json" not in codes
