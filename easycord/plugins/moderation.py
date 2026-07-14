@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, cast
 import discord
 
 from easycord import Plugin, RateLimit, ToolLimiter, slash
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
@@ -107,10 +107,7 @@ class ModerationPlugin(Plugin):
         embed.add_field(name="Moderator", value=ctx.user.mention, inline=True)
         embed.set_footer(text=f"User ID: {target.id}")
 
-        try:
-            await audit_channel.send(embed=embed)
-        except discord.Forbidden:
-            logger.warning("Cannot post to audit channel %s", audit_channel_id)
+        await send_safe(audit_channel, log=logger, what="audit log", embed=embed)
 
     async def _get_or_create_mute_role(self, guild: discord.Guild) -> discord.Role | None:
         """Get or create mute role for guild."""
@@ -242,7 +239,7 @@ class ModerationPlugin(Plugin):
             return
 
         cfg = await self._get_config(guild.id)
-        if not cfg.get("enable_warnings"):
+        if not cfg.get("enable_warnings", True):
             await ctx.respond("⚠️ Warnings are disabled for this server")
             return
 
@@ -386,8 +383,8 @@ class ModerationPlugin(Plugin):
             return
         cfg = await self._get_config(guild.id)
         embed = discord.Embed(title="Moderation Config", color=discord.Color.blurple())
-        embed.add_field(name="Warnings Enabled", value=str(cfg.get("enable_warnings")), inline=True)
-        embed.add_field(name="Auto-Mute Threshold", value=f"{cfg.get('auto_warn_threshold')} warnings", inline=True)
+        embed.add_field(name="Warnings Enabled", value=str(cfg.get("enable_warnings", True)), inline=True)
+        embed.add_field(name="Auto-Mute Threshold", value=f"{cfg.get('auto_warn_threshold', 3)} warnings", inline=True)
 
         audit_channel_id = cfg.get("audit_channel")
         audit_channel = guild.get_channel(audit_channel_id) if audit_channel_id else None

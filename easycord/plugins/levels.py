@@ -11,6 +11,7 @@ import discord
 logger = logging.getLogger(__name__)
 
 from easycord import Plugin, slash, on
+from easycord.helpers.channel import send_safe
 from ._levels_data import (
     LevelsStore,
     progress_bar,
@@ -251,7 +252,7 @@ class LevelsPlugin(Plugin):
             if awarded:
                 embed.add_field(name="Role awarded", value=awarded.mention, inline=False)
 
-        await message.channel.send(embed=embed)
+        await send_safe(message.channel, log=logger, what="level-up announcement", embed=embed)
 
     # ── Slash commands ────────────────────────────────────────
 

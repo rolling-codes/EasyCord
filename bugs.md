@@ -21,6 +21,30 @@ same mistakes are not repeated. Newest first. Severity: CRITICAL / HIGH / MEDIUM
 | B-016 | 2026-07-09 | auto_role plugin | MEDIUM | Fixed | add_roles after asyncio.sleep had no exception handler |
 | B-020 | 2026-07-10 | plugins (pattern) | MEDIUM | Fixed | Issue #74: no-default `cfg.get("enabled")` in economy, role_persistence, member_logging silently disabled features when the key was missing (manual config edit / partial update) — supersedes B-019's benign verdict |
 | B-021 | 2026-07-10 | verification, welcome | MEDIUM | Fixed | Unguarded `channel.send` in `verification_panel` (surfaced by dropping bot_permissions preflight, PR #78 review) and in welcome/goodbye event handlers — Forbidden escaped the command/dispatcher |
+| B-022 | 2026-07-14 | moderation plugin | MEDIUM | Fixed | `cfg.get("enable_warnings")` / `cfg.get("auto_warn_threshold")` without defaults — `/warn` silently exits and `/mod_config` shows `None` when config section created without defaults path |
+| B-023 | 2026-07-14 | moderation, ai_moderator, giveaway, levels | MEDIUM | Fixed | Residual unguarded `channel.send` missed by B-021 sweep — Forbidden/HTTPException escapes event dispatcher in 4 plugins |
+
+---
+
+## B-023 — Residual unguarded sends missed by B-021 sweep
+- **Where:**
+  - `easycord/plugins/ai_moderator.py:219` — `channel.send(embed=embed)` in `_on_message` notify_only path (sends to `mod_review_channel` from config)
+  - `easycord/plugins/giveaway.py:253,257` — winner and no-entries `channel.send` in `_end_giveaway` background task
+  - `easycord/plugins/levels.py:254` — level-up embed `message.channel.send` in `_award_xp` event handler
+  - `easycord/plugins/moderation.py:111` — audit channel send in `_log_moderation` caught only `discord.Forbidden`, leaving `discord.HTTPException` (rate limits, server errors) unhandled
+- **Symptom:** On `discord.Forbidden` (ai_moderator, giveaway, levels) or non-Forbidden `discord.HTTPException` (moderation audit send), the exception propagates to the event dispatcher, logging a traceback. The send silently fails with no user-facing message and no contextual log entry.
+- **Root cause:** The B-021 fix scoped its sweep to the PR that introduced `send_safe()` (`verification.py`, `welcome.py`). Four sends in four other plugins with identical structure were not audited at the time.
+- **Fix:** Applied `send_safe()` at all four sites. Import added to `moderation.py`, `ai_moderator.py`, `giveaway.py`, `levels.py`.
+- **Lesson:** When a new safety helper replaces a class of bugs, grep the full codebase for the old pattern before closing the fix. A partial sweep during the introducing commit reliably leaves residuals.
+
+---
+
+## B-022 — moderation.py cfg.get("enable_warnings") / cfg.get("auto_warn_threshold") without defaults
+- **Where:** `easycord/plugins/moderation.py:245` (`warn` command gate), lines 389-390 (`mod_config` display embed).
+- **Symptom:** If a guild's moderation config section was created by any `_update_config` call (e.g. setting `audit_channel`) before the defaults path runs, the `enable_warnings` and `auto_warn_threshold` keys are absent. `/warn` immediately responds "Warnings are disabled for this server" even when they were never turned off. `/mod_config` displays `"None"` for both fields.
+- **Root cause:** Same pattern as B-018/B-020. The B-019 sweep noted these sites but closed them as benign because the section was assumed to always come from `_get_config()`. B-020's threat model (manual config-file edits, partial external writes) reopens them — any existing non-empty section bypasses the defaults merge.
+- **Fix:** `cfg.get("enable_warnings", True)` at lines 245 and 389; `cfg.get("auto_warn_threshold", 3)` at line 390, matching `_DEFAULTS`.
+- **Lesson:** B-020 fixed the most obvious sites but the rule is universal: every `cfg.get(key)` where `_DEFAULTS[key]` is truthy must carry its own explicit default. A future audit should diff all `cfg.get(key)` calls against `_DEFAULTS` and flag any missing fallback.
 
 ---
 
