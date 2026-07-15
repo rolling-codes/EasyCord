@@ -92,6 +92,15 @@ class ConfigSchema:
             current_v = 1  # pre-schema; treat as version 1
             if self._version > 1:
                 changes.append("no _v stamp — treating as pre-schema v1")
+        elif not isinstance(current_v, int):
+            changes.append(f"invalid _v stamp ({current_v!r}) — resetting to v1")
+            current_v = 1
+        elif current_v > self._version:
+            logger.warning(
+                "ConfigSchema %r: section _v=%d is ahead of schema version=%d — leaving unchanged",
+                self._key, current_v, self._version,
+            )
+            return result, []
 
         if isinstance(current_v, int) and current_v < self._version:
             v = current_v
@@ -99,6 +108,11 @@ class ConfigSchema:
                 if v in self._migrations:
                     result = self._migrations[v](result)
                     changes.append(f"migrated v{v}→v{v + 1}")
+                else:
+                    logger.warning(
+                        "ConfigSchema %r: no migration registered for v%d→v%d",
+                        self._key, v, v + 1,
+                    )
                 v += 1
             result["_v"] = self._version
 

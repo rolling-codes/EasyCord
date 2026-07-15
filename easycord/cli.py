@@ -554,10 +554,10 @@ def _doctor_report(target: str | None = None, *, fix_configs: bool = False) -> d
                 add(
                     "config.schema_health",
                     "Plugin config schema drift",
-                    fix_configs and _fixed >= 0,
+                    (_fixed >= len(schema_issues)) if fix_configs else False,
                     f"{len(schema_issues)} guild config(s) need healing"
                     if not fix_configs
-                    else f"{_fixed} guild config(s) healed",
+                    else f"{_fixed} of {len(schema_issues)} guild config(s) healed",
                     severity="warning",
                     fix="" if fix_configs else f"Run: easycord doctor --fix-configs {target}",
                 )
@@ -610,6 +610,9 @@ def _doctor_report(target: str | None = None, *, fix_configs: bool = False) -> d
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
+    if args.fix_configs and not args.target:
+        print("Error: --fix-configs requires a bot target (module:object).", file=__import__("sys").stderr)
+        return 1
     report = _doctor_report(args.target, fix_configs=args.fix_configs)
     if args.json:
         print(json.dumps(report, indent=2))
@@ -731,7 +734,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument(
         "--fix-configs",
         action="store_true",
-        help="Heal schema drift in guild config files (requires a bot target)",
+        help="Heal schema drift in guild config files (requires a bot target; stop the bot first to avoid concurrent write loss)",
     )
     doctor.set_defaults(func=cmd_doctor)
 

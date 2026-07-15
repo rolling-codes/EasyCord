@@ -116,6 +116,47 @@ def test_apply_runs_migration_chain() -> None:
     assert len(migration_changes) == 2
 
 
+def test_apply_resets_non_int_v_and_migrates() -> None:
+    schema = ConfigSchema(key="test", version=2, defaults=_DEFAULTS)
+
+    @schema.migration(from_version=1)
+    def _v1_to_v2(s: dict) -> dict:
+        return {**s, "migrated": True}
+
+    result, changes = schema.apply({**_DEFAULTS, "_v": "2"})
+    assert result["migrated"] is True
+    assert result["_v"] == 2
+    assert any("invalid _v stamp" in c for c in changes)
+
+
+def test_apply_warns_on_missing_migration_step(caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+    schema = ConfigSchema(key="test", version=3, defaults={**_DEFAULTS, "extra": True})
+
+    @schema.migration(from_version=2)
+    def _v2_to_v3(s: dict) -> dict:
+        return {**s, "extra": True}
+
+    with caplog.at_level(logging.WARNING, logger="easycord"):
+        result, _ = schema.apply({**_DEFAULTS, "_v": 1})
+
+    assert result["_v"] == 3
+    assert any("no migration registered" in r.message for r in caplog.records)
+
+
+def test_apply_ignores_forward_version() -> None:
+    schema = ConfigSchema(key="test", version=2, defaults=_DEFAULTS)
+
+    @schema.migration(from_version=1)
+    def _v1_to_v2(s: dict) -> dict:
+        return {**s, "should_not_run": True}
+
+    original = {**_DEFAULTS, "_v": 5, "future_key": "keep_me"}
+    result, changes = schema.apply(copy.deepcopy(original))
+    assert result == original
+    assert changes == []
+
+
 # ---------------------------------------------------------------------------
 # PluginConfigManager.get_schema() — integration tests (uses real store)
 # ---------------------------------------------------------------------------
