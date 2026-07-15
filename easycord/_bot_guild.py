@@ -2,16 +2,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import discord
 
-if TYPE_CHECKING:
-    from ._bot_base import _BotBase
-
-    _MixinBase = _BotBase
-else:
-    _MixinBase = object
+from ._bot_base import _BotBase as _MixinBase
 
 
 class _GuildMixin(_MixinBase):

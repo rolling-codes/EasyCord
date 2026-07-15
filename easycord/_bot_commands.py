@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Callable
 import discord
 from discord import app_commands
 
+from ._bot_base import _BotBase as _MixinBase
 from ._command_callbacks import build_slash_callback
 from ._command_registration import (
     autocomplete_options,
@@ -21,12 +22,7 @@ from .context import Context
 from .middleware import build_chain
 
 if TYPE_CHECKING:
-    from ._bot_base import _BotBase
     from .group import SlashGroup
-
-    _MixinBase = _BotBase
-else:
-    _MixinBase = object
 
 logger = logging.getLogger("easycord")
 

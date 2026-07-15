@@ -8,16 +8,12 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import discord
 
+from ._bot_base import _BotBase as _MixinBase
 from ._plugin_scanner import scan_plugin_methods
 
 if TYPE_CHECKING:
-    from ._bot_base import _BotBase
     from .plugin import Plugin  # cyclic at type-check time only; never imported at runtime, and
     # `from __future__ import annotations` keeps every reference to it a deferred string
-
-    _MixinBase = _BotBase
-else:
-    _MixinBase = object
 
 logger = logging.getLogger("easycord")
 

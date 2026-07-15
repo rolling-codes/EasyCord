@@ -7,15 +7,11 @@ from typing import TYPE_CHECKING, Callable, Literal
 
 import discord
 
+from ._bot_base import _BotBase as _MixinBase
 from .middleware import AnalyticsStore, MiddlewareFn
 
 if TYPE_CHECKING:
-    from ._bot_base import _BotBase
     from .context import Context
-
-    _MixinBase = _BotBase
-else:
-    _MixinBase = object
 
 logger = logging.getLogger("easycord")
 
