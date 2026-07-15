@@ -29,12 +29,12 @@ class PluginConfigManager:
         """
         cfg_obj = await self.store.load(guild_id)
         existing = cfg_obj.get_other(key)
-        if existing:
+        if existing is not None:
             return existing
 
         def _create(cfg) -> dict[str, Any]:
             current = cfg.get_other(key)
-            if current:
+            if current is not None:
                 return current
             created = (defaults or {}).copy()
             cfg.set_other(key, created)

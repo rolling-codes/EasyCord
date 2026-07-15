@@ -169,6 +169,17 @@ async def test_get_schema_fast_path_skips_mutate_when_clean(tmp_path: Path) -> N
     assert mutate_calls == 0  # fast path — no write triggered
 
 
+async def test_get_returns_empty_dict_without_overwriting(tmp_path: Path) -> None:
+    """get() must not overwrite an explicitly-stored {} with defaults."""
+    from easycord.plugins._config_manager import PluginConfigManager
+
+    manager = PluginConfigManager(str(tmp_path / "store"))
+    await manager.update(1234, "mykey")  # stores {} (no kwargs)
+
+    result = await manager.get(1234, "mykey", defaults={"enabled": True})
+    assert result == {}  # should return the stored {}, NOT the defaults
+
+
 # ---------------------------------------------------------------------------
 # _apply_schema_fixes() — unit tests
 # ---------------------------------------------------------------------------
