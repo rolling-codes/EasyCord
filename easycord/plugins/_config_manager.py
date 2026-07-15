@@ -45,7 +45,9 @@ class PluginConfigManager:
     async def update(self, guild_id: int, key: str, **updates) -> dict[str, Any]:
         """Update config section atomically (load-modify-save under the guild lock)."""
         def _apply(cfg) -> dict[str, Any]:
-            section = cfg.get_other(key) or {}
+            section = cfg.get_other(key)
+            if section is None:
+                section = {}
             section.update(updates)
             cfg.set_other(key, section)
             return section
@@ -87,7 +89,7 @@ class PluginConfigManager:
     async def set_default(self, guild_id: int, key: str, defaults: dict[str, Any]) -> None:
         """Ensure config exists with defaults (idempotent, atomic)."""
         def _apply(cfg) -> None:
-            if not cfg.get_other(key):
+            if cfg.get_other(key) is None:
                 cfg.set_other(key, defaults.copy())
 
         await self.store.mutate(guild_id, _apply)
