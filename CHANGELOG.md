@@ -1,5 +1,46 @@
 # Changelog
 
+## EasyCord v5.54.0 - 2026-07-14
+
+### Added
+
+- Config-schema phase 2 (PR #88): Edge-case guards and migration repair
+  - `ConfigSchema.apply()` now resets non-integer `_v` stamps and records the correction
+  - Forward-version sections (`_v > schema.version`) pass through unchanged with warning
+  - Missing migration steps logged as warnings; sections still stamp to target version
+  - `_v` edge-case test coverage: 3 new unit tests for non-int, forward version, and gap detection
+
+### Fixed
+
+- **BUG-A (CRITICAL):** Vacuous `ok` flag in `_doctor_report` — was always `True` when
+  `--fix-configs` used, masking failure-to-heal scenarios. Now correctly reflects healing success.
+- **BUG-C (HIGH):** Missing migration step no longer silently stamps `_v` as fully migrated.
+  Now logs warning and allows manual plugin author correction before next upgrade.
+- **BUG-D (MEDIUM):** `--fix-configs` without bot target now exits with error instead of silent no-op.
+- **BUG-F (MEDIUM):** Added help text warning that bot must be stopped before `--fix-configs`
+  to avoid concurrent write loss.
+- **BUG-J,K (MEDIUM):** `PluginConfigManager` falsy-check bugs fixed with `is None` guards
+  (`update()` and `set_default()` now preserve falsy-but-valid values like `{}`, `[]`, `False`, `0`).
+- Hygiene: Removed unnecessary lambda wrappers in `_bot_commands.py` (3 locations, 2 fewer lines per site).
+- Hygiene: Hoisted inline `import logging` to module-level in `test_config_schema.py`.
+
+### Tests
+
+- New tests for `ConfigSchema.apply()` edge cases:
+  - `test_apply_resets_non_int_v_and_migrates` — validates non-int `_v` reset and migration chain
+  - `test_apply_warns_on_missing_migration_step` — confirms warning logged + `_v` still stamped
+  - `test_apply_ignores_forward_version` — verifies forward-version section passthrough
+- Codecov: 85.71% patch coverage; 2 missing lines in CLI error paths (acceptable).
+
+### CodeQL / Security
+
+Verified 12 CodeQL alerts:
+- ALERT-141: FALSE POSITIVE (`except ValueError: pass` correctly typed)
+- ALERT-72–80,104,142: FALSE POSITIVES (cyclic imports with TYPE_CHECKING guards; architectural pattern)
+- ALERT-134: FALSE POSITIVE (Protocol `...` stub idiom)
+- ALERT-82–86: FIXED (unnecessary lambda wrappers removed)
+- ALERT-67–71,101–103,135–138: No new violations in this diff
+
 ## EasyCord v5.53.0 - 2026-07-11
 
 ### Added
