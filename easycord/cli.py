@@ -399,7 +399,37 @@ def cmd_sync_plan(args: argparse.Namespace) -> int:
     return 0
 
 
-def _doctor_report(target: str | None = None) -> dict[str, object]:
+def _apply_schema_fixes(schema_plugins: list) -> int:
+    """Sync-heal all guild configs for plugins that expose SCHEMA. Returns count fixed."""
+    fixed = 0
+    for plugin, schema in schema_plugins:
+        store_base = getattr(getattr(getattr(plugin, "config", None), "store", None), "_base", None)
+        if store_base is None:
+            continue
+        for guild_json in Path(store_base).glob("*.json"):
+            try:
+                data = json.loads(guild_json.read_text(encoding="utf-8"))
+                other: dict = data.get("other") or {}
+                section = other.get(schema.key)
+                healed, changes = schema.apply(section)
+                if not changes:
+                    continue
+                other[schema.key] = healed
+                data["other"] = other
+                tmp = guild_json.with_suffix(".tmp")
+                tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                tmp.replace(guild_json)
+                fixed += 1
+            except (json.JSONDecodeError, OSError, ValueError) as exc:
+                warnings.warn(
+                    f"Skipping schema fix for {guild_json}: {exc}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+    return fixed
+
+
+def _doctor_report(target: str | None = None, *, fix_configs: bool = False) -> dict[str, object]:
     checks: list[dict[str, object]] = []
 
     def add(
@@ -487,6 +517,89 @@ def _doctor_report(target: str | None = None) -> dict[str, object]:
                     fix=f"Run: easycord audit-tools {target}",
                 )
 
+            # --- plugin config schema drift ------------------------------------
+            schema_plugins = []
+            for _plugin in getattr(bot, "_plugins", []):
+                _mod = sys.modules.get(type(_plugin).__module__)
+                if _mod is not None and hasattr(_mod, "SCHEMA"):
+                    schema_plugins.append((_plugin, _mod.SCHEMA))
+
+            schema_issues: list[str] = []
+            for _plugin, _schema in schema_plugins:
+                _store_base = getattr(
+                    getattr(getattr(_plugin, "config", None), "store", None),
+                    "_base",
+                    None,
+                )
+                if _store_base is None:
+                    continue
+                for _guild_json in Path(_store_base).glob("*.json"):
+                    try:
+                        _data = json.loads(_guild_json.read_text(encoding="utf-8"))
+                        _other: dict = _data.get("other") or {}
+                        _, _changes = _schema.apply(_other.get(_schema.key))
+                        if _changes:
+                            schema_issues.append(
+                                f"{type(_plugin).__name__} guild "
+                                f"{_guild_json.stem}: {', '.join(_changes)}"
+                            )
+                    except (json.JSONDecodeError, OSError, ValueError) as exc:
+                        schema_issues.append(
+                            f"{type(_plugin).__name__} guild "
+                            f"{_guild_json.stem}: unreadable config ({exc})"
+                        )
+
+            if schema_issues:
+                _fixed = _apply_schema_fixes(schema_plugins) if fix_configs else 0
+                add(
+                    "config.schema_health",
+                    "Plugin config schema drift",
+                    fix_configs and _fixed >= 0,
+                    f"{len(schema_issues)} guild config(s) need healing"
+                    if not fix_configs
+                    else f"{_fixed} guild config(s) healed",
+                    severity="warning",
+                    fix="" if fix_configs else f"Run: easycord doctor --fix-configs {target}",
+                )
+            elif schema_plugins:
+                add(
+                    "config.schema_health",
+                    "Plugin config schemas healthy",
+                    True,
+                    f"{len(schema_plugins)} schema(s) checked",
+                )
+
+    # --- generic config file health -------------------------------------------
+    _ec_root = Path(".easycord")
+    if _ec_root.exists():
+        _tmp_files = list(_ec_root.rglob("*.tmp"))
+        for _tmp_f in _tmp_files:
+            add(
+                "config.leftover_tmp",
+                f"Leftover .tmp: {_tmp_f}",
+                False,
+                str(_tmp_f),
+                severity="warning",
+                fix=f"Delete {_tmp_f} — residue from an interrupted atomic config write.",
+            )
+        _corrupt: list[str] = []
+        for _jf in _ec_root.rglob("*.json"):
+            try:
+                json.loads(_jf.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                _corrupt.append(str(_jf))
+        for _corrupt_path in _corrupt:
+            add(
+                "config.corrupt_json",
+                f"Corrupt config JSON: {_corrupt_path}",
+                False,
+                _corrupt_path,
+                severity="error",
+                fix=f"Inspect or delete {_corrupt_path}.",
+            )
+        if not _tmp_files and not _corrupt:
+            add("config.health", "Config files healthy", True, str(_ec_root))
+
     failed = sum(1 for check in checks if not check["ok"])
     return {
         "checks": checks,
@@ -497,7 +610,7 @@ def _doctor_report(target: str | None = None) -> dict[str, object]:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
-    report = _doctor_report(args.target)
+    report = _doctor_report(args.target, fix_configs=args.fix_configs)
     if args.json:
         print(json.dumps(report, indent=2))
     else:
@@ -615,6 +728,11 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = subcommands.add_parser("doctor", help="Check local EasyCord development setup")
     doctor.add_argument("target", nargs="?", help="Optional bot object as module:object")
     doctor.add_argument("--json", action="store_true", help="Print raw JSON")
+    doctor.add_argument(
+        "--fix-configs",
+        action="store_true",
+        help="Heal schema drift in guild config files (requires a bot target)",
+    )
     doctor.set_defaults(func=cmd_doctor)
 
     audit_tools = subcommands.add_parser(

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
+from easycord.config_schema import ConfigSchema
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
@@ -20,6 +21,8 @@ _DEFAULTS = {
     "upvote_emoji": "👍",
     "downvote_emoji": "👎",
 }
+
+SCHEMA = ConfigSchema(key="suggestions", version=1, defaults=_DEFAULTS)
 
 
 class SuggestionsPlugin(Plugin):
@@ -51,8 +54,8 @@ class SuggestionsPlugin(Plugin):
         logger.info("SuggestionsPlugin loaded")
 
     async def _get_config(self, guild_id: int) -> dict:
-        """Get suggestions config for guild."""
-        return await self.config.get(guild_id, "suggestions", _DEFAULTS)
+        """Get suggestions config for guild, healing any missing keys via SCHEMA."""
+        return await self.config.get_schema(guild_id, SCHEMA)
 
     async def _get_next_id(self, guild_id: int) -> int:
         """Atomically increment and return the next suggestion ID.

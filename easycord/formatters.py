@@ -1,13 +1,13 @@
 """Developer-facing text formatters for EasyCord diagnostics."""
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 _INTERACTION_ORDER = ("slash", "context_menu", "component", "modal", "autocomplete")
 
 
-def format_interaction_inventory(inventory: Mapping[str, list[Mapping[str, Any]]]) -> str:
+def format_interaction_inventory(inventory: Mapping[str, Sequence[Mapping[str, Any]]]) -> str:
     """Return a compact text summary of ``Bot.inspect_interactions()`` output."""
     lines = ["EasyCord interaction inventory"]
     for kind in _INTERACTION_ORDER:
