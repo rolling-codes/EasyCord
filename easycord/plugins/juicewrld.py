@@ -1,26 +1,91 @@
-"""Juice WRLD song metadata finder plugin for EasyCord.
+"""Juice WRLD song metadata finder — EasyCord plugin.
 
-Provides slash commands, AI tools, and per-guild configuration for the
-Juice WRLD song catalog stored in a SQLite or PostgreSQL database.
+This module was previously the standalone ``juice-wrld-finder`` project.  It is
+now shipped as a built-in EasyCord plugin so the Discord bot, catalog database,
+and web API all live in one place.
 
-Quick start::
+Quick start
+-----------
+::
 
     from easycord.plugins.juicewrld import JuiceWRLDPlugin
-    bot.add_plugin(JuiceWRLDPlugin(database_url="sqlite:///./juice_wrld.db"))
 
-Commands registered::
+    bot.add_plugin(JuiceWRLDPlugin(
+        database_url="sqlite:///./juice_wrld.db",
+        mega_folder_url="https://mega.nz/folder/XXXXXXXX#YYYYYYYY",
+        expose_mega_links=True,
+    ))
 
-    /jw_search  — Search songs by title or alias
-    /jw_song    — Full details for a song by ID
-    /jw_era     — List songs from a specific era
-    /jw_random  — Get a random song from the catalog
-    /jw_add_song  — (Admin) Add a new song
-    /jw_reindex   — (Admin) Reindex MEGA folders
+Slash commands
+--------------
++----------------+----------+----------------------------------------------+
+| Command        | Access   | Description                                  |
++================+==========+==============================================+
+| /jw_search     | Everyone | Fuzzy search by title or alias               |
++----------------+----------+----------------------------------------------+
+| /jw_song       | Everyone | Full metadata for a song by ID               |
++----------------+----------+----------------------------------------------+
+| /jw_era        | Everyone | List songs from a named era                  |
++----------------+----------+----------------------------------------------+
+| /jw_random     | Everyone | Random song from the catalog                 |
++----------------+----------+----------------------------------------------+
+| /jw_add_song   | Admin    | Add a new song; auto-creates era if needed   |
++----------------+----------+----------------------------------------------+
+| /jw_reindex    | Admin    | Reindex configured MEGA folders              |
++----------------+----------+----------------------------------------------+
 
-AI tools registered::
+AI tools
+--------
+``search_juicewrld``
+    AI-callable fuzzy catalog search.  Returns up to 5 results with
+    confidence scores.  Use ``get_song_details`` to drill into a result.
 
-    search_juicewrld  — AI-callable catalog search
-    get_song_details  — AI-callable song lookup by ID
+``get_song_details``
+    AI-callable full song lookup by numeric ID.
+
+Event bus
+---------
+The plugin publishes the following events on ``bot.event_bus`` so other
+plugins can react without tight coupling:
+
++------------------------------+----------------------------------------------+
+| Event                        | Payload keys                                 |
++==============================+==============================================+
+| ``juicewrld.searched``       | query, result_count, guild_id, user_id       |
++------------------------------+----------------------------------------------+
+| ``juicewrld.song_viewed``    | song_id, title, guild_id, user_id            |
++------------------------------+----------------------------------------------+
+| ``juicewrld.era_browsed``    | era_name, result_count, guild_id, user_id    |
++------------------------------+----------------------------------------------+
+| ``juicewrld.random_played``  | song_id, title, guild_id, user_id            |
++------------------------------+----------------------------------------------+
+| ``juicewrld.song_added``     | song_id, title, era, guild_id, user_id       |
++------------------------------+----------------------------------------------+
+| ``juicewrld.reindexed``      | stats, guild_id, user_id                     |
++------------------------------+----------------------------------------------+
+| ``juicewrld.api_synced``     | added                                        |
++------------------------------+----------------------------------------------+
+
+The plugin also subscribes to ``juicewrld.song_added``, ``juicewrld.api_synced``,
+and ``juicewrld.reindexed`` for internal logging and stale-index detection.
+
+URL resolution order
+--------------------
+When displaying a song link, the plugin tries sources in this order and uses
+the first valid ``https://`` URL it finds:
+
+1. ``Song.official_url`` — streaming / release link entered by an admin
+2. ``Song.mega_files[0].mega_url`` — specific file matched by the MEGA indexer
+   *(only shown when* ``expose_mega_links=True`` *)*
+3. ``mega_folder_url`` — the MEGA folder you configured at plugin startup
+   *(only shown when* ``expose_mega_links=True`` *)*
+
+Dependencies
+------------
+Requires the ``juice-wrld-finder`` service layer (``app.*``) on the Python
+path.  Install it alongside EasyCord or add the project root to ``PYTHONPATH``.
+Optional extras: ``mega.py`` for ``/jw_reindex``; ``httpx`` for background
+API sync.
 """
 from __future__ import annotations
 
@@ -40,6 +105,7 @@ from easycord.server_config import ServerConfigStore
 # Juice WRLD finder service layer — install the juice-wrld-finder package alongside EasyCord.
 # None of these modules import app.core.config.settings at import time.
 from app.core.security import redact_private_urls
+from app.models.media import MegaFileReference
 from app.models.song import Era, Song
 from app.repositories.song_repo import SongRepository
 from app.services.search_service import SearchService
@@ -52,29 +118,33 @@ logger = logging.getLogger(__name__)
 
 
 class JuiceWRLDPlugin(Plugin):
-    """Juice WRLD song metadata finder.
-
-    Integrates the full juice-wrld-finder service layer into EasyCord as a
-    first-class plugin.  All slash commands, AI tools, and per-guild config
-    are wired through the standard EasyCord plugin lifecycle.
+    """Juice WRLD song catalog plugin.
 
     Parameters
     ----------
     database_url:
-        SQLAlchemy database URL — e.g. ``"sqlite:///./juice_wrld.db"`` or a
-        ``postgresql://`` URL.  The plugin creates its own engine so it does
-        not depend on the juice-wrld-finder environment variables.
-    expose_api_download_links:
-        When ``True``, ``/jw_song`` shows the ``api_download_url`` field.
-        Defaults to ``False``.
+        SQLAlchemy URL for the catalog database, e.g.
+        ``"sqlite:///./juice_wrld.db"`` or ``"postgresql://user:pw@host/db"``.
+        The plugin creates its own engine and does not read any
+        ``juice-wrld-finder`` environment variables.
+    mega_folder_url:
+        Your MEGA folder URL (``https://mega.nz/folder/…``).  Used as the
+        last-resort link when a song has no ``official_url`` and no specific
+        MEGA file has been indexed for it yet.  Only shown in embeds when
+        ``expose_mega_links=True``.  Defaults to ``""`` (disabled).
     expose_mega_links:
-        When ``True``, MEGA links are not redacted from embed fields.
-        Defaults to ``False``.
+        When ``True``, MEGA file links and the ``mega_folder_url`` fallback
+        are included in song embeds and are **not** redacted.  Set to
+        ``False`` (default) for public servers where MEGA links should stay
+        private.
+    expose_api_download_links:
+        When ``True``, ``/jw_song`` also shows the ``api_download_url`` field
+        stored on a song record.  Defaults to ``False``.
     api_base_url:
-        Base URL for the Juice WRLD external API.  When supplied, the plugin
-        runs a background sync every 6 hours.  Omit to disable background sync.
+        Base URL for the Juice WRLD external metadata API.  When supplied, a
+        background task syncs new songs every 6 hours.  Omit to disable sync.
     store_path:
-        Directory for per-guild ServerConfigStore JSON files.
+        Root directory for per-guild ``ServerConfigStore`` JSON files.
         Defaults to ``".easycord/juicewrld"``.
     """
 
@@ -87,8 +157,9 @@ class JuiceWRLDPlugin(Plugin):
         self,
         *,
         database_url: str,
-        expose_api_download_links: bool = False,
+        mega_folder_url: str = "",
         expose_mega_links: bool = False,
+        expose_api_download_links: bool = False,
         api_base_url: str = "",
         store_path: str = ".easycord/juicewrld",
     ) -> None:
@@ -98,8 +169,9 @@ class JuiceWRLDPlugin(Plugin):
         engine = create_engine(database_url, connect_args=connect_args)
         self._SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-        self._expose_api_download_links = expose_api_download_links
+        self._mega_folder_url = self._safe_url(mega_folder_url)
         self._expose_mega_links = expose_mega_links
+        self._expose_api_download_links = expose_api_download_links
         self._api_base_url = api_base_url
 
         self._store = ServerConfigStore(store_path)
@@ -146,6 +218,41 @@ class JuiceWRLDPlugin(Plugin):
         """Return url only if it starts with http:// or https://, else None."""
         if url and url.lower().startswith(("http://", "https://")):
             return url
+        return None
+
+    def _resolve_song_url(self, song: Song, db: Session) -> tuple[str, str] | None:
+        """Resolve the best available URL for a song, returning ``(url, label)``.
+
+        Priority
+        --------
+        1. ``Song.official_url`` — labelled "Official Link"
+        2. Matched ``MegaFileReference.mega_url`` — labelled "MEGA File"
+           *(only when* ``expose_mega_links=True`` *)*
+        3. ``mega_folder_url`` supplied at plugin startup — labelled "MEGA Folder"
+           *(only when* ``expose_mega_links=True`` *)*
+
+        Returns ``None`` when no valid URL is found.
+        """
+        url = self._safe_url(song.official_url)
+        if url:
+            return url, "Official Link"
+
+        if not self._expose_mega_links:
+            return None
+
+        ref = (
+            db.query(MegaFileReference)
+            .filter(MegaFileReference.song_id == song.id)
+            .first()
+        )
+        if ref:
+            url = self._safe_url(ref.mega_url)
+            if url:
+                return url, "MEGA File"
+
+        if self._mega_folder_url:
+            return self._mega_folder_url, "MEGA Folder"
+
         return None
 
     # ── Lifecycle ──────────────────────────────────────────────
@@ -278,6 +385,8 @@ class JuiceWRLDPlugin(Plugin):
                 song = repo.get_by_id(song_id)
                 versions = repo.get_versions(song_id) if song else []
                 refs = repo.get_references(song_id) if song else []
+                resolved = self._resolve_song_url(song, db) if song else None
+                safe_api = self._safe_url(getattr(song, "api_download_url", None)) if song else None
         except Exception as exc:
             logger.error("jw_song: %s", exc)
             await ctx.respond("Failed to fetch song details.", ephemeral=True)
@@ -292,10 +401,9 @@ class JuiceWRLDPlugin(Plugin):
         embed.add_field(name="Download", value=song.download_status or "—", inline=True)
         if song.era:
             embed.add_field(name="Era", value=song.era.name, inline=True)
-        safe_official = self._safe_url(song.official_url)
-        if safe_official:
-            embed.add_field(name="Official Link", value=f"[Listen]({safe_official})", inline=False)
-        safe_api = self._safe_url(getattr(song, "api_download_url", None))
+        if resolved:
+            song_url, song_url_label = resolved
+            embed.add_field(name=song_url_label, value=f"[Listen]({song_url})", inline=False)
         if self._expose_api_download_links and safe_api:
             embed.add_field(name="API Download", value=f"[Available]({safe_api})", inline=False)
         if song.aliases:
@@ -366,6 +474,7 @@ class JuiceWRLDPlugin(Plugin):
             with self._db() as db:
                 service = SearchService(db)
                 song = service.get_random_song()
+                resolved = self._resolve_song_url(song, db) if song else None
         except Exception as exc:
             logger.error("jw_random: %s", exc)
             await ctx.respond("Failed to get a random song.", ephemeral=True)
@@ -380,6 +489,9 @@ class JuiceWRLDPlugin(Plugin):
         embed.add_field(name="Download", value=song.download_status or "—", inline=True)
         if song.era:
             embed.add_field(name="Era", value=song.era.name, inline=True)
+        if resolved:
+            song_url, song_url_label = resolved
+            embed.add_field(name=song_url_label, value=f"[Listen]({song_url})", inline=False)
         embed.set_footer(text=f"ID {song.id}  •  /jw_song {song.id} for full details")
         await ctx.respond(embed=self._redact_embed(embed))
         await self.bot.event_bus.publish(
