@@ -120,6 +120,13 @@ class LevelsStore:
         """Return a read-only snapshot for a user (no lock needed)."""
         return self.read_xp(guild_id).get(str(user_id), {"xp": 0, "level": 0})
 
+    async def reset_user(self, guild_id: int, user_id: int) -> None:
+        """Remove a user's XP record, resetting them to level 0."""
+        async with self._get_xp_lock(guild_id):
+            data = self.read_xp(guild_id)
+            data.pop(str(user_id), None)
+            self._write_xp(guild_id, data)
+
     # ── Config ────────────────────────────────────────────────
 
     def read_config(self, guild_id: int) -> dict:
