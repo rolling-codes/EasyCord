@@ -278,23 +278,19 @@ class TestEconomyConcurrency:
         assert receiver_bal <= 100
 
         # --- User-facing response assertions ------------------------------------
-        # Collect all calls from both contexts
         all_calls = ctx1.respond.call_args_list + ctx2.respond.call_args_list
 
-        # Extract text content from each call
         def _text_from_call(call):
             return (call.args[0] if call.args else "").lower()
 
         messages = [_text_from_call(c) for c in all_calls]
 
-        # Verify at least one insufficient-balance error message
         insufficient_msgs = [m for m in messages if "insufficient" in m]
         assert insufficient_msgs, (
             "Expected at least one user-facing insufficient-balance response "
             "when concurrent transfers attempt to overdraw."
         )
 
-        # Verify at most one successful transfer message
         success_msgs = [m for m in messages if "transferred" in m]
         assert len(success_msgs) <= 1, (
             f"Expected at most one successful transfer message; got {len(success_msgs)}: {success_msgs}"
@@ -327,7 +323,6 @@ class TestEconomyConcurrency:
         await plugin._set_balance(100, 1, 100)
         await plugin._set_balance(100, 2, 100)
 
-        # Transfer A -> B and B -> A concurrently
         # Because we use a single per-guild lock, these serialize gracefully.
         # The timeout keeps a lock-cycle regression local to this test instead
         # of hanging the whole async run.
@@ -341,8 +336,7 @@ class TestEconomyConcurrency:
 
         sender_bal = await plugin._get_balance(100, 1)
         receiver_bal = await plugin._get_balance(100, 2)
-        
-        # Balances should be exactly what they started with
+
         assert sender_bal == 100
         assert receiver_bal == 100
 
