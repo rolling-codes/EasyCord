@@ -91,10 +91,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Generator
 
 import discord
+import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -255,6 +257,47 @@ class JuiceWRLDPlugin(Plugin):
 
         return None
 
+    # ── External API helpers ───────────────────────────────────
+
+    async def _api_search(self, query: str, limit: int = 10) -> list[dict]:
+        """Search the external Juice WRLD API. Returns [] if unconfigured or on error."""
+        if not self._api_base_url:
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.get(
+                    f"{self._api_base_url}/search",
+                    params={"q": query, "limit": limit},
+                )
+                resp.raise_for_status()
+                return resp.json().get("results", [])
+        except Exception as exc:
+            logger.warning("_api_search: %s", exc)
+            return []
+
+    async def _api_random_song(self) -> dict | None:
+        """Fetch up to 50 songs from the API and return one at random. None on error."""
+        if not self._api_base_url:
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.get(
+                    f"{self._api_base_url}/songs",
+                    params={"skip": 0, "limit": 50},
+                )
+                resp.raise_for_status()
+                songs = resp.json().get("results", [])
+                return random.choice(songs) if songs else None
+        except Exception as exc:
+            logger.warning("_api_random_song: %s", exc)
+            return None
+
+    @staticmethod
+    def _titles_match(a: str, b: str) -> bool:
+        """Return True when two song titles are ≥85% similar (case-insensitive)."""
+        from rapidfuzz import fuzz
+        return fuzz.partial_ratio(a.lower(), b.lower()) >= 85
+
     # ── Lifecycle ──────────────────────────────────────────────
 
     @on("ready")
@@ -340,37 +383,104 @@ class JuiceWRLDPlugin(Plugin):
     @slash(description="Search for a Juice WRLD song by title or alias.", cooldown=3)
     @describe(query="Song title, alias, or partial name")
     async def jw_search(self, ctx: "Context", query: str) -> None:
-        """Full-text + fuzzy search across the catalog."""
-        try:
+        """Fuzzy search the local catalog. When api_base_url is set, also queries the
+        external API in parallel and shows a three-way comparison."""
+        def _local_search() -> list:
             with self._db() as db:
-                service = SearchService(db)
-                results = service.search(query, limit=10)
+                return SearchService(db).search(query, limit=10)
+
+        try:
+            local_results, api_results = await asyncio.gather(
+                asyncio.to_thread(_local_search),
+                self._api_search(query, limit=10),
+            )
         except Exception as exc:
             logger.error("jw_search: %s", exc)
             await ctx.respond("Search failed — please try again.", ephemeral=True)
             return
 
-        if not results:
-            await ctx.respond(f"No songs found matching `{query}`.", ephemeral=True)
+        api_titles = [r.get("title", "") for r in api_results]
+
+        # Simple path — no API configured
+        if not api_results:
+            if not local_results:
+                await ctx.respond(f"No songs found matching `{query}`.", ephemeral=True)
+                return
+            embed = discord.Embed(
+                title=f"Results for `{query}`",
+                description=f"{len(local_results)} match(es) — use `/jw_song <id>` for full details",
+                color=discord.Color.green(),
+            )
+            for r in local_results:
+                embed.add_field(
+                    name=f"{r.song.title}  ({r.confidence:.0f}%)",
+                    value=f"{r.song.release_status}  •  ID `{r.song.id}`",
+                    inline=False,
+                )
+            await ctx.respond(embed=self._redact_embed(embed))
+            await self.bot.event_bus.publish(
+                "juicewrld.searched",
+                query=query,
+                result_count=len(local_results),
+                api_result_count=0,
+                guild_id=ctx.guild.id if ctx.guild else None,
+                user_id=ctx.user.id,
+            )
+            return
+
+        # Comparison path — partition into three buckets
+        in_both, local_only = [], []
+        for r in local_results:
+            if any(self._titles_match(r.song.title, t) for t in api_titles):
+                in_both.append(r)
+            else:
+                local_only.append(r)
+
+        local_titles = [r.song.title for r in local_results]
+        api_only = [
+            r for r in api_results
+            if not any(self._titles_match(r.get("title", ""), lt) for lt in local_titles)
+        ]
+
+        if not local_results and not api_results:
+            await ctx.respond(f"No songs found matching `{query}` in either source.", ephemeral=True)
             return
 
         embed = discord.Embed(
             title=f"Results for `{query}`",
-            description=f"{len(results)} match(es) — use `/jw_song <id>` for full details",
             color=discord.Color.green(),
         )
-        for r in results:
-            song = r.song
+
+        if in_both:
+            lines = "\n".join(
+                f"• {r.song.title}  ({r.confidence:.0f}%)  •  ID `{r.song.id}`"
+                for r in in_both
+            )
+            embed.add_field(name=f"✅ In both sources ({len(in_both)})", value=lines, inline=False)
+
+        if local_only:
+            lines = "\n".join(
+                f"• {r.song.title}  ({r.confidence:.0f}%)  •  ID `{r.song.id}`"
+                for r in local_only
+            )
+            embed.add_field(name=f"🗄️ Local only ({len(local_only)})", value=lines, inline=False)
+
+        if api_only:
+            lines = "\n".join(
+                f"• {r.get('title', '?')}" for r in api_only[:5]
+            )
             embed.add_field(
-                name=f"{song.title}  ({r.confidence:.0f}%)",
-                value=f"{song.release_status}  •  ID `{song.id}`",
+                name=f"🌐 API only — not in local catalog ({len(api_only)})",
+                value=lines + ("\n*Use `/jw_add_song` to import*" if api_only else ""),
                 inline=False,
             )
+
         await ctx.respond(embed=self._redact_embed(embed))
         await self.bot.event_bus.publish(
             "juicewrld.searched",
             query=query,
-            result_count=len(results),
+            result_count=len(local_results),
+            api_result_count=len(api_results),
             guild_id=ctx.guild.id if ctx.guild else None,
             user_id=ctx.user.id,
         )
@@ -481,7 +591,23 @@ class JuiceWRLDPlugin(Plugin):
             return
 
         if not song:
-            await ctx.respond("No songs in the catalog yet.", ephemeral=True)
+            api_song = await self._api_random_song()
+            if api_song:
+                embed = discord.Embed(
+                    title=f"🎲 {api_song.get('title', 'Unknown')}",
+                    color=discord.Color.orange(),
+                )
+                embed.add_field(
+                    name="Status",
+                    value=api_song.get("release_status", "—"),
+                    inline=True,
+                )
+                if api_song.get("era"):
+                    embed.add_field(name="Era", value=api_song["era"], inline=True)
+                embed.set_footer(text="Source: Juice WRLD API  •  Not yet in local catalog")
+                await ctx.respond(embed=embed)
+            else:
+                await ctx.respond("No songs in the catalog yet.", ephemeral=True)
             return
 
         embed = discord.Embed(title=f"🎲 {song.title}", color=discord.Color.gold())
