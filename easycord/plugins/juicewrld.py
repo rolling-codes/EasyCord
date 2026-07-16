@@ -301,6 +301,32 @@ class JuiceWRLDPlugin(Plugin):
             logger.warning("_api_random_song: %s", exc)
             return None
 
+    async def _api_get_song(self, song_id: int) -> dict | None:
+        """Fetch a single song from juicewrldapi.com by ID. None on error or when disabled."""
+        if not self._use_external_api:
+            return None
+        try:
+            from juicewrld_api_wrapper import JuiceWRLDAPI
+            result = await asyncio.to_thread(lambda: JuiceWRLDAPI().get_song(song_id))
+            return self._normalise_api_song(result) if result else None
+        except Exception as exc:
+            logger.warning("_api_get_song: %s", exc)
+            return None
+
+    async def _api_era_songs(self, era_name: str) -> list[dict]:
+        """Fetch songs by category from juicewrldapi.com. Returns [] when disabled or on error."""
+        if not self._use_external_api:
+            return []
+        try:
+            from juicewrld_api_wrapper import JuiceWRLDAPI
+            results = await asyncio.to_thread(
+                lambda: JuiceWRLDAPI().get_songs_by_category(era_name, page=1, page_size=20)
+            )
+            return [self._normalise_api_song(r) for r in (results or [])]
+        except Exception as exc:
+            logger.warning("_api_era_songs: %s", exc)
+            return []
+
     @staticmethod
     def _titles_match(a: str, b: str) -> bool:
         """Return True when two song titles are ≥85% similar (case-insensitive)."""
@@ -513,7 +539,31 @@ class JuiceWRLDPlugin(Plugin):
             return
 
         if not song:
-            await ctx.respond(f"No song found with ID `{song_id}`.", ephemeral=True)
+            api_song = await self._api_get_song(song_id)
+            if api_song:
+                embed = discord.Embed(
+                    title=api_song.get("title", "Unknown"),
+                    color=discord.Color.orange(),
+                )
+                embed.add_field(name="Status", value=api_song.get("release_status", "—"), inline=True)
+                era = api_song.get("era")
+                if era:
+                    embed.add_field(
+                        name="Era",
+                        value=era.name if hasattr(era, "name") else str(era),
+                        inline=True,
+                    )
+                embed.set_footer(text="Source: Juice WRLD API  •  ID may differ from local catalog")
+                await ctx.respond(embed=embed)
+                await self.bot.event_bus.publish(
+                    "juicewrld.song_viewed",
+                    song_id=song_id,
+                    title=api_song.get("title", "Unknown"),
+                    guild_id=ctx.guild.id if ctx.guild else None,
+                    user_id=ctx.user.id,
+                )
+            else:
+                await ctx.respond(f"No song found with ID `{song_id}`.", ephemeral=True)
             return
 
         embed = discord.Embed(title=song.title, color=discord.Color.blue())
@@ -553,36 +603,78 @@ class JuiceWRLDPlugin(Plugin):
     @slash(description="List songs from a Juice WRLD era.", cooldown=3)
     @describe(era_name="Era name — partial match is fine")
     async def jw_era(self, ctx: "Context", era_name: str) -> None:
-        """Return up to 20 songs from the named era."""
-        try:
+        """Return up to 20 songs from the named era, supplemented by API results when enabled."""
+        def _local_era_query():
             with self._db() as db:
                 era = db.query(Era).filter(Era.name.ilike(f"%{era_name}%")).first()
                 if not era:
-                    await ctx.respond(f"Era `{era_name}` not found.", ephemeral=True)
-                    return
-                repo = SongRepository(db)
-                songs = repo.get_by_era_id(era.id, limit=20)
+                    return None, []
+                return era, SongRepository(db).get_by_era_id(era.id, limit=20)
+
+        try:
+            (era_obj, local_songs), api_songs = await asyncio.gather(
+                asyncio.to_thread(_local_era_query),
+                self._api_era_songs(era_name),
+            )
         except Exception as exc:
             logger.error("jw_era: %s", exc)
             await ctx.respond("Era lookup failed.", ephemeral=True)
             return
 
-        if not songs:
-            await ctx.respond(f"No songs in era `{era.name}`.", ephemeral=True)
+        local_titles = [s.title for s in local_songs]
+        api_only = [
+            s for s in api_songs
+            if not any(self._titles_match(s.get("title", ""), lt) for lt in local_titles)
+        ]
+
+        if not era_obj and not api_only:
+            await ctx.respond(f"Era `{era_name}` not found.", ephemeral=True)
+            return
+
+        if not era_obj:
+            embed = discord.Embed(
+                title=f"{era_name} (API results)",
+                description=f"{len(api_only)} song(s) — use `/jw_song <id>` for details",
+                color=discord.Color.orange(),
+            )
+            for s in api_only:
+                embed.add_field(name=s.get("title", "?"), value=s.get("release_status", "—"), inline=True)
+            embed.set_footer(text="Source: Juice WRLD API  •  Era not in local catalog")
+            await ctx.respond(embed=embed)
+            await self.bot.event_bus.publish(
+                "juicewrld.era_browsed",
+                era_name=era_name,
+                result_count=len(api_only),
+                guild_id=ctx.guild.id if ctx.guild else None,
+                user_id=ctx.user.id,
+            )
+            return
+
+        if not local_songs and not api_only:
+            await ctx.respond(f"No songs in era `{era_obj.name}`.", ephemeral=True)
             return
 
         embed = discord.Embed(
-            title=f"{era.name} Era",
-            description=f"{len(songs)} song(s) — use `/jw_song <id>` for details",
+            title=f"{era_obj.name} Era",
+            description=f"{len(local_songs)} song(s) — use `/jw_song <id>` for details",
             color=discord.Color.purple(),
         )
-        for song in songs:
+        for song in local_songs:
             embed.add_field(name=song.title, value=song.release_status or "—", inline=True)
+
+        if api_only:
+            lines = "\n".join(f"• {s.get('title', '?')}" for s in api_only[:5])
+            embed.add_field(
+                name=f"🌐 API only — not in local catalog ({len(api_only)})",
+                value=lines,
+                inline=False,
+            )
+
         await ctx.respond(embed=self._redact_embed(embed))
         await self.bot.event_bus.publish(
             "juicewrld.era_browsed",
-            era_name=era.name,
-            result_count=len(songs),
+            era_name=era_obj.name,
+            result_count=len(local_songs),
             guild_id=ctx.guild.id if ctx.guild else None,
             user_id=ctx.user.id,
         )
@@ -732,18 +824,33 @@ class JuiceWRLDPlugin(Plugin):
         },
     )
     async def search_juicewrld(self, ctx: "Context", query: str) -> str:
-        try:
+        def _local():
             with self._db() as db:
-                results = SearchService(db).search(query, limit=5)
+                return SearchService(db).search(query, limit=5)
+
+        try:
+            local_results, api_results = await asyncio.gather(
+                asyncio.to_thread(_local),
+                self._api_search(query, limit=5),
+            )
         except Exception as exc:
             logger.error("search_juicewrld tool: %s", exc)
             return "Search failed."
-        if not results:
+
+        local_titles = [r.song.title for r in local_results]
+        api_only = [
+            r for r in api_results
+            if not any(self._titles_match(r.get("title", ""), lt) for lt in local_titles)
+        ]
+
+        if not local_results and not api_only:
             return f"No songs found matching '{query}'."
-        lines = [f"Found {len(results)} result(s) for '{query}':"]
-        for r in results:
+        lines = [f"Found {len(local_results) + len(api_only)} result(s) for '{query}':"]
+        for r in local_results:
             s = r.song
             lines.append(f"  [{s.id}] {s.title} — {s.release_status} ({r.confidence:.0f}% confidence)")
+        for r in api_only:
+            lines.append(f"  [?] {r.get('title', '?')} — {r.get('release_status', '—')} (API)")
         return "\n".join(lines)
 
     @ai_tool(
@@ -771,7 +878,15 @@ class JuiceWRLDPlugin(Plugin):
             logger.error("get_song_details tool: %s", exc)
             return "Failed to fetch song."
         if not song:
-            return f"No song found with ID {song_id}."
+            api = await self._api_get_song(song_id)
+            if not api:
+                return f"No song found with ID {song_id}."
+            parts = [f"{api.get('title', 'Unknown')} (API ID {song_id})"]
+            parts.append(f"Status: {api.get('release_status', '—')}")
+            era = api.get("era")
+            if era:
+                parts.append(f"Era: {era.name if hasattr(era, 'name') else era}")
+            return "\n".join(parts)
         parts = [f"{song.title} (ID {song.id})"]
         parts.append(f"Status: {song.release_status} | Download: {song.download_status}")
         if song.era:
