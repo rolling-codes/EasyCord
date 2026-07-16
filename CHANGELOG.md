@@ -1,5 +1,35 @@
 # Changelog
 
+## EasyCord v5.56.0 — 2026-07-16
+
+### Added
+
+- **`ServerConfigStore` in-memory cache** — per-guild config is cached after the
+  first disk read. Subsequent `load()` calls return the cached copy without touching
+  disk. `save()`, `mutate()`, and `delete()` keep the cache coherent. Negative caching
+  (`None`) prevents repeated disk misses for guilds with no config file.
+- **`LevelsPlugin` — leaderboard caching** — `/leaderboard` results are cached for
+  5 minutes per guild. Invalidated by `/give_xp` and `/reset_xp`.
+- **`LevelsPlugin` — XP multipliers** — new `/set_xp_multiplier <multiplier> [duration_minutes]`
+  command. Multiplier applies to all organic XP gains for the duration (persisted to config).
+- **`LevelsPlugin` — level-up DM toggle** — new `/toggle_level_dm` command. When enabled,
+  the bot DMs the user on level-up in addition to the channel announcement. DM failures
+  (Forbidden) are logged but do not crash the event handler.
+- **`LevelsPlugin` — bulk XP reset** — new `/reset_xp <member>` command. Zeroes a
+  member's XP and level atomically and invalidates the leaderboard cache.
+
+### Changed
+
+- **`decorators.py` internal cleanup** — `component()` and `modal()` now share a
+  private `_dual_api_decorator()` helper; `user_command()` and `message_command()` share
+  `_context_menu_decorator()`. No public API changes.
+- **`EconomyPlugin` lock eviction** — per-guild balance locks are now tracked with a
+  creation timestamp and evicted after 7 days of idleness (or when the pool exceeds
+  5 000 guilds). Prevents unbounded memory growth on high-guild bots.
+- **`EconomyPlugin` atomic transfer** — `/transfer` now uses a single `_transfer()`
+  helper that reads and writes both balances under one lock acquisition, making the
+  operation all-or-nothing.
+
 ## EasyCord v5.55.0 — 2026-07-16
 
 ### Added
