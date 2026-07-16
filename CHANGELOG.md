@@ -1,5 +1,31 @@
 # Changelog
 
+## [5.55.0] — 2026-07-16
+
+### Added
+
+- **JuiceWRLD Plugin** (`JuiceWRLDPlugin`) — new built-in plugin integrating the former
+  `juice-wrld-finder` project. Slash commands: `/jw_search`, `/jw_song`, `/jw_era`,
+  `/jw_random`, `/jw_add_song`, `/jw_reindex`. AI tools: `search_juicewrld`,
+  `get_song_details`. Event bus publishing on every command. Background 6-hour API sync task.
+- Optional `use_external_api=True` mode queries `juicewrldapi.com` via the official
+  `juicewrld-api-wrapper` PyPI package (no API key required):
+  - `/jw_search` — parallel local + API search with three-bucket comparison embed
+    (✅ both sources, 🗄️ local-only, 🌐 API-only)
+  - `/jw_random` — falls back to API when local catalog is empty
+  - `/jw_song` — API fallback embed (orange) when local ID not found; event still published
+  - `/jw_era` — supplements local era results with API category results; API-only orange embed
+    when era not in local catalog
+  - `search_juicewrld` AI tool — merges local + API-only results in one text response
+  - `get_song_details` AI tool — API fallback when local ID not found
+- MEGA folder URL fallback (`mega_folder_url` constructor param) as last-resort song link.
+- Three-level URL resolution per song: official URL → MEGA file → MEGA folder.
+- `expose_mega_links` flag redacts MEGA URLs in public servers (default: `False`).
+- `expose_api_download_links` flag shows `api_download_url` field in `/jw_song` (default: `False`).
+- Event bus integration: publishes 7 events (`juicewrld.searched`, `.song_viewed`,
+  `.era_browsed`, `.random_played`, `.song_added`, `.reindexed`, `.api_synced`);
+  subscribes to 3 for internal logging and stale-index detection.
+
 ## EasyCord v5.54.0 - 2026-07-14
 
 ### Added
