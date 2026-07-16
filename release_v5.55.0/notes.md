@@ -1,5 +1,13 @@
 # EasyCord v5.55.0 Release Notes
 
+## Install
+
+```bash
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.55.0/easycord-5.55.0-py3-none-any.whl"
+```
+
+Source: `easycord-5.55.0.tar.gz`
+
 ## JuiceWRLD Plugin
 
 New built-in plugin (`JuiceWRLDPlugin`) integrating the former `juice-wrld-finder` project.
