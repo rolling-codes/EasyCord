@@ -96,7 +96,6 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Generator
 
 import discord
-import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -142,9 +141,10 @@ class JuiceWRLDPlugin(Plugin):
     expose_api_download_links:
         When ``True``, ``/jw_song`` also shows the ``api_download_url`` field
         stored on a song record.  Defaults to ``False``.
-    api_base_url:
-        Base URL for the Juice WRLD external metadata API.  When supplied, a
-        background task syncs new songs every 6 hours.  Omit to disable sync.
+    use_external_api:
+        When ``True``, search commands also query the public Juice WRLD API
+        (``juicewrldapi.com``) and a background task syncs new songs every
+        6 hours.  No API key is required.  Defaults to ``False``.
     store_path:
         Root directory for per-guild ``ServerConfigStore`` JSON files.
         Defaults to ``".easycord/juicewrld"``.
@@ -162,7 +162,7 @@ class JuiceWRLDPlugin(Plugin):
         mega_folder_url: str = "",
         expose_mega_links: bool = False,
         expose_api_download_links: bool = False,
-        api_base_url: str = "",
+        use_external_api: bool = False,
         store_path: str = ".easycord/juicewrld",
     ) -> None:
         super().__init__()
@@ -174,7 +174,7 @@ class JuiceWRLDPlugin(Plugin):
         self._mega_folder_url = self._safe_url(mega_folder_url)
         self._expose_mega_links = expose_mega_links
         self._expose_api_download_links = expose_api_download_links
-        self._api_base_url = api_base_url
+        self._use_external_api = use_external_api
 
         self._store = ServerConfigStore(store_path)
         self._locks: dict[int, asyncio.Lock] = {}
@@ -259,35 +259,44 @@ class JuiceWRLDPlugin(Plugin):
 
     # ── External API helpers ───────────────────────────────────
 
+    @staticmethod
+    def _normalise_api_song(song) -> dict:
+        """Normalise a juicewrld_api_wrapper result to a plain dict with a 'title' key."""
+        if isinstance(song, dict):
+            return song
+        return {
+            "title": getattr(song, "title", getattr(song, "name", "")),
+            "release_status": getattr(song, "release_status", getattr(song, "category", "—")),
+            "era": getattr(song, "era", None),
+            "id": getattr(song, "id", None),
+        }
+
     async def _api_search(self, query: str, limit: int = 10) -> list[dict]:
-        """Search the external Juice WRLD API. Returns [] if unconfigured or on error."""
-        if not self._api_base_url:
+        """Search juicewrldapi.com. Returns [] when use_external_api is False or on error."""
+        if not self._use_external_api:
             return []
         try:
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                resp = await client.get(
-                    f"{self._api_base_url}/search",
-                    params={"q": query, "limit": limit},
-                )
-                resp.raise_for_status()
-                return resp.json().get("results", [])
+            from juicewrld_api_wrapper import JuiceWRLDAPI
+            results = await asyncio.to_thread(
+                lambda: JuiceWRLDAPI().search_songs(query, limit=limit)
+            )
+            return [self._normalise_api_song(r) for r in (results or [])]
         except Exception as exc:
             logger.warning("_api_search: %s", exc)
             return []
 
     async def _api_random_song(self) -> dict | None:
-        """Fetch up to 50 songs from the API and return one at random. None on error."""
-        if not self._api_base_url:
+        """Fetch songs from juicewrldapi.com and return one at random. None on error."""
+        if not self._use_external_api:
             return None
         try:
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                resp = await client.get(
-                    f"{self._api_base_url}/songs",
-                    params={"skip": 0, "limit": 50},
-                )
-                resp.raise_for_status()
-                songs = resp.json().get("results", [])
-                return random.choice(songs) if songs else None
+            from juicewrld_api_wrapper import JuiceWRLDAPI
+            songs = await asyncio.to_thread(
+                lambda: JuiceWRLDAPI().get_songs(page=1, page_size=50)
+            )
+            if not songs:
+                return None
+            return self._normalise_api_song(random.choice(songs))
         except Exception as exc:
             logger.warning("_api_random_song: %s", exc)
             return None
@@ -353,13 +362,14 @@ class JuiceWRLDPlugin(Plugin):
 
     @task(hours=6)
     async def _api_sync(self) -> None:
-        """Sync new song metadata from the Juice WRLD API every 6 hours."""
-        if not self._api_base_url:
+        """Sync new song metadata from juicewrldapi.com every 6 hours."""
+        if not self._use_external_api:
             return
         try:
-            from app.integrations.juicewrld_api import JuicewrldAPIClient  # lazy — needs httpx
-            async with JuicewrldAPIClient(base_url=self._api_base_url) as client:
-                remote_songs = await client.get_songs()
+            from juicewrld_api_wrapper import JuiceWRLDAPI
+            remote_songs = await asyncio.to_thread(
+                lambda: [self._normalise_api_song(s) for s in JuiceWRLDAPI().get_songs(page=1, page_size=200)]
+            )
             with self._db() as db:
                 repo = SongRepository(db)
                 service = SongService(db)
@@ -383,8 +393,8 @@ class JuiceWRLDPlugin(Plugin):
     @slash(description="Search for a Juice WRLD song by title or alias.", cooldown=3)
     @describe(query="Song title, alias, or partial name")
     async def jw_search(self, ctx: "Context", query: str) -> None:
-        """Fuzzy search the local catalog. When api_base_url is set, also queries the
-        external API in parallel and shows a three-way comparison."""
+        """Fuzzy search the local catalog. When use_external_api=True, also queries
+        juicewrldapi.com in parallel and shows a three-way comparison."""
         def _local_search() -> list:
             with self._db() as db:
                 return SearchService(db).search(query, limit=10)
