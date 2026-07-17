@@ -28,19 +28,27 @@ jobs:
               await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: 'triage', color: 'e4e669', description: 'Needs initial review' });
             }
 
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
-              labels: ['triage'],
-            });
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['triage'],
+              });
+            } catch (error) {
+              core.warning(`Failed to add triage label: ${error.message}`);
+            }
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
-              body: "Thanks for the report! This has been triaged and we'll follow up soon.",
-            });
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: "Thanks for the report! This has been triaged and we'll follow up soon.",
+              });
+            } catch (error) {
+              core.warning(`Failed to post triage comment: ${error.message}`);
+            }
 
       - name: Label PR by title prefix
         if: github.event_name == 'pull_request'
@@ -61,7 +69,8 @@ jobs:
               { prefix: 'refactor', label: 'enhancement' },
             ];
 
-            const matched = mapping.find(m => title.startsWith(m.prefix));
+            const prefixRe = /^(feat|fix|docs|chore|ci|test|perf|refactor)[(:\ ]/i;
+            const matched = mapping.find(m => prefixRe.test(pr.title) && new RegExp(`^${m.prefix}[(:\ ]`, 'i').test(pr.title));
             if (!matched) return;
 
             // Ensure label exists
@@ -71,9 +80,13 @@ jobs:
               await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: matched.label, color: '0075ca', description: 'Auto-applied from PR title prefix' });
             }
 
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pr.number,
-              labels: [matched.label],
-            });
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: [matched.label],
+              });
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }

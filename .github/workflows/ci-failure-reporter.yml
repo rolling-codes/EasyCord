@@ -22,68 +22,54 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const workflow = context.payload.workflow_run;
-            const title = `[CI Failure] ${workflow.name}`;
-            const runUrl = workflow.html_url;
-            const sha = workflow.head_sha.slice(0, 7);
-            const branch = workflow.head_branch;
-            const actor = workflow.actor?.login ?? 'unknown';
+            try {
+              const workflow = context.payload.workflow_run;
+              const title = `[CI Failure] ${workflow.name}`;
+              const runUrl = workflow.html_url;
+              const sha = workflow.head_sha.slice(0, 7);
+              const branch = workflow.head_branch;
+              const actor = workflow.actor?.login ?? 'unknown';
 
-            // Search for an existing open issue with the same title
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'ci-failure',
-              per_page: 50,
-            });
+              // Use search API for reliable deduplication across all open issues
+              const q = `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open label:ci-failure "${title}" in:title`;
+              const { data: searchResult } = await github.rest.search.issuesAndPullRequests({ q, per_page: 5 });
+              const existing = searchResult.items.find(i => i.title === title);
 
-            const existing = issues.find(i => i.title === title);
-
-            if (existing) {
-              // Add a comment to the existing issue instead of opening a duplicate
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing.number,
-                body: `🔴 **Failed again** on \`${branch}\` @ \`${sha}\` (actor: @${actor})\n\n[View run](${runUrl})`,
-              });
-              console.log(`Updated existing issue #${existing.number}`);
-            } else {
-              // Ensure the ci-failure label exists
-              try {
-                await github.rest.issues.getLabel({
+              if (existing) {
+                await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  name: 'ci-failure',
+                  issue_number: existing.number,
+                  body: `🔴 **Failed again** on \`${branch}\` @ \`${sha}\` (actor: @${actor})\n\n[View run](${runUrl})`,
                 });
-              } catch {
-                await github.rest.issues.createLabel({
+                console.log(`Updated existing issue #${existing.number}`);
+              } else {
+                try {
+                  await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: 'ci-failure' });
+                } catch {
+                  await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: 'ci-failure', color: 'd93f0b', description: 'Opened automatically by CI failure reporter' });
+                }
+
+                const { data: issue } = await github.rest.issues.create({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  name: 'ci-failure',
-                  color: 'd93f0b',
-                  description: 'Opened automatically by CI failure reporter',
+                  title,
+                  labels: ['bug', 'ci-failure'],
+                  body: [
+                    `## ${workflow.name} failed`,
+                    '',
+                    `| Field | Value |`,
+                    `|-------|-------|`,
+                    `| Branch | \`${branch}\` |`,
+                    `| Commit | \`${sha}\` |`,
+                    `| Actor | @${actor} |`,
+                    `| Run | [View logs](${runUrl}) |`,
+                    '',
+                    '_This issue was opened automatically. Close it once the failure is resolved._',
+                  ].join('\n'),
                 });
+                console.log(`Opened issue #${issue.number}: ${title}`);
               }
-
-              const { data: issue } = await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                labels: ['bug', 'ci-failure'],
-                body: [
-                  `## ${workflow.name} failed`,
-                  '',
-                  `| Field | Value |`,
-                  `|-------|-------|`,
-                  `| Branch | \`${branch}\` |`,
-                  `| Commit | \`${sha}\` |`,
-                  `| Actor | @${actor} |`,
-                  `| Run | [View logs](${runUrl}) |`,
-                  '',
-                  '_This issue was opened automatically. Close it once the failure is resolved._',
-                ].join('\n'),
-              });
-              console.log(`Opened issue #${issue.number}: ${title}`);
+            } catch (error) {
+              core.error(`CI failure reporter failed: ${error.message}`);
             }

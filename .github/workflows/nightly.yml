@@ -34,6 +34,7 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
+            try {
             const passed = '${{ steps.pytest.outcome }}' === 'success';
             const title = '[Nightly] Test suite broken on main';
 
@@ -106,6 +107,9 @@ jobs:
                 ].join('\n'),
               });
               console.log(`Opened issue #${issue.number}`);
+            }
+            } catch (error) {
+              core.error(`Issue management failed: ${error.message}`);
             }
 
       - name: Fail job if tests failed
