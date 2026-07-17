@@ -316,7 +316,7 @@ my_bot/
 | Plugins | Custom `Cog` wiring | `Plugin` with lifecycle hooks |
 | Per-guild config | Hand-rolled JSON or a database | `ServerConfigStore` or `bot.db` |
 | Config migrations | Manual data transforms | `ConfigSchema` + `@SCHEMA.migration` |
-| Error handling | Catch and re-raise in each command | `@command_error`, `on_error`, `@bot.on_error` |
+| Error handling | Catch and re-raise in each command | `@command_error`, `Plugin.on_error`, `@bot.on_error` |
 | Offline tests | Mock the entire discord.py client | `invoke(bot, "command_name")` |
 | AI integration | discord.py + LLM SDK glue code | `Orchestrator` + `ToolRegistry` |
 
