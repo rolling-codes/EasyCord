@@ -2,14 +2,14 @@
 ![Version](https://img.shields.io/badge/v-5.56.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-1300%2B-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1500%2B-brightgreen)
 [![Discord.py](https://img.shields.io/badge/discord.py-2.7%2B-blueviolet)](https://discordpy.readthedocs.io/)
 
 > **Production-grade Discord bot framework** for building scalable, maintainable bots with clean, type-safe code.
 >
 > Slash commands, context menus, modal forms, components with dynamic routing, plugins with dependency management, per-guild storage, multi-language i18n, conversation memory, optional AI orchestration, middleware pipeline, lifecycle hooks, and task scheduling—all with **zero boilerplate**.
 >
-> **Built for scale**: 1300+ tests, atomic database operations, concurrent plugin safety, proper error isolation, and comprehensive type hints. Deploy with confidence.
+> **Built for scale**: 1500+ tests, atomic database operations, concurrent plugin safety, proper error isolation, and comprehensive type hints. Deploy with confidence.
 
 ### Why EasyCord?
 
@@ -17,7 +17,7 @@
 - **Type-safe.** Full Pyright support. Catch bugs at dev time, not runtime.
 - **Plugin-native.** Modular, testable, reusable. Build plugins in minutes, not hours.
 - **Optional AI.** Includes conversation memory and multi-provider LLM orchestration. Use it or ignore it.
-- **Tested.** 1300+ tests covering concurrency, crashes, race conditions, and edge cases.
+- **Tested.** 1500+ tests covering concurrency, crashes, race conditions, and edge cases.
 - **Async-first.** Proper lock safety, atomic database operations, isolated error handling. Won't silently corrupt state.
 
 ## Documentation
@@ -40,7 +40,7 @@
 | [Interactive UI](docs/context-interactive-ui.md) | Confirm, paginate, choose, prompt, ask_form |
 | [Command Sync](docs/command-sync.md) | Preview, diff, and apply Discord registration |
 | [AI Features](docs/conversation-memory.md) | Optional: multi-turn memory, provider selection |
-| [Built-in Plugins](docs/builtin-plugins.md) | 28 ready-made plugins (levels, economy, tags, moderation, etc.) |
+| [Built-in Plugins](docs/builtin-plugins.md) | 29 ready-made plugins (levels, economy, tags, moderation, juicewrld, etc.) |
 | [Hot-Reload Development](docs/hot-reload-development.md) | Reload code without restarting |
 | [Type Checking](docs/type-checking.md) | Pyright configuration |
 | [Deprecation Helpers](docs/deprecation.md) | `@deprecated` and `@version_introduced` |
@@ -121,7 +121,7 @@ Run: `pytest tests/test_bot.py`
 - ✅ Created a slash command with one decorator
 - ✅ Added a typed parameter (`user: str`)
 - ✅ Tested it without running Discord at all
-- ✅ Have a foundation for 28 built-in plugins (levels, economy, tags, moderation, etc.)
+- ✅ Have a foundation for 29 built-in plugins (levels, economy, tags, moderation, etc.)
 
 ### Next steps
 
@@ -382,6 +382,7 @@ from easycord.plugins import (
     SuggestionsPlugin,
     OpenClaudePlugin,
     TranslatePlugin,
+    JuiceWRLDPlugin,
 )
 
 bot.add_plugin(LevelsPlugin(xp_per_message=15, cooldown_seconds=45))
@@ -395,6 +396,7 @@ bot.add_plugin(ReactionRolesPlugin())
 bot.add_plugin(MemberLoggingPlugin())
 bot.add_plugin(SuggestionsPlugin())
 bot.add_plugin(TranslatePlugin())         # /translate with Google Translate, no API key
+bot.add_plugin(JuiceWRLDPlugin())         # /jw_search, /jw_song, /jw_era, /jw_random
 bot.add_plugin(OpenClaudePlugin(api_key="sk-ant-..."))  # /ask backed by Claude
 ```
 
@@ -406,6 +408,36 @@ bot.run(os.environ["DISCORD_TOKEN"], reload=os.environ.get("ENV") == "developmen
 ```
 
 When a plugin file changes on disk, EasyCord calls `importlib.reload()`, swaps the instance, and calls `on_reload()`. Syntax errors keep the old plugin running; the next successful save retries automatically.
+
+---
+
+## Plugin Config Schemas
+
+Give your plugin typed, versioned per-guild configuration with automatic migration and built-in doctor support:
+
+```python
+from easycord import Plugin
+from easycord.config_schema import ConfigSchema
+
+_DEFAULTS = {"enabled": True, "threshold": 5, "mode": "strict"}
+
+SCHEMA = ConfigSchema(key="my_plugin", version=2, defaults=_DEFAULTS)
+
+@SCHEMA.migration(from_version=1)
+def _v1_to_v2(section: dict) -> dict:
+    return {**section, "mode": "strict"}   # backfill field added in v2
+
+class MyPlugin(Plugin):
+    async def get_cfg(self, guild_id: int) -> dict:
+        return await self.config.get_schema(guild_id, SCHEMA)
+```
+
+`ConfigSchema` handles:
+- **Defaults** — missing keys are backfilled from `defaults` on first access without overwriting existing values.
+- **Migrations** — step-wise migrations run automatically when `_v` is behind the declared `version`.
+- **Doctor integration** — `easycord doctor bot:bot` reports guild configs with schema drift; `--fix-configs` heals them in-place (stop the bot first).
+
+See [docs/config-schema.md](docs/config-schema.md) for the full guide including edge cases and migration best practices.
 
 ---
 
@@ -851,6 +883,7 @@ async def browse(ctx):
 easycord doctor                        # check Python, discord.py, DISCORD_TOKEN
 easycord doctor bot:bot                # also check bot imports and interaction count
 easycord doctor bot:bot --json         # stable JSON output for CI
+easycord doctor bot:bot --fix-configs  # heal drifted plugin config schemas (stop bot first)
 
 easycord inspect bot:bot               # print all registered interactions
 easycord inspect bot:bot --json
@@ -929,7 +962,7 @@ my_bot/
 - `WelcomePlugin` — configurable welcome messages on member join.
 - `TagsPlugin` — per-guild text snippet store with `/tag get/set/delete/list`.
 - `PollsPlugin` — slash-command polls with reaction-based voting.
-- `LevelsPlugin` — per-guild XP, leveling, rank names, and role rewards.
+- `LevelsPlugin` — per-guild XP, leveling, rank names, role rewards, XP multipliers (`/set_xp_multiplier`), level-up DM toggle, bulk XP reset, and leaderboard caching.
 - `ModerationPlugin` — kick, ban, unban, timeout, warn, mute, unmute.
 - `StarboardPlugin` — archives messages that reach a reaction threshold.
 - `InviteTrackerPlugin` — tracks which invite brought each member.
@@ -938,6 +971,13 @@ my_bot/
 - `SuggestionsPlugin` — collects and votes on server suggestions.
 - `OpenClaudePlugin` — `/ask` command backed by Anthropic Claude.
 - `TranslatePlugin` — `/translate` backed by Google Translate, no API key required.
+- `JuiceWRLDPlugin` — `/jw_search`, `/jw_song`, `/jw_era`, `/jw_random`, `/jw_add_song`; optional live sync against `juicewrldapi.com`; AI tools for song search and detail lookup.
+
+**Plugin Config Schemas:**
+- `ConfigSchema(key, version, defaults)` — declarative versioned per-guild config schema.
+- `@SCHEMA.migration(from_version=N)` — registers a step-wise migration function.
+- `config.get_schema(guild_id, schema)` — heals and returns a guild's config section, running pending migrations and backfilling defaults.
+- `easycord doctor --fix-configs` — heals all drifted guild configs in-place from the CLI.
 
 **Middleware:**
 - `guild_only`, `dm_only`, `admin_only`, `allowed_roles`, `has_permission`, `channel_only`, `boost_only`.
@@ -1026,4 +1066,4 @@ EasyCord is released under the **MIT License**.
 - See `pyproject.toml` for the canonical license metadata.
 - Copyright (c) 2026 Rolling Codes.
 
-Release: [v5.56.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.56.0) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
+Release: [v5.56.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.56.0) · [Changelog](CHANGELOG.md) · [Config Schemas](docs/config-schema.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
