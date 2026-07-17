@@ -237,32 +237,6 @@ Full documentation: [docs/builtin-plugins.md](docs/builtin-plugins.md)
 
 ---
 
-## Documentation
-
-**New here?** Start with [Getting Started](docs/getting-started.md), then pick a path below.
-
-| Core Learning Path | What to read |
-|---|---|
-| **Add commands (slash, buttons, forms)** | [Building Commands](docs/building-commands.md) |
-| **Control who can run commands** | [Request Lifecycle](docs/request-lifecycle.md) — middleware, guards, error handlers |
-| **Split code into plugins** | [Organizing Code](docs/organizing-code.md) — plugins, tasks, event bus |
-| **Store per-guild data** | [Storage & State](docs/database-guide.md) — SQLite, in-memory, BotConfig |
-| **Versioned plugin config** | [Plugin Config Schemas](docs/config-schema.md) — migrations, doctor integration |
-| **Test your commands** | [Testing Commands](docs/testing.md) — offline, no bot token needed |
-
-| Specialized Topics | |
-|---|---|
-| [Interactive UI](docs/context-interactive-ui.md) | Confirm, paginate, choose, ask_form |
-| [AI Features](docs/conversation-memory.md) | Multi-turn memory, 9 providers, tool safety |
-| [Built-in Plugins](docs/builtin-plugins.md) | All 29 plugins, full command reference |
-| [Command Sync](docs/command-sync.md) | Preview and apply Discord registration |
-| [Hot-Reload Development](docs/hot-reload-development.md) | Reload code without restarting |
-| [Developer Toolkit](docs/developer-toolkit.md) | `easycord` CLI — scaffold, inspect, audit |
-| [Full Context Reference](docs/context-reference.md) | Complete `Context` API |
-| [Examples](examples/) | Four working bots: minimal, advanced, AI, builtin-plugins |
-
----
-
 ## Architecture
 
 ```
@@ -306,19 +280,17 @@ my_bot/
 
 ## Why EasyCord vs. raw discord.py
 
-| Task | Raw `discord.py` | EasyCord |
+| What you need | Raw `discord.py` | EasyCord |
 |---|---|---|
-| Slash commands | Build `CommandTree`, sync manually | `@bot.slash(description="...")` |
-| Permission checks | Repeat in each command | `@require_permissions(...)` on the decorator |
-| Cooldowns | Track timestamps yourself | `@cooldown(rate=2, per=30)` |
-| Components | Wire handlers by matching string IDs | `@bot.component("ticket:close:{id:int}")` |
-| Middleware | Write custom decorator chains | `bot.use(rate_limit())` |
-| Plugins | Custom `Cog` wiring | `Plugin` with lifecycle hooks |
-| Per-guild config | Hand-rolled JSON or a database | `ServerConfigStore` or `bot.db` |
-| Config migrations | Manual data transforms | `ConfigSchema` + `@SCHEMA.migration` |
-| Error handling | Catch and re-raise in each command | `@command_error`, `Plugin.on_error`, `@bot.on_error` |
-| Offline tests | Mock the entire discord.py client | `invoke(bot, "command_name")` |
-| AI integration | discord.py + LLM SDK glue code | `Orchestrator` + `ToolRegistry` |
+| Slash command with typed args | `CommandTree` + manual sync | `@slash(description="...")` — sync handled |
+| Component routing | Match string IDs manually per handler | `@component("ticket:close:{id:int}")` — typed |
+| Reusable feature module | `Cog` with manual setup/teardown | `Plugin` with `on_load`, `on_unload`, `on_reload` |
+| Per-guild settings | Hand-rolled storage + migration code | `ServerConfigStore` + `ConfigSchema` migrations |
+| Request control | Decorator chains on every command | `bot.use(catch_errors(), rate_limit(), guild_only())` |
+| Error waterfall | Re-raise or duplicate handlers | `@command_error` → `Plugin.on_error` → `@bot.on_error` |
+| Offline testing | Mock the entire discord.py client | `ctx = await invoke(bot, "kick")` |
+| AI tool calling | LLM SDK + prompt engineering + glue | `@ai_tool` + `Orchestrator` + safety levels |
+| Day-one feature set | Zero plugins, all from scratch | 29 built-in plugins, `load_builtin_plugins=True` |
 
 ---
 
@@ -328,5 +300,7 @@ EasyCord is released under the **MIT License**.
 
 See `pyproject.toml` for the canonical license metadata.  
 Copyright (c) 2026 Rolling Codes.
+
+**Docs:** [Getting Started](docs/getting-started.md) · [Built-in Plugins](docs/builtin-plugins.md) · [AI Features](docs/conversation-memory.md) · [All guides →](docs/README.md)
 
 Release: [v5.56.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.56.0) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
