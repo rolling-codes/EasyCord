@@ -7,16 +7,16 @@
 
 > **Production-grade Discord bot framework** for building scalable, maintainable bots with clean, type-safe code.
 >
-> Slash commands, context menus, modal forms, components with dynamic routing, plugins with dependency management, per-guild storage, multi-language i18n, conversation memory, optional AI orchestration, middleware pipeline, lifecycle hooks, and task scheduling—all with **zero boilerplate**.
+> Slash commands, context menus, modal forms, components with dynamic routing, plugins with versioned config schemas and dependency management, per-guild storage, multi-language i18n, conversation memory, optional AI orchestration, middleware pipeline, lifecycle hooks, and task scheduling—all with **zero boilerplate**.
 >
-> **Built for scale**: 1500+ tests, atomic database operations, concurrent plugin safety, proper error isolation, and comprehensive type hints. Deploy with confidence.
+> **29 built-in plugins** including levels, economy, moderation, starboard, polls, translation, JuiceWRLD, and more. **1500+ tests**, atomic database operations, concurrent plugin safety, proper error isolation, and comprehensive type hints. Deploy with confidence.
 
 ### Why EasyCord?
 
 - **No boilerplate.** Decorators do the work. Define commands in two lines, not thirty.
 - **Type-safe.** Full Pyright support. Catch bugs at dev time, not runtime.
-- **Plugin-native.** Modular, testable, reusable. Build plugins in minutes, not hours.
-- **Optional AI.** Includes conversation memory and multi-provider LLM orchestration. Use it or ignore it.
+- **Plugin-native.** Modular, testable, reusable. Versioned config schemas with automatic migration. Build plugins in minutes, not hours.
+- **Optional AI.** Includes conversation memory and multi-provider LLM orchestration (9 providers). Use it or ignore it.
 - **Tested.** 1500+ tests covering concurrency, crashes, race conditions, and edge cases.
 - **Async-first.** Proper lock safety, atomic database operations, isolated error handling. Won't silently corrupt state.
 
