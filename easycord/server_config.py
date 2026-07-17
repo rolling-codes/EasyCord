@@ -165,6 +165,11 @@ class ServerConfigStore:
         self._base = Path(base_dir)
         self._base.mkdir(parents=True, exist_ok=True)
         self._locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+        # In-memory cache of parsed config keyed by guild_id. ``None`` marks a
+        # guild that is known to have no config file (so repeated hot-path
+        # reads for disabled features never touch disk). The bot is the sole
+        # writer; ``save``/``delete`` keep this coherent with disk.
+        self._cache: dict[int, dict | None] = {}
 
     def _path(self, guild_id: int) -> Path:
         return self._base / f"{guild_id}.json"
@@ -172,18 +177,24 @@ class ServerConfigStore:
     def _load_unlocked(self, guild_id: int) -> ServerConfig:
         """Read a guild's config from disk without taking the lock.
 
-        Callers must already hold ``self._locks[guild_id]``.
+        Callers must already hold ``self._locks[guild_id]``. Checks the
+        in-memory cache first; updates the cache on a disk read.
         """
+        if guild_id in self._cache:
+            return ServerConfig(guild_id, self._cache[guild_id])
         path = self._path(guild_id)
         if not path.exists():
+            self._cache[guild_id] = None
             return ServerConfig(guild_id)
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return ServerConfig(guild_id, json.load(f))
+                data = json.load(f)
         except (json.JSONDecodeError, OSError) as exc:
             raise RuntimeError(
                 f"Failed to load config for guild {guild_id}: {exc}"
             ) from exc
+        self._cache[guild_id] = data
+        return ServerConfig(guild_id, data)
 
     def _save_unlocked(self, config: ServerConfig) -> None:
         """Atomically write a guild's config to disk without taking the lock.
@@ -205,7 +216,12 @@ class ServerConfigStore:
             ) from exc
 
     async def load(self, guild_id: int) -> ServerConfig:
-        """Load config for a guild; returns an empty config if none exists."""
+        """Load config for a guild; returns an empty config if none exists.
+
+        Parsed data is cached in memory after the first read. ``ServerConfig``
+        deep-copies its data on construction, so each call still returns an
+        independent, freely-mutable object.
+        """
         async with self._locks[guild_id]:
             return self._load_unlocked(guild_id)
 
@@ -213,6 +229,7 @@ class ServerConfigStore:
         """Persist a guild's config to disk atomically."""
         async with self._locks[config.guild_id]:
             self._save_unlocked(config)
+            self._cache[config.guild_id] = config.to_dict()
 
     async def mutate(self, guild_id: int, fn: Callable[[ServerConfig], T]) -> T:
         """Atomic read-modify-write under the per-guild lock.
@@ -239,6 +256,7 @@ class ServerConfigStore:
                     elapsed_ms,
                 )
             self._save_unlocked(config)
+            self._cache[guild_id] = config.to_dict()
             return result
 
     async def delete(self, guild_id: int) -> None:
@@ -247,6 +265,7 @@ class ServerConfigStore:
             path = self._path(guild_id)
             if path.exists():
                 os.remove(path)
+            self._cache[guild_id] = None
 
     async def exists(self, guild_id: int) -> bool:
         """Return ``True`` if a config file exists for this guild."""

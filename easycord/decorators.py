@@ -470,6 +470,41 @@ def on(event: str, *, on_cleanup: Callable | None = None) -> Callable:
     return decorator
 
 
+def _dual_api_decorator(id_or_func, apply_fn: Callable) -> Callable:
+    """Support both @decorator and @decorator("id") call styles.
+
+    ``apply_fn(func, custom_id)`` sets the required attributes on ``func`` and
+    returns it.  ``custom_id`` is ``None`` when called as a bare decorator.
+    """
+    if callable(id_or_func):
+        return apply_fn(id_or_func, None)
+
+    def decorator(func: Callable) -> Callable:
+        return apply_fn(func, id_or_func)
+
+    return decorator
+
+
+def _context_menu_decorator(
+    flag: str,
+    name: str | None,
+    guild_id: int | None,
+    nsfw: bool,
+    allowed_contexts: app_commands.AppCommandContext | None,
+    allowed_installs: app_commands.AppInstallationType | None,
+) -> Callable:
+    """Build the inner decorator shared by user_command() and message_command()."""
+    def decorator(func: Callable) -> Callable:
+        setattr(func, flag, True)
+        func._context_menu_name = name or func.__name__
+        func._context_menu_guild = guild_id
+        func._context_menu_nsfw = nsfw
+        func._context_menu_allowed_contexts = allowed_contexts
+        func._context_menu_allowed_installs = allowed_installs
+        return func
+    return decorator
+
+
 def user_command(
     name: str | None = None,
     *,
@@ -479,15 +514,7 @@ def user_command(
     allowed_installs: app_commands.AppInstallationType | None = None,
 ) -> Callable:
     """Mark a Plugin method as a right-click User context menu command."""
-    def decorator(func: Callable) -> Callable:
-        func._is_user_command = True
-        func._context_menu_name = name or func.__name__
-        func._context_menu_guild = guild_id
-        func._context_menu_nsfw = nsfw
-        func._context_menu_allowed_contexts = allowed_contexts
-        func._context_menu_allowed_installs = allowed_installs
-        return func
-    return decorator
+    return _context_menu_decorator("_is_user_command", name, guild_id, nsfw, allowed_contexts, allowed_installs)
 
 
 def message_command(
@@ -499,15 +526,7 @@ def message_command(
     allowed_installs: app_commands.AppInstallationType | None = None,
 ) -> Callable:
     """Mark a Plugin method as a right-click Message context menu command."""
-    def decorator(func: Callable) -> Callable:
-        func._is_message_command = True
-        func._context_menu_name = name or func.__name__
-        func._context_menu_guild = guild_id
-        func._context_menu_nsfw = nsfw
-        func._context_menu_allowed_contexts = allowed_contexts
-        func._context_menu_allowed_installs = allowed_installs
-        return func
-    return decorator
+    return _context_menu_decorator("_is_message_command", name, guild_id, nsfw, allowed_contexts, allowed_installs)
 
 
 def component(id_or_func=None, *, scoped: bool = True, ttl: float | None = None) -> Callable:
@@ -522,13 +541,7 @@ def component(id_or_func=None, *, scoped: bool = True, ttl: float | None = None)
         func._component_ttl = ttl
         return func
 
-    if callable(id_or_func):
-        return _apply(id_or_func, None)
-
-    def decorator(func: Callable) -> Callable:
-        return _apply(func, id_or_func)
-
-    return decorator
+    return _dual_api_decorator(id_or_func, _apply)
 
 
 def modal(id_or_func=None, *, scoped: bool = True) -> Callable:
@@ -539,13 +552,7 @@ def modal(id_or_func=None, *, scoped: bool = True) -> Callable:
         func._modal_scoped = scoped
         return func
 
-    if callable(id_or_func):
-        return _apply(id_or_func, None)
-
-    def decorator(func: Callable) -> Callable:
-        return _apply(func, id_or_func)
-
-    return decorator
+    return _dual_api_decorator(id_or_func, _apply)
 
 
 def ai_tool(

@@ -291,3 +291,62 @@ class TestAtomicMutate:
         with pytest.raises(RuntimeError, match="Failed to save config for guild 1"):
             await store.save(cfg)
 
+
+class TestServerConfigStoreCache:
+    """The store caches parsed config in memory so hot-path reads skip disk.
+
+    Coherency assumption: the bot is the sole writer and every write goes
+    through ``save``/``delete``, which refresh the cache. An out-of-band edit
+    to the file on disk is therefore *expected* to be ignored until the next
+    save — the tests below rely on that to prove a read came from cache.
+    """
+
+    @pytest.fixture
+    def store(self, tmp_path):
+        return ServerConfigStore(str(tmp_path / "cfg"))
+
+    def _disk_path(self, tmp_path, guild_id: int):
+        return tmp_path / "cfg" / f"{guild_id}.json"
+
+    @pytest.mark.asyncio
+    async def test_load_hit_skips_disk(self, store, tmp_path) -> None:
+        cfg = await store.load(1)
+        cfg.set_role("mod", 1)
+        await store.save(cfg)
+
+        # Tamper with the file out-of-band; a cache hit must ignore it.
+        self._disk_path(tmp_path, 1).write_text(
+            '{"roles": {"mod": 999}}', encoding="utf-8"
+        )
+
+        loaded = await store.load(1)
+        assert loaded.get_role("mod") == 1
+
+    @pytest.mark.asyncio
+    async def test_save_refreshes_cache(self, store) -> None:
+        await store.load(1)  # populate cache as empty
+        cfg = await store.load(1)
+        cfg.set_role("mod", 5)
+        await store.save(cfg)
+        loaded = await store.load(1)
+        assert loaded.get_role("mod") == 5
+
+    @pytest.mark.asyncio
+    async def test_delete_invalidates_cache(self, store) -> None:
+        cfg = await store.load(1)
+        cfg.set_role("mod", 1)
+        await store.save(cfg)
+        await store.delete(1)
+        loaded = await store.load(1)
+        assert loaded.list_roles() == {}
+
+    @pytest.mark.asyncio
+    async def test_loads_return_independent_copies(self, store) -> None:
+        cfg = await store.load(1)
+        cfg.set_role("mod", 1)
+        await store.save(cfg)
+
+        first = await store.load(1)
+        first.set_role("mod", 2)  # mutate without saving
+        second = await store.load(1)
+        assert second.get_role("mod") == 1

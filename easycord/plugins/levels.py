@@ -23,6 +23,12 @@ from ._levels_data import (
 # entries, prune the expired ones. Bounds memory without a full reset.
 _COOLDOWN_PRUNE_THRESHOLD = 10000
 
+# Leaderboard cache TTL — stale by at most this many seconds between queries.
+_LB_CACHE_TTL = 300.0  # 5 minutes
+
+# Config read cache TTL — limits disk reads in high-traffic guilds.
+_CFG_CACHE_TTL = 30.0
+
 
 def _positive_level(level: int) -> bool:
     return level >= 1
@@ -52,13 +58,16 @@ class LevelsPlugin(Plugin):
 
     Slash commands registered
     -------------------------
-    ``/rank``            — Show your level, XP, and rank.
-    ``/leaderboard``     — Top-10 XP leaderboard for the server.
-    ``/give_xp``         — (manage_guild) Award XP to a member.
-    ``/set_rank``        — (manage_guild) Attach a rank name to a level.
-    ``/remove_rank``     — (manage_guild) Delete a rank name.
-    ``/set_level_role``  — (manage_guild) Assign a role reward to a level.
-    ``/ranks``           — List all configured ranks and role rewards.
+    ``/rank``                — Show your level, XP, and rank.
+    ``/leaderboard``         — Top-10 XP leaderboard for the server.
+    ``/give_xp``             — (manage_guild) Award XP to a member.
+    ``/reset_xp``            — (manage_guild) Reset a member's XP to zero.
+    ``/set_xp_multiplier``   — (manage_guild) Temporarily boost XP gain.
+    ``/toggle_level_dm``     — (manage_guild) Toggle level-up DMs.
+    ``/set_rank``            — (manage_guild) Attach a rank name to a level.
+    ``/remove_rank``         — (manage_guild) Delete a rank name.
+    ``/set_level_role``      — (manage_guild) Assign a role reward to a level.
+    ``/ranks``               — List all configured ranks and role rewards.
     """
 
     def __init__(
@@ -74,6 +83,10 @@ class LevelsPlugin(Plugin):
         self._cooldown = cooldown_seconds
         self._announce = announce_levelups
         self._cooldowns: dict[int, dict[int, float]] = defaultdict(dict)
+        # guild_id -> (xp_data_dict, cached_at_monotonic)
+        self._lb_cache: dict[int, tuple[dict, float]] = {}
+        # guild_id -> (config_dict, cached_at_monotonic)
+        self._cfg_cache: dict[int, tuple[dict, float]] = {}
 
     # ── Public store delegation ───────────────────────────────
 
@@ -86,6 +99,34 @@ class LevelsPlugin(Plugin):
     def get_entry(self, guild_id: int, user_id: int) -> dict:
         """Return a read-only XP/level snapshot for a user."""
         return self._store.get_entry(guild_id, user_id)
+
+    # ── Config cache helpers ──────────────────────────────────
+
+    def _read_config_cached(self, guild_id: int) -> dict:
+        """Return guild config using a short-lived in-memory TTL cache."""
+        cached, cached_at = self._cfg_cache.get(guild_id, ({}, float("-inf")))
+        if time.monotonic() - cached_at < _CFG_CACHE_TTL:
+            return cached
+        config = self._store.read_config(guild_id)
+        self._cfg_cache[guild_id] = (config, time.monotonic())
+        return config
+
+    def _invalidate_config_cache(self, guild_id: int) -> None:
+        self._cfg_cache.pop(guild_id, None)
+
+    def _get_xp_multiplier(self, guild_id: int) -> float:
+        """Return the active XP multiplier for *guild_id*, or 1.0 if none."""
+        config = self._read_config_cached(guild_id)
+        mult = config.get("xp_multiplier", 1.0)
+        expires = config.get("xp_multiplier_expires", 0.0)
+        if mult != 1.0 and time.time() < expires:
+            return mult
+        return 1.0
+
+    def _invalidate_lb_cache(self, guild_id: int) -> None:
+        self._lb_cache.pop(guild_id, None)
+
+    # ── Embed builders ────────────────────────────────────────
 
     def _build_rank_embed(self, ctx, entry: dict, config: dict) -> discord.Embed:
         level = entry["level"]
@@ -227,14 +268,14 @@ class LevelsPlugin(Plugin):
 
         self._cooldowns[guild_id][user_id] = now
 
-        xp, level, leveled_up = await self._store.add_xp(
-            guild_id, user_id, self._xp_per_message
-        )
+        mult = self._get_xp_multiplier(guild_id)
+        xp_amount = max(1, int(self._xp_per_message * mult))
+        xp, level, leveled_up = await self._store.add_xp(guild_id, user_id, xp_amount)
 
         if not leveled_up or not self._announce:
             return
 
-        config = self._store.read_config(guild_id)
+        config = self._read_config_cached(guild_id)
         rank = rank_for_level(config, level)
         rank_text = f" — **{rank}**" if rank else ""
 
@@ -253,6 +294,17 @@ class LevelsPlugin(Plugin):
 
         await message.channel.send(embed=embed)
 
+        if config.get("level_dm_enabled", False):
+            try:
+                await message.author.send(
+                    embed=discord.Embed(
+                        description=f"🎉 You reached **Level {level}**{rank_text} in **{message.guild.name}**!",
+                        color=discord.Color.gold(),
+                    )
+                )
+            except (discord.Forbidden, discord.HTTPException) as exc:
+                logger.warning("Could not send level-up DM to user %s: %s", user_id, exc)
+
     # ── Slash commands ────────────────────────────────────────
 
     @slash(description="Show your current level, XP, and rank.", guild_only=True)
@@ -263,7 +315,14 @@ class LevelsPlugin(Plugin):
 
     @slash(description="Show the server's top-10 XP leaderboard.", guild_only=True)
     async def leaderboard(self, ctx) -> None:
-        data = self._store.read_xp(ctx.guild.id)
+        now = time.monotonic()
+        cached_data, cached_at = self._lb_cache.get(ctx.guild.id, (None, 0.0))
+        if cached_data is not None and now - cached_at < _LB_CACHE_TTL:
+            data = cached_data
+        else:
+            data = self._store.read_xp(ctx.guild.id)
+            self._lb_cache[ctx.guild.id] = (data, now)
+
         if not data:
             await ctx.respond(ctx.t("levels.no_xp_yet", default="No one has earned XP yet!"), ephemeral=True)
             return
@@ -277,6 +336,7 @@ class LevelsPlugin(Plugin):
             await ctx.respond(ctx.t("levels.amount_positive", default="Amount must be a positive number."), ephemeral=True)
             return
         xp, level, leveled_up = await self._store.add_xp(ctx.guild.id, member.id, amount)
+        self._invalidate_lb_cache(ctx.guild.id)
         msg = f"Gave **{amount:,} XP** to {member.mention}. They now have **{xp:,} XP** (Level {level})."
         if leveled_up:
             msg += " 🎉 Level up!"
@@ -286,6 +346,51 @@ class LevelsPlugin(Plugin):
             if awarded:
                 msg += f" Role awarded: {awarded.mention}"
         await ctx.respond(msg)
+
+    @slash(description="Reset a member's XP and level to zero.", permissions=["manage_guild"], guild_only=True)
+    async def reset_xp(self, ctx, member: discord.Member) -> None:
+        assert ctx.guild is not None
+        await self._store.reset_user(ctx.guild.id, member.id)
+        self._invalidate_lb_cache(ctx.guild.id)
+        await ctx.respond(f"♻️ Reset XP for {member.mention}.", ephemeral=True)
+
+    @slash(description="Set a temporary XP multiplier for this server.", permissions=["manage_guild"], guild_only=True)
+    async def set_xp_multiplier(self, ctx, multiplier: float, duration_minutes: int = 60) -> None:
+        assert ctx.guild is not None
+        if multiplier <= 0:
+            await ctx.respond("❌ Multiplier must be greater than zero.", ephemeral=True)
+            return
+        if duration_minutes < 1:
+            await ctx.respond("❌ Duration must be at least 1 minute.", ephemeral=True)
+            return
+
+        expires_at = time.time() + duration_minutes * 60
+
+        def _apply(cfg: dict) -> None:
+            cfg["xp_multiplier"] = multiplier
+            cfg["xp_multiplier_expires"] = expires_at
+
+        await self._store.update_config(ctx.guild.id, _apply)
+        self._invalidate_config_cache(ctx.guild.id)
+        await ctx.respond(
+            f"⚡ XP multiplier set to **{multiplier}×** for {duration_minutes} minute(s).",
+            ephemeral=True,
+        )
+
+    @slash(description="Toggle level-up direct messages on or off for this server.", permissions=["manage_guild"], guild_only=True)
+    async def toggle_level_dm(self, ctx) -> None:
+        assert ctx.guild is not None
+        current: bool | None = None
+
+        def _toggle(cfg: dict) -> None:
+            nonlocal current
+            current = not cfg.get("level_dm_enabled", False)
+            cfg["level_dm_enabled"] = current
+
+        await self._store.update_config(ctx.guild.id, _toggle)
+        self._invalidate_config_cache(ctx.guild.id)
+        state = "enabled" if current else "disabled"
+        await ctx.respond(f"Level-up DMs are now **{state}**.", ephemeral=True)
 
     @slash(description="Name a rank for a specific level.", permissions=["manage_guild"], guild_only=True)
     async def set_rank(self, ctx, level: int, name: str) -> None:
