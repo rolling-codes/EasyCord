@@ -10,6 +10,7 @@ jobs:
   lint-and-test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
@@ -32,4 +33,5 @@ jobs:
       - name: Verify plugin test coverage thresholds
         run: python scripts/verify_plugin_tests.py
       - name: Test (pytest)
+        timeout-minutes: 10
         run: pytest

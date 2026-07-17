@@ -1,0 +1,35 @@
+name: Auto Retry
+
+on:
+  workflow_run:
+    workflows:
+      - "PR Quality"
+      - "Coverage"
+      - "PR Labeler"
+      - "Issue and PR Triage"
+    types: [completed]
+
+permissions:
+  actions: write
+
+jobs:
+  retry:
+    if: |
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt == 1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run failed workflow
+        uses: actions/github-script@v9
+        with:
+          script: |
+            try {
+              await github.rest.actions.reRunWorkflow({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.payload.workflow_run.id,
+              });
+              console.log(`Re-running ${context.payload.workflow_run.name} (run ${context.payload.workflow_run.id})`);
+            } catch (error) {
+              core.warning(`Could not re-run: ${error.message}`);
+            }
