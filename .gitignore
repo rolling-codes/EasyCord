@@ -11,6 +11,7 @@ build/
 *.egg
 MANIFEST
 *.zip
+release_v*/
 
 # Virtual environments
 .venv/
@@ -43,6 +44,11 @@ htmlcov/
 # Claude Code tooling
 .claude/
 .coderabbit-bin/
+
+# Local app / analysis outputs
+.obsidian/
+graphify-out/
+GRAPH_REPORT.md
 
 # Runtime data produced by the framework (not part of the source)
 .easycord/

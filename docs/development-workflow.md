@@ -89,7 +89,7 @@ Releases are label-driven and mostly automated. The order matters:
 
 1. **Preconditions:** all intended PRs merged, `main` CI green.
 2. **Bump.** `python scripts/bump_version.py 5.X.Y --dry-run` to review, then run it for real. It updates `pyproject.toml`, `easycord/__init__.py`, `README.md`, and `docs/getting-started.md`, then self-validates via `check_release_metadata.py`.
-3. **Notes.** Create `release_v5.X.Y/notes.md` (overview, new features with code examples, test count, install URLs for the wheel and sdist, upgrade notes) and add the CHANGELOG heading `## EasyCord v5.X.Y - YYYY-MM-DD` with `### Added` / `### Fixed` / `### Tests` sections.
+3. **Notes.** Add the CHANGELOG heading `## EasyCord v5.X.Y - YYYY-MM-DD` with `### Added` / `### Fixed` / `### Tests` sections, and include the expected wheel and sdist asset names. Release notes live in the GitHub Release draft; do not commit `release_v*/` folders to `main`.
 4. **PR + draft.** Push the release branch and open a PR. Release Drafter maintains a draft GitHub Release from merged PR labels:
 
    | PR label | Version bump |
@@ -99,7 +99,7 @@ Releases are label-driven and mostly automated. The order matters:
    | `bug`, `fix`, `security`, `dependencies`, `test`, `documentation` | patch |
 
 5. **Merge, then publish.** Merging alone ships nothing — **publishing** the drafted GitHub Release triggers `publish-pypi.yml`, which builds the wheel + sdist and uploads to PyPI.
-6. **Verify:** the version appears on [PyPI](https://pypi.org/project/easycord/) and the release assets are attached.
+6. **Verify:** the version appears on [PyPI](https://pypi.org/project/easycord/) and the release assets are attached to the GitHub Release.
 
 ## Invariants worth pinning
 

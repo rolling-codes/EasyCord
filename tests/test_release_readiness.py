@@ -42,7 +42,7 @@ def test_version_metadata_and_docs_are_consistent() -> None:
     assert f"## EasyCord v{version}" in _read("CHANGELOG.md")
     assert f"releases/tag/v{version}" in pyproject["project"]["urls"]["Release"]
     assert wheel_asset in pyproject["project"]["urls"]["Download"]
-    assert sdist_asset in _read(f"release_v{version}/notes.md")
+    assert sdist_asset in _read("CHANGELOG.md")
     assert pyproject["project"]["scripts"]["easycord"] == "easycord.cli:main"
     assert "discord.py>=2.7.1,<3" in pyproject["project"]["dependencies"]
     assert "discord.py>=2.7.1,<3" in _read("docs/getting-started.md")
