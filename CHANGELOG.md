@@ -29,6 +29,8 @@
 - **`EconomyPlugin` atomic transfer** — `/transfer` now uses a single `_transfer()`
   helper that reads and writes both balances under one lock acquisition, making the
   operation all-or-nothing.
+- **Release metadata** — GitHub Release `v5.56.0` tracks the expected artifacts:
+  `easycord-5.56.0-py3-none-any.whl` and `releases/download/v5.56.0/easycord-5.56.0.tar.gz`.
 
 ## EasyCord v5.55.0 — 2026-07-16
 

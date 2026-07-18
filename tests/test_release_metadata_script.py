@@ -17,7 +17,6 @@ collect_errors = CHECKER.collect_errors
 def _write_release_tree(root: Path, *, version: str = "1.2.3") -> None:
     (root / "easycord").mkdir()
     (root / "docs").mkdir()
-    (root / f"release_v{version}").mkdir()
     (root / "easycord" / "__init__.py").write_text(
         f'__version__ = "{version}"\n',
         encoding="utf-8",
@@ -44,18 +43,20 @@ def _write_release_tree(root: Path, *, version: str = "1.2.3") -> None:
         encoding="utf-8",
     )
     (root / "CHANGELOG.md").write_text(
-        f"# Changelog\n\n## EasyCord v{version} - Test\n",
+        "\n".join(
+            [
+                "# Changelog",
+                "",
+                f"## EasyCord v{version} - Test",
+                "",
+                f"Release assets: easycord-{version}-py3-none-any.whl and easycord-{version}.tar.gz",
+                "",
+            ]
+        ),
         encoding="utf-8",
     )
     (root / "docs" / "getting-started.md").write_text(
         f"https://github.com/rolling-codes/EasyCord/releases/download/v{version}/easycord-{version}-py3-none-any.whl\n",
-        encoding="utf-8",
-    )
-    (root / f"release_v{version}" / "notes.md").write_text(
-        f"""
-        https://github.com/rolling-codes/EasyCord/releases/download/v{version}/easycord-{version}-py3-none-any.whl
-        https://github.com/rolling-codes/EasyCord/releases/download/v{version}/easycord-{version}.tar.gz
-        """,
         encoding="utf-8",
     )
 

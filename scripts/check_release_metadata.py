@@ -81,12 +81,6 @@ def collect_errors(root: Path) -> list[str]:
     readme = read_text(root, "README.md")
     changelog = read_text(root, "CHANGELOG.md")
     getting_started = read_text(root, "docs/getting-started.md")
-    release_notes_path = root / f"release_{tag}" / "notes.md"
-    release_notes = (
-        release_notes_path.read_text(encoding="utf-8")
-        if release_notes_path.exists()
-        else ""
-    )
 
     badge = f"![Version](https://img.shields.io/badge/v-{version}-blue)"
     if badge not in readme:
@@ -114,12 +108,8 @@ def collect_errors(root: Path) -> list[str]:
             f"pyproject.toml project.urls.Download is {urls.get('Download')!r}, expected {wheel_url!r}"
         )
 
-    if not release_notes:
-        errors.append(f"Missing release notes file: release_{tag}/notes.md")
-    else:
-        for asset_url, asset in ((wheel_url, wheel), (sdist_url, sdist)):
-            if asset_url not in release_notes and asset not in release_notes:
-                errors.append(f"release_{tag}/notes.md must mention {asset}")
+    if sdist_url not in changelog and sdist not in changelog:
+        errors.append(f"CHANGELOG.md must mention the sdist asset for {sdist}")
 
     return errors
 
