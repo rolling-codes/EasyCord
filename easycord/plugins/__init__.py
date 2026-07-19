@@ -34,6 +34,7 @@ from .giveaway import GiveawayPlugin
 from .reminder import ReminderPlugin
 from .reputation import ReputationPlugin
 from .scheduled_announcements import ScheduledAnnouncementsPlugin
+from .server_setup import ServerSetupPlugin
 from .server_stats import ServerStatsPlugin
 from .tickets import TicketsPlugin
 from .verification import VerificationPlugin
@@ -50,6 +51,7 @@ __all__ = [
     "ReputationPlugin",
     "ScheduledAnnouncementsPlugin",
     "SecurityLabPlugin",
+    "ServerSetupPlugin",
     "ServerStatsPlugin",
     "TicketsPlugin",
     "VerificationPlugin",
