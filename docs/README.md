@@ -25,7 +25,7 @@ After Day 1, follow this progression to build real features:
 5. **[Testing Commands](testing.md)** — Test offline without Discord running
 
 **Optional:** [AI Features](conversation-memory.md) (conversation memory, optional in bot)  
-**Reference:** [Built-in Plugins](builtin-plugins.md) (29 ready-made plugins to extend)
+**Reference:** [Built-in Plugins](builtin-plugins.md) (28 ready-made plugins to extend)
 
 ---
 
@@ -41,7 +41,6 @@ Or jump straight to a specific goal:
 | Organize commands under one name (`/admin kick`) | [Building Commands](building-commands.md) |
 | Dynamic routing for buttons (URL-style) | [Building Commands](building-commands.md) |
 | Show pagination, confirmations, dropdowns | [Interactive UI](context-interactive-ui.md) |
-| Bootstrap a new server's channels, roles, and permissions | [Server Setup Templates](server-setup.md) |
 
 ### Organizing & Controlling Code
 | Goal | Read |
@@ -96,8 +95,7 @@ Or jump straight to a specific goal:
 | [Command Sync](command-sync.md) | Registering commands to Discord |
 | [Request Lifecycle](request-lifecycle.md) | Middleware, error handlers, hooks, command flow |
 | [Organizing Code](organizing-code.md) | Plugins, task scheduling, event bus, patterns |
-| [Built-in Plugins](builtin-plugins.md) | 29 bundled plugins (levels, economy, moderation, AI, etc.) |
-| [Server Setup Templates](server-setup.md) | `/setup-server` presets: channels, roles, permissions |
+| [Built-in Plugins](builtin-plugins.md) | 28 bundled plugins (levels, economy, moderation, AI, etc.) |
 | [Conversation Memory](conversation-memory.md) | AI context, multi-turn memory |
 | [Testing Commands](testing.md) | Offline testing without Discord |
 | [Plugin Authoring](plugin-authoring.md) | Build reusable plugins |

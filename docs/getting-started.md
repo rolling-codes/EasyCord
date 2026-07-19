@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.57.0/easycord-5.57.0-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.56.0/easycord-5.56.0-py3-none-any.whl"
 ```
 
 Or clone and install locally:
