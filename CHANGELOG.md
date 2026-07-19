@@ -1,25 +1,5 @@
 # Changelog
 
-## EasyCord v5.57.0 — 2026-07-18
-
-### Added
-
-- **Server setup templates** (`ServerSetupPlugin`) — new opt-in plugin with a
-  `/setup-server` command that previews and applies preset server layouts:
-  categories, text/voice channels, roles, role-level permissions, and per-channel
-  permission overwrites. Four templates ship: `gaming`, `community`, `study`,
-  `creator`. Application is additive only (existing items are skipped by
-  Discord-normalized name, never modified or deleted) and gated behind an
-  ephemeral preview with Apply/Cancel confirmation. Role permissions are clamped
-  to what the bot can grant; per-item Discord failures are reported in the
-  summary without aborting the run. Each successful run is recorded per guild
-  (template, timestamp, invoker, created IDs). New guide: `docs/server-setup.md`.
-
-### Changed
-
-- **Release metadata** — GitHub Release `v5.57.0` tracks the expected artifacts:
-  `easycord-5.57.0-py3-none-any.whl` and `releases/download/v5.57.0/easycord-5.57.0.tar.gz`.
-
 ## EasyCord v5.56.0 — 2026-07-16
 
 ### Added

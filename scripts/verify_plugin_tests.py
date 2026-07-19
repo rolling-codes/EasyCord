@@ -25,7 +25,7 @@ def main():
         print(f"Tests directory not found: {tests_dir}")
         sys.exit(1)
         
-    complex_plugins = ["ai_moderator", "tickets", "birthday", "levels", "reminders", "server_setup"]
+    complex_plugins = ["ai_moderator", "tickets", "birthday", "levels", "reminders"]
     simple_plugins = ["suggestions", "tags", "starboard"]
 
     # Some plugins keep their tests in a file that does not match test_<plugin>.py.
