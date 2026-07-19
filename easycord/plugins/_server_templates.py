@@ -329,7 +329,7 @@ TEMPLATES: dict[str, TemplateSpec] = {
     template.key: template for template in (_GAMING, _COMMUNITY, _STUDY, _CREATOR)
 }
 
-_unused_template_keys: tuple[str, ...] = tuple(TEMPLATES)
+TEMPLATE_KEYS: tuple[str, ...] = tuple(TEMPLATES)
 
 
 # ---------------------------------------------------------------------------
