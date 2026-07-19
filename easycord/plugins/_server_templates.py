@@ -12,6 +12,25 @@ from typing import Mapping
 
 import discord
 
+# Public surface consumed by server_setup.py and the test suite. Also keeps
+# static analyzers (CodeQL py/unused-global-variable) from flagging exports
+# that are only referenced from other modules.
+__all__ = [
+    "EVERYONE",
+    "TEMPLATES",
+    "TEMPLATE_KEYS",
+    "RoleSpec",
+    "OverwriteSpec",
+    "ChannelSpec",
+    "TemplateSpec",
+    "SetupPlan",
+    "normalize_channel_name",
+    "normalize_role_name",
+    "plan_changes",
+    "build_permissions",
+    "build_overwrites",
+]
+
 EVERYONE = "@everyone"
 
 _VALID_KINDS = ("text", "voice", "category")
