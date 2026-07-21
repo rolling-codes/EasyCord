@@ -25,7 +25,7 @@ pytest tests/test_middleware.py::test_name -v  # single test
 
 `asyncio_mode = "auto"` is set in `pyproject.toml` — no manual event loop setup needed in test files.
 
-Coverage must not drop below 80%. New code without tests will not be merged.
+Coverage must not drop below 80%. All new code requires tests and must not be merged without them.
 
 ### Plugin Test-Count Thresholds
 We enforce minimum test counts for plugins using `scripts/verify_plugin_tests.py` (counts test_* functions per plugin).
