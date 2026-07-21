@@ -1,6 +1,6 @@
 # Built-in Plugins
 
-EasyCord ships 28 ready-to-use plugins. Four load automatically when you pass `load_builtin_plugins=True` to `Bot`; the other 24 are opt-in.
+EasyCord ships 29 ready-to-use plugins. Four load automatically when you pass `load_builtin_plugins=True` to `Bot`; the other 25 are opt-in.
 
 ---
 
@@ -124,6 +124,13 @@ bot.add_plugin(ReactionRolesPlugin())
 ```python
 from easycord.plugins import RolePersistencePlugin
 bot.add_plugin(RolePersistencePlugin())
+```
+
+**`ServerSetupPlugin`** — `/setup-server` — preview and apply a server preset (channels, roles, permissions) from four templates: gaming, community, study, creator. Additive only; see [Server Setup Templates](server-setup.md).
+
+```python
+from easycord.plugins import ServerSetupPlugin
+bot.add_plugin(ServerSetupPlugin())
 ```
 
 ---
