@@ -127,6 +127,7 @@ bot.add_plugin(RolePersistencePlugin())
 ```
 
 **`ServerSetupPlugin`** — `/setup-server` — preview and apply a server preset (channels, roles, permissions) from four templates: gaming, community, study, creator. Additive only; see [Server Setup Templates](server-setup.md).
+
 ```python
 from easycord.plugins import ServerSetupPlugin
 bot.add_plugin(ServerSetupPlugin())

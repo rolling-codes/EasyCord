@@ -10,7 +10,7 @@ bot.add_plugin(ServerSetupPlugin())
 
 ## The `/setup-server` command
 
-```
+```bash
 /setup-server template:<gaming | community | study | creator>
 ```
 

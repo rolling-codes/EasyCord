@@ -13,6 +13,7 @@ from easycord.plugins._server_templates import (
     ChannelSpec,
     OverwriteSpec,
     RoleSpec,
+    TemplateSpec,
     _validate_templates,
     build_overwrites,
     build_permissions,
@@ -184,6 +185,35 @@ class TestTemplateData:
         channel = ChannelSpec("x")
         with pytest.raises(dataclasses.FrozenInstanceError):
             channel.kind = "voice"  # type: ignore[misc]
+
+    def test_validation_rejects_allow_deny_conflicts(self) -> None:
+        """Validate that a flag in both allow and deny is caught."""
+        conflict_overwrite = OverwriteSpec(EVERYONE, allow=frozenset({"send_messages"}), deny=frozenset({"send_messages"}))
+        bad_template = TemplateSpec(
+            key="bad",
+            label="Bad",
+            description="Bad",
+            roles=(),
+            channels=(ChannelSpec("test", overwrites=(conflict_overwrite,)),),
+        )
+        with pytest.raises(ValueError, match="flags in both allow and deny"):
+            _validate_templates({"bad": bad_template})
+
+    def test_validation_rejects_duplicate_overwrites(self) -> None:
+        """Validate that duplicate overwrites on the same role are caught."""
+        dup_overwrites = (
+            OverwriteSpec(EVERYONE, allow=frozenset({"send_messages"})),
+            OverwriteSpec(EVERYONE, allow=frozenset({"view_channel"})),
+        )
+        bad_template = TemplateSpec(
+            key="bad",
+            label="Bad",
+            description="Bad",
+            roles=(),
+            channels=(ChannelSpec("test", overwrites=dup_overwrites),),
+        )
+        with pytest.raises(ValueError, match="multiple overwrites for role"):
+            _validate_templates({"bad": bad_template})
 
 
 # ---------------------------------------------------------------------------
