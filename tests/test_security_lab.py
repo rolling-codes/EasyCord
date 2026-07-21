@@ -1,7 +1,7 @@
 """Tests for SecurityLabPlugin — 3-layer coverage (pure, store, command-flow)."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from easycord.security import escape_mentions, safe_regex, strip_injection_prefixes, truncate
 from easycord.plugins.security_lab import SecurityLabPlugin
 
