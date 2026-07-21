@@ -1,5 +1,7 @@
 # Changelog
 
+All notable changes to EasyCord are documented here. See [Semantic Versioning](https://semver.org) for version numbering.
+
 ## EasyCord v5.56.0 — 2026-07-16
 
 ### Added
