@@ -4,7 +4,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
-import pytest
 
 from easycord.plugins.tickets import (
     TicketsPlugin,
@@ -48,7 +47,7 @@ class TestFormatDuration:
 # ---------------------------------------------------------------------------
 
 def _make_message(content: str, author_name: str, ts_offset: int = 0) -> MagicMock:
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timezone
     msg = MagicMock(spec=discord.Message)
     msg.content = content
     msg.author = MagicMock()

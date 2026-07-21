@@ -131,7 +131,6 @@ class TestAutoRoleStore:
     async def test_guilds_isolated(self, tmp_path) -> None:
         plugin = _plugin(tmp_path)
         ctx1 = _ctx(guild_id=1)
-        ctx2 = _ctx(guild_id=2)
         role = _make_role(999)
         await plugin.autorole_add(ctx1, role)
         store = ServerConfigStore(str(tmp_path / "auto_role"))

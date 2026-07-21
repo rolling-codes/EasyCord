@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
-import pytest
 
 from easycord.plugins.reminder import ReminderPlugin, _reminder_embed
 

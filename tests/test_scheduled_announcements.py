@@ -181,7 +181,6 @@ class TestStorePersistence:
     async def test_guilds_isolated(self, tmp_path) -> None:
         p = _plugin(tmp_path)
         ctx_a = _ctx(guild_id=100)
-        ctx_b = _ctx(guild_id=200)
         channel = MagicMock()
         channel.id = 555
         channel.mention = "<#555>"
