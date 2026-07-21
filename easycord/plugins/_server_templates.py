@@ -127,6 +127,10 @@ def plan_changes(
     ``existing_role_names`` holds already-normalized role names;
     ``existing_channels`` holds ``(kind, normalized_name)`` pairs. Anything
     that already exists is skipped, never modified.
+
+    Note: A category can be skipped while its child channels are planned.
+    The apply path must look up existing categories by normalized name, not
+    only from channels created this run, to avoid Discord errors when applying.
     """
     roles_to_create: list[RoleSpec] = []
     roles_skipped: list[str] = []
@@ -168,6 +172,11 @@ def build_overwrites(
     ``role_map`` maps normalized role names to roles (created this run or
     pre-existing). Unresolvable role names are dropped and returned in the
     second element, never raised — the apply path reports them instead.
+
+    If a flag appears in both allow and deny, deny takes precedence (the deny
+    dictionary update overwrites allow). If multiple overwrites target the same
+    role, the last one replaces the earlier ones — use distinct roles or merge
+    flags into a single spec to avoid silent overwrites.
     """
     overwrites: dict[discord.Role, discord.PermissionOverwrite] = {}
     unresolved: list[str] = []
@@ -381,6 +390,7 @@ def _validate_templates(templates: Mapping[str, TemplateSpec]) -> None:
                         f"Channel {channel.name!r} references missing/later category "
                         f"{channel.category!r} in template {key!r}"
                     )
+            seen_overwrite_roles: set[str] = set()
             for overwrite in channel.overwrites:
                 if overwrite.role != EVERYONE and normalize_role_name(overwrite.role) not in role_names:
                     raise ValueError(
@@ -390,6 +400,21 @@ def _validate_templates(templates: Mapping[str, TemplateSpec]) -> None:
                 bad = (overwrite.allow | overwrite.deny) - valid_flags
                 if bad:
                     raise ValueError(f"Invalid overwrite flags {bad} in template {key!r}")
+                # Check for allow+deny flag conflicts (deny will silently win at runtime)
+                conflicts = overwrite.allow & overwrite.deny
+                if conflicts:
+                    raise ValueError(
+                        f"Overwrite on {channel.name!r} for role {overwrite.role!r} has "
+                        f"flags in both allow and deny (deny will win): {conflicts}"
+                    )
+                # Check for duplicate overwrites on the same channel (later will silently replace earlier)
+                norm_role = EVERYONE if overwrite.role == EVERYONE else normalize_role_name(overwrite.role)
+                if norm_role in seen_overwrite_roles:
+                    raise ValueError(
+                        f"Channel {channel.name!r} has multiple overwrites for role "
+                        f"{overwrite.role!r} in template {key!r} — merge into a single spec"
+                    )
+                seen_overwrite_roles.add(norm_role)
         for role in template.roles:
             bad = role.permissions - valid_flags
             if bad:
