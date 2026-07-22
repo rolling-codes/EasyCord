@@ -94,7 +94,7 @@ from easycord import Bot
 
 logger = logging.getLogger(__name__)
 
-bot = Bot(token="...", auto_sync=False)
+bot = Bot(auto_sync=False)
 
 @bot.on_error
 async def handle_error(ctx, exc: Exception) -> None:

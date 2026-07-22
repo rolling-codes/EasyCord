@@ -17,7 +17,7 @@ When `db_auto_sync_guilds=True` is enabled, the bot synchronizes guild state dur
 
 The `EasyCordDatabase` interface enforces a strict abstraction layer.
 * Plugins should **never** execute raw SQL queries.
-* All data access must go through methods like `db.get_record()`, `db.set_record()`, and `db.delete_record()`.
+* All data access must go through methods like `db.get()`, `db.set()`, and `db.delete()`.
 * **Verification:** Built-in plugins have been audited and verified to safely execute on both `MemoryDatabase` and `SQLiteDatabase` variants without hardcoded engine assumptions.
 
 ## Exception Infrastructure

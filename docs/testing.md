@@ -42,10 +42,10 @@ class TestGreetPlugin(PluginTestSuite):
 
 ## Constructing plugins
 
-Use `Plugin.__new__` if you need to set constructor arguments before `__init__` runs. Set `_bot` (not `bot`) directly:
+Use `object.__new__` if you need to construct a plugin without calling its `__init__` directly. Set `_bot` (not `bot`) directly:
 
 ```python
-plugin = MyPlugin.__new__(MyPlugin)
+plugin = object.__new__(MyPlugin)
 plugin._bot = bot   # _bot is the raw backing attribute; bot is a property
 Plugin.__init__(plugin)
 ```
@@ -96,9 +96,10 @@ ctx = (
 
 | Builder method | Effect |
 |---|---|
-| `.with_user(id, name=...)` | Set user ID and display name |
+| `.with_user(id, name=..., display_name=...)` | Set user ID, username, and display name |
 | `.in_guild(id)` | Place the interaction in a guild |
 | `.as_admin()` | Grant administrator permission |
+| `.with_permissions(**permissions)` | Set specific Discord permissions by name (e.g. `manage_messages=True`) |
 | `.with_roles(*role_ids)` | Add role IDs to the member |
 | `.with_locale(locale)` | Set the interaction locale (e.g. `"fr"`, `"ja"`) |
 | `.in_dm()` | Make it a DM (no guild) |

@@ -44,7 +44,7 @@ Supported types:
 - `bool` — yes/no toggle
 - `discord.User` — user picker
 - `discord.Role` — role picker
-- `discord.Channel` — channel picker
+- `discord.abc.GuildChannel` — channel picker (use specific subtypes like `discord.TextChannel` for narrower type safety)
 - `discord.Member` — member picker (guild-only)
 
 Discord limits commands to 25 options. Use options sparingly; if you need many inputs, consider a modal form instead.

@@ -15,7 +15,7 @@
 - `ToolLimiter` methods (`check_limit`, `reset_user`, `reset_tool`) are async — always await them
 - Legacy AI providers accept only `query(prompt)` and return plain strings; tool-aware providers accept a `tools` schema argument — the orchestrator handles both
 - Cooldown sentinels in `LevelsPlugin._cooldowns` default to `float("-inf")`, not `0.0` — this ensures the first message always passes the gate regardless of `time.monotonic()` value on fresh runners
-- CI workflow actions are pinned to `actions/checkout@v4` and `actions/setup-python@v5` — v6 does not exist
+- CI workflow actions are pinned to `actions/checkout@v7` and `actions/setup-python@v5` — verify with `.github/workflows/tests.yml`
 - `LocalizationManager` metrics are guarded by an internal `threading.Lock`; mutate them only through `_record_metric` (never inline `+=`) so counters stay correct under sharded/multi-thread access. The lock is a no-op cost unless `track_metrics=True`
 - Hot-reload and command dispatch are serialized by the bot-wide `_reload_lock` (`_get_reload_lock()`); a plugin swap (`remove_plugin → add_plugin → on_reload`) must run inside it, and dispatch acquires it only while `_hot_reload_active` (dev watcher running) so production stays lock-free
 - Commands that call a privileged Discord API (kick/ban/timeout/role edits) declare `bot_permissions=[...]` on `@slash`; the bot's perms are validated at dispatch via `ctx.bot_permissions`, distinct from `permissions=`/`require_admin` which gate the invoking user. `require_admin` never implies the bot must be admin
