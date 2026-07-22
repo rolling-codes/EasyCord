@@ -230,7 +230,8 @@ bot.add_plugins(ModerationPlugin(), EconomyPlugin(), TicketsPlugin())
 | `AIModeratorPlugin` | _(event-based)_ | AI-powered content moderation |
 | `SecurityLabPlugin` | `/security` | Audit guild permissions and security posture |
 | `ServerSetupPlugin` | `/setup-server` | Preview and apply channel/role presets from four server templates |
-| `OpenClaudePlugin` | `/ask` | `/ask` command backed by Anthropic Claude |
+| `AIPlugin` | `/ask` | Base conversational AI plugin — powers any configured provider |
+| `OpenClaudePlugin` | `/ask` | Backwards-compatible subclass of `AIPlugin` for Anthropic Claude |
 | `OpenClawPlugin` | `/claw` | Lightweight Claude assistant variant |
 
 Full documentation: [docs/builtin-plugins.md](docs/builtin-plugins.md)

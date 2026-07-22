@@ -85,11 +85,11 @@ class MonitorPlugin(Plugin):
         self.bot.hooks.register("after_command", self._after)
 
     async def on_unload(self) -> None:
-        # HookRegistry does not auto-remove plugin callbacks on unload and
-        # has no public unregister() method. Remove via the internal
-        # _callbacks dict to avoid stale references.
-        self.bot.hooks._callbacks["before_command"].remove(self._before)
-        self.bot.hooks._callbacks["after_command"].remove(self._after)
+        # HookRegistry does not auto-remove callbacks on plugin unload.
+        # Call unregister() explicitly; it is a no-op (returns False) if the
+        # callback was already removed, so repeated unloads are safe.
+        self.bot.hooks.unregister("before_command", self._before)
+        self.bot.hooks.unregister("after_command", self._after)
 
     async def _before(self, ctx, name: str) -> None:
         ...

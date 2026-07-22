@@ -50,8 +50,6 @@ from easycord.plugins import SuggestionsPlugin
 bot.add_plugin(SuggestionsPlugin())
 ```
 
-**`PollsPlugin`** (also default) — `/poll` with multi-option voting.
-
 **`ReputationPlugin`** — `/rep give`, `/rep check` — lets members award reputation points to each other.
 ```python
 from easycord.plugins import ReputationPlugin
@@ -196,6 +194,7 @@ bot.add_plugin(TranslatePlugin())
 ### AI plugins
 
 **`AIPlugin`** — `/ask` — conversational AI powered by your configured provider. Requires `Bot(ai_provider=…)`. `OpenClaudePlugin` is a backwards-compatible subclass of `AIPlugin` and can be used interchangeably.
+
 ```python
 from easycord.plugins import AIPlugin
 bot.add_plugin(AIPlugin())
