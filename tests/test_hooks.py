@@ -122,3 +122,46 @@ async def test_all_four_hooks_can_register_and_fire():
     for hook in SUPPORTED_HOOKS:
         await registry.fire(hook)
     assert fired == SUPPORTED_HOOKS
+
+
+async def test_unregister_removes_callback():
+    registry = HookRegistry()
+    called = []
+    cb = lambda **kw: called.append(kw)
+    registry.register("before_command", cb)
+    assert registry.unregister("before_command", cb) is True
+    await registry.fire("before_command", ctx=None, name="ping")
+    assert called == []
+
+
+async def test_unregister_returns_false_when_not_registered():
+    registry = HookRegistry()
+    cb = lambda **kw: None
+    result = registry.unregister("before_command", cb)
+    assert result is False
+
+
+async def test_unregister_idempotent_on_repeat():
+    registry = HookRegistry()
+    cb = lambda **kw: None
+    registry.register("after_command", cb)
+    assert registry.unregister("after_command", cb) is True
+    assert registry.unregister("after_command", cb) is False
+
+
+async def test_unregister_invalid_hook_raises():
+    registry = HookRegistry()
+    with pytest.raises(ValueError, match="Unsupported hook"):
+        registry.unregister("no_such_hook", lambda: None)
+
+
+async def test_unregister_removes_only_target_callback():
+    registry = HookRegistry()
+    calls: list[str] = []
+    cb_a = lambda **kw: calls.append("a")
+    cb_b = lambda **kw: calls.append("b")
+    registry.register("before_command", cb_a)
+    registry.register("before_command", cb_b)
+    registry.unregister("before_command", cb_a)
+    await registry.fire("before_command", ctx=None, name="x")
+    assert calls == ["b"]
