@@ -7,7 +7,7 @@ test_plugin_commands.py (config CRUD and Forbidden-send tests live there).
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
