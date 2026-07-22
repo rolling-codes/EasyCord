@@ -25,7 +25,7 @@ After Day 1, follow this progression to build real features:
 5. **[Testing Commands](testing.md)** — Test offline without Discord running
 
 **Optional:** [AI Features](conversation-memory.md) (conversation memory, optional in bot)  
-**Reference:** [Built-in Plugins](builtin-plugins.md) (29 ready-made plugins to extend)
+**Reference:** [Built-in Plugins](builtin-plugins.md) (30 ready-made plugins to extend)
 
 ---
 

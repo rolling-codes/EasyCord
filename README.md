@@ -2,14 +2,14 @@
 ![Version](https://img.shields.io/badge/v-5.57.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-1500%2B-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1777%2B-brightgreen)
 [![Discord.py](https://img.shields.io/badge/discord.py-2.7%2B-blueviolet)](https://discordpy.readthedocs.io/)
 
 > **Production-grade Discord bot framework** for building scalable, maintainable bots with clean, type-safe code.
 >
 > Slash commands, context menus, modal forms, components with dynamic routing, plugins with versioned config schemas and dependency management, per-guild storage, multi-language i18n, conversation memory, optional AI orchestration, middleware pipeline, lifecycle hooks, and task scheduling—all with **zero boilerplate**.
 >
-> **29 built-in plugins** including levels, economy, moderation, starboard, polls, translation, JuiceWRLD, and more. **1500+ tests**, atomic database operations, concurrent plugin safety, proper error isolation, and comprehensive type hints. Deploy with confidence.
+> **30 built-in plugins** including levels, economy, moderation, starboard, polls, translation, AI moderation, and more. **1777+ tests**, atomic database operations, concurrent plugin safety, proper error isolation, and comprehensive type hints. Deploy with confidence.
 
 ### Why EasyCord?
 
@@ -17,7 +17,7 @@
 - **Type-safe.** Full Pyright support. Catch bugs at dev time, not runtime.
 - **Plugin-native.** Modular, testable, reusable. Versioned config schemas with automatic migration. Build plugins in minutes, not hours.
 - **Optional AI.** Includes conversation memory and multi-provider LLM orchestration (9 providers). Use it or ignore it.
-- **Tested.** 1500+ tests covering concurrency, crashes, race conditions, and edge cases.
+- **Tested.** 1777+ tests covering concurrency, crashes, race conditions, and edge cases.
 - **Async-first.** Proper lock safety, atomic database operations, isolated error handling. Won't silently corrupt state.
 
 ---
@@ -190,7 +190,7 @@ bot.run(os.environ["DISCORD_TOKEN"])
 
 ---
 
-## 29 Built-in Plugins
+## 30 Built-in Plugins
 
 Load the starter set with one call, or cherry-pick:
 
@@ -229,7 +229,7 @@ bot.add_plugins(ModerationPlugin(), EconomyPlugin(), TicketsPlugin())
 | `RolePersistencePlugin` | _(event-based)_ | Restores roles when members rejoin |
 | `AIModeratorPlugin` | _(event-based)_ | AI-powered content moderation |
 | `SecurityLabPlugin` | `/security` | Audit guild permissions and security posture |
-| `JuiceWRLDPlugin` | `/jw_search`, `/jw_song`, `/jw_era`, `/jw_random` | JuiceWRLD discography search and lookup |
+| `ServerSetupPlugin` | `/setup-server` | Preview and apply channel/role presets from four server templates |
 | `OpenClaudePlugin` | `/ask` | `/ask` command backed by Anthropic Claude |
 | `OpenClawPlugin` | `/claw` | Lightweight Claude assistant variant |
 
@@ -290,7 +290,7 @@ my_bot/
 | Error waterfall | Re-raise or duplicate handlers | `@command_error` → `Plugin.on_error` → `@bot.on_error` |
 | Offline testing | Mock the entire discord.py client | `ctx = await invoke(bot, "kick")` |
 | AI tool calling | LLM SDK + prompt engineering + glue | `@ai_tool` + `Orchestrator` + safety levels |
-| Day-one feature set | Zero plugins, all from scratch | 29 built-in plugins, `load_builtin_plugins=True` |
+| Day-one feature set | Zero plugins, all from scratch | 30 built-in plugins, `load_builtin_plugins=True` |
 
 ---
 

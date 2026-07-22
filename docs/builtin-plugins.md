@@ -1,6 +1,6 @@
 # Built-in Plugins
 
-EasyCord ships 29 ready-to-use plugins. Four load automatically when you pass `load_builtin_plugins=True` to `Bot`; the other 25 are opt-in.
+EasyCord ships 30 ready-to-use plugins. Four load automatically when you pass `load_builtin_plugins=True` to `Bot`; the other 26 are opt-in.
 
 ---
 
@@ -195,10 +195,10 @@ bot.add_plugin(TranslatePlugin())
 
 ### AI plugins
 
-**`OpenClaudePlugin`** (also exported as `AIPlugin`) — `/chat` — conversational AI powered by your configured provider. Requires `Bot(ai_provider=…)`.
+**`AIPlugin`** — `/ask` — conversational AI powered by your configured provider. Requires `Bot(ai_provider=…)`. `OpenClaudePlugin` is a backwards-compatible subclass of `AIPlugin` and can be used interchangeably.
 ```python
-from easycord.plugins import OpenClaudePlugin
-bot.add_plugin(OpenClaudePlugin())
+from easycord.plugins import AIPlugin
+bot.add_plugin(AIPlugin())
 ```
 
 **`OpenClawPlugin`** — Extended Claude/Anthropic integration with tool-calling support.
