@@ -5,7 +5,6 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
-import pytest
 
 from easycord.plugins.economy import EconomyPlugin, _DEFAULTS
 from easycord.server_config import ServerConfigStore
