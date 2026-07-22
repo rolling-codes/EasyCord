@@ -12,6 +12,7 @@ import discord
 import pytest
 
 from easycord.plugins.welcome import WelcomePlugin
+from plugin_test_helpers import make_ctx, make_member, make_text_channel
 
 
 # ---------------------------------------------------------------------------
@@ -29,27 +30,11 @@ def _make_ctx(
     with_guild: bool = True,
     user_mention: str = "<@1>",
 ) -> MagicMock:
-    ctx = MagicMock()
-    ctx.user = MagicMock()
-    ctx.user.id = user_id
-    ctx.user.mention = user_mention
-    ctx.user.__str__ = MagicMock(return_value=f"User#{user_id}")
-    ctx.respond = AsyncMock()
-    ctx.t = lambda key, default="", **kw: default.format(**kw) if kw else default
-
-    if with_guild:
-        guild = MagicMock(spec=discord.Guild)
-        guild.id = guild_id
-        guild.name = f"Guild-{guild_id}"
-        guild.get_channel = MagicMock(return_value=None)
-        guild.get_role = MagicMock(return_value=None)
-        ctx.guild = guild
-        ctx.guild_id = guild_id
-    else:
-        ctx.guild = None
-        ctx.guild_id = None
-
-    return ctx
+    return make_ctx(
+        guild_id=guild_id if with_guild else None,
+        user_id=user_id,
+        user_mention=user_mention,
+    )
 
 
 def _make_member(
@@ -61,28 +46,17 @@ def _make_member(
     channel: MagicMock | None = None,
     auto_role_id: int | None = None,
 ) -> MagicMock:
-    guild = MagicMock(spec=discord.Guild)
-    guild.id = guild_id
-    guild.name = guild_name
-    guild.member_count = member_count
-    guild.get_channel = MagicMock(return_value=channel)
-    guild.get_role = MagicMock(return_value=None)
-
-    member = MagicMock(spec=discord.Member)
-    member.guild = guild
-    member.mention = mention
-    member.display_avatar = MagicMock()
-    member.display_avatar.url = "https://cdn.example/avatar.png"
-    member.add_roles = AsyncMock()
-    return member
+    return make_member(
+        guild_id=guild_id,
+        guild_name=guild_name,
+        member_count=member_count,
+        mention=mention,
+        channel=channel,
+    )
 
 
 def _text_channel() -> MagicMock:
-    ch = MagicMock(spec=discord.TextChannel)
-    ch.id = 999
-    ch.mention = "<#999>"
-    ch.send = AsyncMock()
-    return ch
+    return make_text_channel(999)
 
 
 # ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ from easycord.plugins.polls import (
     _tally,
     build_poll_embed,
 )
+from plugin_test_helpers import make_ctx as _make_ctx_base
 
 
 # ---------------------------------------------------------------------------
@@ -34,33 +35,7 @@ def _plugin(tmp_path) -> PollsPlugin:
 
 def _ctx(guild_id: int = 100, user_id: int = 1, *, is_sendable: bool = True) -> MagicMock:
     """Return a minimal Context mock sufficient for PollsPlugin.poll."""
-    ctx = MagicMock()
-    ctx.guild = MagicMock()
-    ctx.guild.id = guild_id
-    ctx.respond = AsyncMock()
-
-    # ctx.t acts as a passthrough returning the `default` kwarg (or key)
-    ctx.t = MagicMock(side_effect=lambda key, *, default=None, **kw: default if default is not None else key)
-
-    ctx.user = MagicMock()
-    ctx.user.id = user_id
-
-    # ctx.channel must be an instance of a SENDABLE_CHANNEL_TYPES type when valid
-    if is_sendable:
-        channel = MagicMock(spec=discord.TextChannel)
-        channel.id = 55
-    else:
-        channel = MagicMock(spec=discord.CategoryChannel)
-        channel.id = 55
-    ctx.channel = channel
-
-    # interaction.original_response() returns a message with an id and edit
-    fake_msg = MagicMock()
-    fake_msg.id = 900000000000000001
-    fake_msg.edit = AsyncMock()
-    ctx.interaction = MagicMock()
-    ctx.interaction.original_response = AsyncMock(return_value=fake_msg)
-    return ctx
+    return _make_ctx_base(guild_id=guild_id, user_id=user_id, sendable_channel=is_sendable)
 
 
 async def _seed_active_poll(
@@ -259,9 +234,17 @@ class TestPollCreate:
         p = _plugin(tmp_path)
         ctx = _ctx()
 
+        msg = MagicMock()
+        msg.id = 4242
+        msg.edit = AsyncMock()
+        ctx.interaction.original_response = AsyncMock(return_value=msg)
+
         await p.poll(ctx, "Q?", "A", "B", duration=30)
 
-        assert any(p._timers.values()), "Expected a timer task to be scheduled"
+        assert ctx.guild.id in p._timers, "Expected timers keyed by guild ID"
+        guild_timers = p._timers[ctx.guild.id]
+        assert msg.id in guild_timers, "Expected timer keyed by poll message ID"
+        assert guild_timers[msg.id], "Expected a non-empty timer task for the poll"
 
     async def test_guild_isolated_storage(self, tmp_path) -> None:
         p = _plugin(tmp_path)

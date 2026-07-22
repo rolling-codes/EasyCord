@@ -14,6 +14,8 @@ from easycord.plugin import Plugin
 from easycord.plugins._config_manager import PluginConfigManager
 from easycord.plugins.moderation import ModerationPlugin
 from easycord import RateLimit, ToolLimiter
+from easycord.testing import FakeContextBuilder, PluginTestSuite
+from plugin_test_helpers import make_target_user, make_target_member
 
 pytestmark = pytest.mark.asyncio
 
@@ -42,20 +44,11 @@ def _make_ctx(
     user_id: int = MOD_USER_ID,
     **permissions: bool,
 ) -> MagicMock:
-    """Build a minimal fake ctx with configurable guild_permissions."""
+    """Build a ctx with per-flag guild_permissions (moderation needs independent flags)."""
     ctx = MagicMock()
-    ctx.guild = None
     ctx.respond = AsyncMock()
 
-    if guild_id is not None:
-        guild = MagicMock(spec=discord.Guild)
-        guild.id = guild_id
-        guild.roles = []
-        guild.get_channel = MagicMock(return_value=None)
-        ctx.guild = guild
-
     perms = MagicMock(spec=discord.Permissions)
-    # Default all to False, then apply overrides
     for attr in ("kick_members", "ban_members", "manage_roles", "moderate_members", "administrator"):
         setattr(perms, attr, permissions.get(attr, False))
 
@@ -63,40 +56,28 @@ def _make_ctx(
     member.id = user_id
     member.mention = f"<@{user_id}>"
     member.guild_permissions = perms
-
     ctx.member = member
-    ctx.user = member  # ctx.user used for rate limits / logging
+    ctx.user = member
 
     if guild_id is not None:
-        ctx.guild.get_member = MagicMock(return_value=None)
+        guild = MagicMock(spec=discord.Guild)
+        guild.id = guild_id
+        guild.roles = []
+        guild.get_channel = MagicMock(return_value=None)
+        guild.get_member = MagicMock(return_value=None)
+        ctx.guild = guild
+    else:
+        ctx.guild = None
 
     return ctx
 
 
 def _make_target(user_id: int = TARGET_USER_ID) -> MagicMock:
-    """Build a fake discord.User target."""
-    target = MagicMock(spec=discord.User)
-    target.id = user_id
-    target.name = f"target-{user_id}"
-    target.discriminator = "0000"
-    target.mention = f"<@{user_id}>"
-    return target
+    return make_target_user(user_id)
 
 
 def _make_member_target(user_id: int = TARGET_USER_ID) -> MagicMock:
-    """Build a fake discord.Member target (server member)."""
-    target = MagicMock(spec=discord.Member)
-    target.id = user_id
-    target.name = f"target-{user_id}"
-    target.discriminator = "0000"
-    target.mention = f"<@{user_id}>"
-    target.kick = AsyncMock()
-    target.ban = AsyncMock()
-    target.timeout = AsyncMock()
-    target.add_roles = AsyncMock()
-    target.remove_roles = AsyncMock()
-    target.roles = []
-    return target
+    return make_target_member(user_id)
 
 
 # ---------------------------------------------------------------------------

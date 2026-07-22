@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime, timezone
+from unittest.mock import MagicMock
+
+import pytest
 
 import discord
 
 from easycord.plugins.economy import EconomyPlugin, _DEFAULTS
 from easycord.server_config import ServerConfigStore
+from plugin_test_helpers import make_ctx, make_discord_user
 
 
 # ---------------------------------------------------------------------------
@@ -24,27 +28,11 @@ def _plugin(tmp_path) -> EconomyPlugin:
 
 
 def _ctx(guild_id: int = 100, user_id: int = 1, is_admin: bool = False) -> MagicMock:
-    ctx = MagicMock()
-    ctx.guild = MagicMock()
-    ctx.guild.id = guild_id
-    ctx.guild.name = f"Guild {guild_id}"
-    ctx.guild.get_member = MagicMock(return_value=None)
-    ctx.user = MagicMock()
-    ctx.user.id = user_id
-    ctx.user.mention = f"<@{user_id}>"
-    ctx.respond = AsyncMock()
-    ctx.is_admin = is_admin
-    ctx.member = MagicMock()
-    ctx.member.guild_permissions = MagicMock()
-    ctx.member.guild_permissions.administrator = is_admin
-    return ctx
+    return make_ctx(guild_id=guild_id, user_id=user_id, is_admin=is_admin)
 
 
 def _discord_user(user_id: int) -> MagicMock:
-    u = MagicMock(spec=discord.User)
-    u.id = user_id
-    u.mention = f"<@{user_id}>"
-    return u
+    return make_discord_user(user_id)
 
 
 # ---------------------------------------------------------------------------
