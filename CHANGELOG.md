@@ -2,6 +2,21 @@
 
 All notable changes to EasyCord are documented here. See [Semantic Versioning](https://semver.org) for version numbering.
 
+## EasyCord v5.58.0 — 2026-07-22
+
+### Changed
+
+- **Docs accuracy audit** — verified every concrete claim across 10 documentation files against current source; fixed stale plugin counts (29→30), stale method names (`get_record`→`get`), wrong constructor params, wrong type names (`discord.Channel`→`discord.abc.GuildChannel`), wrong class relationship (`AIPlugin`/`OpenClaudePlugin` alias→subclass), and stale CI pin (`checkout@v4`→`@v7`) (#116, #117)
+- **`HookRegistry.unregister()`** — new public method to deregister hook callbacks; returns `False` instead of raising when the callback is not registered, making repeated plugin unloads safe (#117)
+
+### Tests
+
+- Full coverage for `HookRegistry.unregister()`: removal, idempotency, invalid hook name, selective removal (#118)
+
+### Changed
+
+- **Release metadata** — GitHub Release `v5.58.0` tracks the expected artifacts: `easycord-5.58.0-py3-none-any.whl` and `releases/download/v5.58.0/easycord-5.58.0.tar.gz`.
+
 ## EasyCord v5.57.0 — 2026-07-21
 
 ### Added
