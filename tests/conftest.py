@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from importlib.metadata import EntryPoint
+from pathlib import Path
 
 import pytest
+
+# Make the tests/ directory importable as a plain package so helper modules
+# like plugin_test_helpers can be imported without a package prefix.
+sys.path.insert(0, str(Path(__file__).parent))
 
 
 class FakeEntryPoints(list):
