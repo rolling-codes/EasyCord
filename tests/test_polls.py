@@ -1,7 +1,6 @@
 """Comprehensive offline tests for PollsPlugin."""
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
