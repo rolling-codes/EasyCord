@@ -4,8 +4,6 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import MagicMock
 
-import pytest
-
 import discord
 
 from easycord.plugins.economy import EconomyPlugin, _DEFAULTS
