@@ -246,6 +246,8 @@ class TestPollCreate:
         assert msg.id in guild_timers, "Expected timer keyed by poll message ID"
         assert guild_timers[msg.id], "Expected a non-empty timer task for the poll"
 
+        await p.on_unload()  # cancel scheduled timer to avoid cross-test leakage
+
     async def test_guild_isolated_storage(self, tmp_path) -> None:
         p = _plugin(tmp_path)
 

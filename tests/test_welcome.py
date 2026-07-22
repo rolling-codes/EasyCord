@@ -46,13 +46,37 @@ def _make_member(
     channel: MagicMock | None = None,
     auto_role_id: int | None = None,
 ) -> MagicMock:
-    return make_member(
+    m = make_member(
         guild_id=guild_id,
         guild_name=guild_name,
         member_count=member_count,
         mention=mention,
         channel=channel,
     )
+    if auto_role_id is not None:
+        role = MagicMock(spec=discord.Role)
+        role.id = auto_role_id
+        m.guild.get_role = MagicMock(
+            side_effect=lambda rid: role if rid == auto_role_id else None
+        )
+    return m
+
+
+def _make_goodbye_member(
+    *,
+    guild_id: int = 100,
+    guild_name: str = "TestGuild",
+    channel: MagicMock | None = None,
+    str_repr: str = "User#0",
+) -> MagicMock:
+    """Minimal member fixture for on_member_remove tests."""
+    member = MagicMock(spec=discord.Member)
+    member.guild = MagicMock(spec=discord.Guild)
+    member.guild.id = guild_id
+    member.guild.name = guild_name
+    member.guild.get_channel = MagicMock(return_value=channel)
+    member.__str__ = MagicMock(return_value=str_repr)
+    return member
 
 
 def _text_channel() -> MagicMock:
@@ -285,9 +309,17 @@ class TestWelcomeConfig:
             "welcome_message": "Custom welcome",
         })
         ctx = _make_ctx(guild_id=60)
-        # Wire up get_channel/get_role so channel_reference / role_reference work
-        ctx.guild.get_channel = MagicMock(return_value=None)
-        ctx.guild.get_role = MagicMock(return_value=None)
+
+        welcome_ch = MagicMock(spec=discord.TextChannel)
+        welcome_ch.mention = "<#111>"
+        goodbye_ch = MagicMock(spec=discord.TextChannel)
+        goodbye_ch.mention = "<#222>"
+        auto_role = MagicMock(spec=discord.Role)
+        auto_role.mention = "<@&333>"
+
+        channel_map = {111: welcome_ch, 222: goodbye_ch}
+        ctx.guild.get_channel = MagicMock(side_effect=lambda cid: channel_map.get(cid))
+        ctx.guild.get_role = MagicMock(side_effect=lambda rid: auto_role if rid == 333 else None)
 
         await plugin.welcome_config(ctx)
 
@@ -295,6 +327,9 @@ class TestWelcomeConfig:
         field_values = [f.value for f in embed.fields]
         all_text = " ".join(field_values)
         assert "Custom welcome" in all_text
+        assert "<#111>" in all_text
+        assert "<#222>" in all_text
+        assert "<@&333>" in all_text
 
     @pytest.mark.asyncio
     async def test_dm_context_bails_out(self, tmp_path) -> None:
@@ -340,12 +375,14 @@ class TestOnMemberJoinWelcome:
         plugin = _plugin(tmp_path)
         voice_channel = MagicMock(spec=discord.VoiceChannel)
         voice_channel.id = 888
+        voice_channel.send = AsyncMock()
         member = _make_member(guild_id=100)
         member.guild.get_channel = MagicMock(return_value=voice_channel)
         plugin._write_config(100, {"welcome_channel": 888})
 
         await plugin._on_member_join(member)
-        # VoiceChannel doesn't pass isinstance(..., TextChannel) — no send expected
+
+        voice_channel.send.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_default_message_contains_user_and_server(self, tmp_path) -> None:
@@ -488,12 +525,7 @@ class TestOnMemberRemove:
     async def test_sends_goodbye_when_channel_configured(self, tmp_path) -> None:
         plugin = _plugin(tmp_path)
         channel = _text_channel()
-        member = MagicMock(spec=discord.Member)
-        member.guild = MagicMock(spec=discord.Guild)
-        member.guild.id = 100
-        member.guild.name = "TestGuild"
-        member.guild.get_channel = MagicMock(return_value=channel)
-        member.__str__ = MagicMock(return_value="SomeUser#1234")
+        member = _make_goodbye_member(channel=channel, str_repr="SomeUser#1234")
         plugin._write_config(100, {"goodbye_channel": channel.id})
 
         await plugin._on_member_remove(member)
@@ -504,10 +536,7 @@ class TestOnMemberRemove:
     async def test_no_send_when_no_goodbye_channel(self, tmp_path) -> None:
         plugin = _plugin(tmp_path)
         channel = _text_channel()
-        member = MagicMock(spec=discord.Member)
-        member.guild = MagicMock(spec=discord.Guild)
-        member.guild.id = 100
-        member.guild.get_channel = MagicMock(return_value=channel)
+        member = _make_goodbye_member(channel=channel)
         # No goodbye_channel in config
 
         await plugin._on_member_remove(member)
@@ -518,12 +547,7 @@ class TestOnMemberRemove:
     async def test_custom_goodbye_template_resolved(self, tmp_path) -> None:
         plugin = _plugin(tmp_path)
         channel = _text_channel()
-        member = MagicMock(spec=discord.Member)
-        member.guild = MagicMock(spec=discord.Guild)
-        member.guild.id = 100
-        member.guild.name = "Realm"
-        member.guild.get_channel = MagicMock(return_value=channel)
-        member.__str__ = MagicMock(return_value="Leaver#0001")
+        member = _make_goodbye_member(guild_name="Realm", channel=channel, str_repr="Leaver#0001")
         plugin._write_config(100, {
             "goodbye_channel": channel.id,
             "goodbye_message": "Farewell {user} from {server}.",
@@ -542,12 +566,7 @@ class TestOnMemberRemove:
         channel.send = AsyncMock(
             side_effect=discord.HTTPException(MagicMock(), "server error")
         )
-        member = MagicMock(spec=discord.Member)
-        member.guild = MagicMock(spec=discord.Guild)
-        member.guild.id = 100
-        member.guild.name = "G"
-        member.guild.get_channel = MagicMock(return_value=channel)
-        member.__str__ = MagicMock(return_value="User#0")
+        member = _make_goodbye_member(guild_name="G", channel=channel, str_repr="User#0")
         plugin._write_config(100, {"goodbye_channel": channel.id})
 
         try:
