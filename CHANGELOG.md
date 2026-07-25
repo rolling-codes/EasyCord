@@ -2,6 +2,20 @@
 
 All notable changes to EasyCord are documented here. See [Semantic Versioning](https://semver.org) for version numbering.
 
+## EasyCord v5.60.0 — 2026-07-25
+
+### Changed
+
+- **`GuildLockManager`** — extracted the per-guild `asyncio.Lock` dict + eviction logic from 13 plugins into a single shared class in `easycord/plugins/_shared.py`. All plugins (`auto_role`, `birthday`, `economy`, `giveaway`, `juicewrld`, `polls`, `reminder`, `reputation`, `scheduled_announcements`, `server_stats`, `tags`, `tickets`, `verification`, `word_filter`) now share one implementation with idle-eviction after 7 days and a MAX_TRACKED_GUILDS=5000 hard cap. Removes ~250 lines of copy-pasted boilerplate.
+- **`send_safe` adoption** — replaced ~20 bare `await channel.send(...)` calls and inline `try/except discord.Forbidden/HTTPException` blocks across 12 plugins with the existing `send_safe` helper from `easycord/helpers/channel.py`. Affected: `ai_moderator`, `birthday`, `giveaway`, `invite_tracker`, `levels`, `member_logging`, `moderation`, `reminder`, `scheduled_announcements`, `starboard`, `suggestions`, `tickets`, `verification`, `word_filter`.
+- **`@slash(require_admin=True)`** — replaced 6 inline `if not ctx.is_admin: respond_error; return` blocks with the `require_admin=True` decorator parameter on `ticket_setup`, `stats_setup`, `stats_teardown`, `verification_setup`, `verification_panel`, `verification_question`. The decorator gate now rejects non-admins before the command body runs.
+- **`EmbedBuilder` adoption** — migrated `discord.Embed(...)` construction to `EmbedBuilder` at opportunistic sites: `_ticket_embed()` and the close log embed in `tickets.py`; `_build_panel_embed()` in `verification.py`.
+
+### Release metadata
+
+- Wheel: `easycord-5.60.0-py3-none-any.whl`
+- Source: `easycord-5.60.0.tar.gz` — `releases/download/v5.60.0/easycord-5.60.0.tar.gz`
+
 ## EasyCord v5.58.0 — 2026-07-22
 
 ### Changed
