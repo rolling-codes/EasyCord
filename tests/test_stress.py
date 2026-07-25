@@ -101,10 +101,10 @@ class TestBugs:
 
         # Insert the lock and its timestamp directly into the manager
         # — bypassing .lock() so the timestamp refresh doesn't undo our backdating.
-        plugin._locks._locks[guild_id] = asyncio.Lock()
+        plugin._locks._registry[guild_id] = asyncio.Lock()
         plugin._locks._created[guild_id] = datetime.now(timezone.utc) - timedelta(days=8)
 
-        original_lock = plugin._locks._locks[guild_id]
+        original_lock = plugin._locks._registry[guild_id]
 
         acquired_event = asyncio.Event()
         cleanup_done_event = asyncio.Event()
@@ -115,7 +115,7 @@ class TestBugs:
                 acquired_event.set()
                 await cleanup_done_event.wait()
                 # The lock must still be present in the dict while we hold it.
-                assert plugin._locks._locks.get(guild_id) is original_lock, (
+                assert plugin._locks._registry.get(guild_id) is original_lock, (
                     "Lock for guild 999 was deleted while it was acquired; "
                     "future callers would get a fresh unacquired lock, bypassing serialization."
                 )

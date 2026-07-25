@@ -146,7 +146,7 @@ class TestEconomyStore:
         async with lock:
             # Cleanup while the lock is acquired should NOT remove it
             p._locks._cleanup()
-            assert 100 in p._locks._locks
+            assert 100 in p._locks._registry
 
 
 # ---------------------------------------------------------------------------

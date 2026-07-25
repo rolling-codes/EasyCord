@@ -140,16 +140,16 @@ class GuildLockManager:
     """
 
     def __init__(self) -> None:
-        self._locks: dict[int, asyncio.Lock] = {}
+        self._registry: dict[int, asyncio.Lock] = {}
         self._created: dict[int, datetime] = {}
 
     def lock(self, guild_id: int) -> asyncio.Lock:
         """Get or create the lock for a guild, refresh its timestamp, return it."""
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
+        if guild_id not in self._registry:
+            self._registry[guild_id] = asyncio.Lock()
             self._cleanup()
         self._created[guild_id] = datetime.now(timezone.utc)
-        return self._locks[guild_id]
+        return self._registry[guild_id]
 
     def _cleanup(self) -> None:
         """Evict idle locks to prevent unbounded memory growth.
@@ -164,19 +164,19 @@ class GuildLockManager:
         idle_old = [
             gid
             for gid, ts in self._created.items()
-            if now - ts > max_age and not self._locks[gid].locked()
+            if now - ts > max_age and not self._registry[gid].locked()
         ]
         for gid in idle_old:
-            del self._locks[gid]
+            del self._registry[gid]
             del self._created[gid]
 
         # If still over limit, evict oldest 25% of idle locks.
-        if len(self._locks) > MAX_TRACKED_GUILDS:
+        if len(self._registry) > MAX_TRACKED_GUILDS:
             candidates = sorted(
-                ((gid, ts) for gid, ts in self._created.items() if not self._locks[gid].locked()),
+                ((gid, ts) for gid, ts in self._created.items() if not self._registry[gid].locked()),
                 key=lambda x: x[1],
             )
             remove_count = max(1, len(candidates) // 4)
             for gid, _ in candidates[:remove_count]:
-                del self._locks[gid]
+                del self._registry[gid]
                 del self._created[gid]
