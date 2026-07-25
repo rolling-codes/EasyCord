@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, on, slash
+from easycord.helpers.channel import send_safe
 from easycord.server_config import ServerConfigStore
 from ._shared import GuildLockManager, respond_error
 
@@ -79,12 +80,12 @@ class WordFilterPlugin(Plugin):
             except discord.HTTPException:
                 pass  # Message already deleted or insufficient permissions
         if action in ("warn", "both"):
-            try:
-                await message.author.send(
-                    f"⚠️ Your message in **{message.guild.name}** was removed for containing blocked content."
-                )
-            except discord.Forbidden:
-                pass  # User has DMs disabled
+            await send_safe(
+                message.author,
+                log=logger,
+                what="word filter DM warning",
+                content=f"⚠️ Your message in **{message.guild.name}** was removed for containing blocked content.",
+            )
 
     # ── Slash commands ────────────────────────────────────────
 

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.server_config import ServerConfigStore
 from ._shared import GuildLockManager, respond_error
 from easycord.plugins.giveaway import _parse_duration  # noqa: F401 — re-exported for tests
@@ -181,12 +181,7 @@ class ReminderPlugin(Plugin):
             return
 
         embed = _reminder_embed(target)
-        try:
-            await channel.send(content=f"<@{user_id}>", embed=embed)
-        except discord.HTTPException:
-            logger.exception(
-                "Failed to deliver reminder %d in channel %d", reminder_id, channel_id
-            )
+        await send_safe(channel, log=logger, what="reminder", content=f"<@{user_id}>", embed=embed)
 
     # ── Slash commands ────────────────────────────────────────
 
