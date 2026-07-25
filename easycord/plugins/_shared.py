@@ -1,8 +1,10 @@
 """Shared helpers for the bundled plugins."""
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
@@ -108,3 +110,73 @@ def role_reference(guild: discord.Guild, role_id: int) -> str:
     """Return a user-facing role mention with a deleted-role fallback."""
     role = guild.get_role(role_id)
     return role.mention if role else f"<@&{role_id}> *(deleted?)*"
+
+
+# ---------------------------------------------------------------------------
+# Guild lock manager for concurrent per-guild mutations
+# ---------------------------------------------------------------------------
+
+MAX_TRACKED_GUILDS = 5000
+
+
+class GuildLockManager:
+    """Per-guild lock manager with idle-eviction to prevent unbounded memory growth.
+
+    Each guild gets one lock that serializes all read-modify-write operations.
+    The lock is created on first access, refreshed on every access (updating
+    last-used timestamp), and automatically evicted after 7 days of idleness
+    or when the total count exceeds MAX_TRACKED_GUILDS.
+
+    Safe under concurrent access: never evicts a currently-held lock, preventing
+    the race where a new caller receives a fresh lock while an existing holder
+    still considers itself the sole writer.
+
+    Usage::
+
+        mgr = GuildLockManager()
+        async with mgr.lock(guild_id):
+            # perform read-modify-write atomically
+            pass
+    """
+
+    def __init__(self) -> None:
+        self._registry: dict[int, asyncio.Lock] = {}
+        self._created: dict[int, datetime] = {}
+
+    def lock(self, guild_id: int) -> asyncio.Lock:
+        """Get or create the lock for a guild, refresh its timestamp, return it."""
+        if guild_id not in self._registry:
+            self._registry[guild_id] = asyncio.Lock()
+            self._cleanup()
+        self._created[guild_id] = datetime.now(timezone.utc)
+        return self._registry[guild_id]
+
+    def _cleanup(self) -> None:
+        """Evict idle locks to prevent unbounded memory growth.
+
+        A lock is removed only if it has been idle >7 days AND is not held.
+        If still over MAX_TRACKED_GUILDS, evict oldest 25% of idle locks.
+        """
+        now = datetime.now(timezone.utc)
+        max_age = timedelta(days=7)
+
+        # Remove locks idle >7 days, but never remove an acquired lock.
+        idle_old = [
+            gid
+            for gid, ts in self._created.items()
+            if now - ts > max_age and not self._registry[gid].locked()
+        ]
+        for gid in idle_old:
+            del self._registry[gid]
+            del self._created[gid]
+
+        # If still over limit, evict oldest 25% of idle locks.
+        if len(self._registry) > MAX_TRACKED_GUILDS:
+            candidates = sorted(
+                ((gid, ts) for gid, ts in self._created.items() if not self._registry[gid].locked()),
+                key=lambda x: x[1],
+            )
+            remove_count = max(1, len(candidates) // 4)
+            for gid, _ in candidates[:remove_count]:
+                del self._registry[gid]
+                del self._created[gid]

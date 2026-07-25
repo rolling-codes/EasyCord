@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
+from easycord.helpers.channel import send_safe
 from easycord.server_config import ServerConfigStore
 from easycord.plugins.giveaway import _parse_duration
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -80,14 +81,9 @@ class ScheduledAnnouncementsPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/announcements") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
+        self._locks = GuildLockManager()
         # guild_id -> ann_id -> task
         self._tasks: dict[int, dict[int, asyncio.Task]] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
 
     # ------------------------------------------------------------------ #
     # Lifecycle                                                            #
@@ -150,13 +146,10 @@ class ScheduledAnnouncementsPlugin(Plugin):
                 if guild:
                     ch = guild.get_channel(ann["channel_id"])
                     if isinstance(ch, discord.TextChannel):
-                        try:
-                            await ch.send(ann["message"])
-                        except (discord.Forbidden, discord.HTTPException) as e:
-                            logger.warning("Announcement %d in guild %d failed to send: %s", ann_id, guild_id, e)
+                        await send_safe(ch, log=logger, what="scheduled announcement", content=ann["message"])
 
                 # Advance next_fire
-                async with self._guild_lock(guild_id):
+                async with self._locks.lock(guild_id):
                     cfg = await self._store.load(guild_id)
                     data = cfg.get_other("announcements", {})
                     for a in data.get("items", []):
@@ -217,7 +210,7 @@ class ScheduledAnnouncementsPlugin(Plugin):
         guild_id = ctx.guild.id
         now = datetime.now(timezone.utc)
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data = cfg.get_other("announcements", {})
             next_id = data.get("next_id", 1)
@@ -297,7 +290,7 @@ class ScheduledAnnouncementsPlugin(Plugin):
 
         guild_id = ctx.guild.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data = cfg.get_other("announcements", {})
             items: list[dict] = data.get("items", [])

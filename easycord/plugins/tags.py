@@ -1,12 +1,11 @@
 """Per-guild text snippet storage and slash commands."""
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 from easycord.decorators import slash
 from easycord.plugin import Plugin
-from ._shared import read_json_file, respond_error, write_json_file
+from ._shared import GuildLockManager, read_json_file, respond_error, write_json_file
 
 
 class TagsStore:
@@ -15,13 +14,7 @@ class TagsStore:
     def __init__(self, data_dir: str) -> None:
         self._data_dir = Path(data_dir)
         self._data_dir.mkdir(parents=True, exist_ok=True)
-        self._locks: dict[int, asyncio.Lock] = {}
-
-    def _get_lock(self, guild_id: int) -> asyncio.Lock:
-        """Get or create asyncio.Lock for this guild (thread-safe in single-threaded asyncio)."""
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
+        self._locks = GuildLockManager()
 
     def _path(self, guild_id: int) -> Path:
         return self._data_dir / f"tags_{guild_id}.json"
@@ -36,13 +29,13 @@ class TagsStore:
         return self._load(guild_id).get(name)
 
     async def set(self, guild_id: int, name: str, text: str, *, author_id: int) -> None:
-        async with self._get_lock(guild_id):
+        async with self._locks.lock(guild_id):
             data = self._load(guild_id)
             data[name] = {"text": text, "author_id": author_id}
             self._save(guild_id, data)
 
     async def delete(self, guild_id: int, name: str) -> None:
-        async with self._get_lock(guild_id):
+        async with self._locks.lock(guild_id):
             data = self._load(guild_id)
             if name in data:
                 del data[name]
@@ -50,7 +43,7 @@ class TagsStore:
 
     async def delete_if_authorized(self, guild_id: int, name: str, user_id: int, is_admin: bool) -> tuple[bool, str]:
         """Delete tag if user is owner or admin. Return (success, reason). Atomic under lock."""
-        async with self._get_lock(guild_id):
+        async with self._locks.lock(guild_id):
             data = self._load(guild_id)
             entry = data.get(name)
             if entry is None:

@@ -9,8 +9,10 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
+from easycord.helpers.channel import send_safe
+from easycord.helpers.embed import EmbedBuilder
 from easycord.server_config import ServerConfigStore
-from ._shared import get_id, respond_error, set_id
+from ._shared import GuildLockManager, get_id, respond_error, set_id
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -52,15 +54,14 @@ def _ticket_embed(data: dict) -> discord.Embed:
     claimed = (
         f"<@{data['claimed_by']}>" if data.get("claimed_by") else "Unclaimed"
     )
-    return discord.Embed(
-        title=f"🎫 Ticket #{data['ticket_number']}",
-        description=(
+    return EmbedBuilder.success(
+        f"🎫 Ticket #{data['ticket_number']}",
+        (
             f"**Created by:** <@{data['creator_id']}>\n"
             f"**Status:** {data.get('status', 'open').capitalize()}\n"
             f"**Claimed by:** {claimed}\n"
             f"**Topic:** {data.get('topic') or 'No topic provided'}"
         ),
-        color=discord.Color.green(),
     )
 
 
@@ -104,7 +105,7 @@ class _TicketView(discord.ui.View):
             )
             return
 
-        async with self._plugin._guild_lock(self._guild_id):
+        async with self._plugin._locks.lock(self._guild_id):
             cfg = await self._plugin._store.load(self._guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(self._thread_id))
@@ -135,7 +136,7 @@ class _TicketView(discord.ui.View):
             )
             return
 
-        async with self._plugin._guild_lock(self._guild_id):
+        async with self._plugin._locks.lock(self._guild_id):
             cfg = await self._plugin._store.load(self._guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(self._thread_id))
@@ -189,12 +190,7 @@ class TicketsPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/tickets") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
+        self._locks = GuildLockManager()
 
     async def on_ready(self) -> None:
         """Re-register ticket panel views for all open tickets after reconnect."""
@@ -253,33 +249,30 @@ class TicketsPlugin(Plugin):
                     if data.get("claimed_by")
                     else "Unclaimed"
                 )
-                log_embed = discord.Embed(
-                    title=f"📋 Ticket #{data['ticket_number']} Transcript",
-                    description=(
+                log_builder = EmbedBuilder(
+                    f"📋 Ticket #{data['ticket_number']} Transcript",
+                    (
                         f"**Creator:** <@{data['creator_id']}>\n"
                         f"**Claimed by:** {claimer}\n"
                         f"**Duration:** {duration}"
                     ),
-                    color=discord.Color.red(),
+                    discord.Color.red(),
                 )
                 if transcript:
                     body = transcript if len(transcript) <= 3800 else transcript[-3800:] + "\n[truncated]"
-                    log_embed.add_field(
+                    log_builder.add_field(
                         name="Transcript",
                         value=f"```\n{body}\n```",
                         inline=False,
                     )
-                try:
-                    await log_channel.send(embed=log_embed)
-                except discord.HTTPException:
-                    pass  # log channel may be missing send permission; closing the ticket still proceeds
+                await send_safe(log_channel, log=logger, what="ticket log", embed=log_builder.build())
 
         try:
             await thread.edit(archived=True, locked=True, reason="Ticket closed")
         except discord.HTTPException:
             pass  # thread may already be archived/deleted; DB state is already updated
 
-    @slash(description="Set the support role and transcript log channel.", guild_only=True)
+    @slash(description="Set the support role and transcript log channel.", guild_only=True, require_admin=True)
     async def ticket_setup(
         self,
         ctx: Context,
@@ -289,15 +282,9 @@ class TicketsPlugin(Plugin):
         """Configure the ticket system for this server (admin only)."""
         if ctx.guild is None:
             return
-        if not ctx.is_admin:
-            await ctx.respond(
-                "Only server administrators can configure the ticket system.",
-                ephemeral=True,
-            )
-            return
 
         guild_id = ctx.guild.id
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             set_id(cfg, "support_role_id", support_role.id)
             set_id(cfg, "log_channel_id", log_channel.id)
@@ -323,7 +310,7 @@ class TicketsPlugin(Plugin):
 
         guild_id = ctx.guild.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             counter: int = cfg.get_other("ticket_counter", 0) + 1
             cfg.set_other("ticket_counter", counter)
@@ -367,10 +354,11 @@ class TicketsPlugin(Plugin):
         }
 
         view = _TicketView(self, guild_id, thread.id)
-        panel_msg = await thread.send(embed=_ticket_embed(data), view=view)
-        data["panel_message_id"] = panel_msg.id
+        panel_msg = await send_safe(thread, log=logger, what="ticket panel", embed=_ticket_embed(data), view=view)
+        if panel_msg is not None:
+            data["panel_message_id"] = panel_msg.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             tickets[str(thread.id)] = data
@@ -400,7 +388,7 @@ class TicketsPlugin(Plugin):
         guild_id = ctx.guild.id
         thread_id = ctx.channel.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(thread_id))
@@ -443,7 +431,7 @@ class TicketsPlugin(Plugin):
         guild_id = ctx.guild.id
         thread_id = ctx.channel.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(thread_id))
@@ -479,7 +467,7 @@ class TicketsPlugin(Plugin):
             return
 
         guild_id = ctx.guild.id
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             support_role_id: int | None = get_id(cfg, "support_role_id")
             if not _is_support(member, support_role_id):

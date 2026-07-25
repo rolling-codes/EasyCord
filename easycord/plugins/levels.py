@@ -11,6 +11,7 @@ import discord
 logger = logging.getLogger(__name__)
 
 from easycord import Plugin, slash, on
+from easycord.helpers.channel import send_safe
 from ._shared import respond_error
 from ._levels_data import (
     LevelsStore,
@@ -293,7 +294,7 @@ class LevelsPlugin(Plugin):
             if awarded:
                 embed.add_field(name="Role awarded", value=awarded.mention, inline=False)
 
-        await message.channel.send(embed=embed)
+        await send_safe(message.channel, log=logger, what="level-up notification", embed=embed)
 
         if config.get("level_dm_enabled", False):
             try:

@@ -122,7 +122,7 @@ class TestReminderStore:
         guild_id = 100
         reminder = _make_reminder(rid=1)
 
-        async with p._guild_lock(guild_id):
+        async with p._locks.lock(guild_id):
             cfg = await p._store.load(guild_id)
             data = cfg.get_other("reminders", {})
             data.setdefault("reminders", []).append(reminder)
@@ -141,7 +141,7 @@ class TestReminderStore:
         guild_id = 100
         reminder = _make_reminder(rid=1, done=False)
 
-        async with p._guild_lock(guild_id):
+        async with p._locks.lock(guild_id):
             cfg = await p._store.load(guild_id)
             data = cfg.get_other("reminders", {})
             data.setdefault("reminders", []).append(reminder)
@@ -149,7 +149,7 @@ class TestReminderStore:
             cfg.set_other("reminders", data)
             await p._store.save(cfg)
 
-        async with p._guild_lock(guild_id):
+        async with p._locks.lock(guild_id):
             cfg = await p._store.load(guild_id)
             data = cfg.get_other("reminders", {})
             for r in data["reminders"]:
@@ -168,7 +168,7 @@ class TestReminderStore:
         r1 = _make_reminder(rid=1, done=False)
         r2 = _make_reminder(rid=2, done=True)
 
-        async with p._guild_lock(guild_id):
+        async with p._locks.lock(guild_id):
             cfg = await p._store.load(guild_id)
             data = cfg.get_other("reminders", {})
             data["reminders"] = [r1, r2]
@@ -186,7 +186,7 @@ class TestReminderStore:
         p = _plugin(tmp_path)
         guild_a, guild_b = 100, 200
 
-        async with p._guild_lock(guild_a):
+        async with p._locks.lock(guild_a):
             cfg = await p._store.load(guild_a)
             data = cfg.get_other("reminders", {})
             data["reminders"] = [_make_reminder(rid=1)]

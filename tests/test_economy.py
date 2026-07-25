@@ -44,7 +44,7 @@ class TestEconomyStore:
 
     async def test_set_and_get_balance(self, tmp_path) -> None:
         p = _plugin(tmp_path)
-        async with p._balance_lock(100):
+        async with p._locks.lock(100):
             await p._set_balance(100, 42, 500)
         bal = await p._get_balance(100, 42)
         assert bal == 500
@@ -52,7 +52,7 @@ class TestEconomyStore:
     async def test_set_balance_clamps_to_zero(self, tmp_path) -> None:
         """Negative amounts are stored as 0."""
         p = _plugin(tmp_path)
-        async with p._balance_lock(100):
+        async with p._locks.lock(100):
             await p._set_balance(100, 42, -100)
         assert await p._get_balance(100, 42) == 0
 
@@ -142,11 +142,11 @@ class TestEconomyStore:
     async def test_lock_cleanup_does_not_remove_active_locks(self, tmp_path) -> None:
         p = _plugin(tmp_path)
         # Access lock so it is created
-        lock = p._balance_lock(100)
+        lock = p._locks.lock(100)
         async with lock:
             # Cleanup while the lock is acquired should NOT remove it
-            p._cleanup_old_locks()
-            assert 100 in p._balance_locks
+            p._locks._cleanup()
+            assert 100 in p._locks._registry
 
 
 # ---------------------------------------------------------------------------

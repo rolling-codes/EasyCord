@@ -53,7 +53,7 @@ async def _seed_active_poll(
     options = options or ["Red", "Blue"]
     votes = votes or {}
     end_dt = datetime.now(timezone.utc) + timedelta(seconds=seconds_from_now)
-    async with plugin._guild_lock(guild_id):
+    async with plugin._locks.lock(guild_id):
         cfg = await plugin._store.load(guild_id)
         polls: dict = cfg.get_other("polls", {})
         polls[str(message_id)] = {
@@ -505,7 +505,7 @@ class TestDuplicateVoteGuard:
         )
 
         # Simulate user 42 changing their vote to option 1 (B)
-        async with p._guild_lock(100):
+        async with p._locks.lock(100):
             cfg = await p._store.load(100)
             polls = cfg.get_other("polls", {})
             polls["10"]["votes"]["42"] = 1
@@ -522,7 +522,7 @@ class TestDuplicateVoteGuard:
         p = _plugin(tmp_path)
         await _seed_active_poll(p, guild_id=100, message_id=11, options=["X", "Y"])
 
-        async with p._guild_lock(100):
+        async with p._locks.lock(100):
             cfg = await p._store.load(100)
             polls = cfg.get_other("polls", {})
             polls["11"]["votes"]["1"] = 0

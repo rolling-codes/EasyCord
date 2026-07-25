@@ -9,7 +9,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -47,20 +47,15 @@ class ServerStatsPlugin(Plugin):
 
     Slash commands registered
     -------------------------
-    ``/stats_setup``    — Create stat channels and start auto-update (manage_guild).
-    ``/stats_teardown`` — Delete stat channels and stop updates (manage_guild).
+    ``/stats_setup``    — Create stat channels and start auto-update (administrator).
+    ``/stats_teardown`` — Delete stat channels and stop updates (administrator).
     """
 
     def __init__(self, *, store_path: str = ".easycord/server_stats") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
+        self._locks = GuildLockManager()
         self._loops: dict[int, asyncio.Task] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
 
     def _start_loop(self, guild_id: int) -> None:
         """Start the background update loop for a guild (cancels any existing one)."""
@@ -129,16 +124,11 @@ class ServerStatsPlugin(Plugin):
         except discord.HTTPException as exc:
             logger.error("Failed to update stat channels in guild %s: %s", guild_id, exc)
 
-    @slash(description="Create stat display channels and start auto-update.", guild_only=True)
+    @slash(description="Create stat display channels and start auto-update.", guild_only=True, require_admin=True)
     async def stats_setup(self, ctx: Context) -> None:
         """Create three voice channels showing member count, online count, and boosts."""
         if ctx.guild is None:
             await respond_error(ctx, "This command can only be used in a server.")
-            return
-        if not ctx.is_admin:
-            await ctx.respond(
-                "You need the Administrator permission to use this command.", ephemeral=True
-            )
             return
 
         guild = ctx.guild
@@ -166,7 +156,7 @@ class ServerStatsPlugin(Plugin):
             await respond_error(ctx, f"Failed to create stat channels: {exc}")
             return
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             cfg.set_other(
                 "server_stats",
@@ -181,16 +171,11 @@ class ServerStatsPlugin(Plugin):
         self._start_loop(guild_id)
         await ctx.respond("✅ Stat channels created and update loop started.", ephemeral=True)
 
-    @slash(description="Delete stat display channels and stop auto-update.", guild_only=True)
+    @slash(description="Delete stat display channels and stop auto-update.", guild_only=True, require_admin=True)
     async def stats_teardown(self, ctx: Context) -> None:
         """Remove all three stat channels and cancel the background update loop."""
         if ctx.guild is None:
             await respond_error(ctx, "This command can only be used in a server.")
-            return
-        if not ctx.is_admin:
-            await ctx.respond(
-                "You need the Administrator permission to use this command.", ephemeral=True
-            )
             return
 
         guild = ctx.guild
@@ -226,7 +211,7 @@ class ServerStatsPlugin(Plugin):
                 logger.warning("Failed to delete stat channel %s: %s", ch_id, exc)
 
         # Remove config
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             cfg.remove_other("server_stats")
             await self._store.save(cfg)

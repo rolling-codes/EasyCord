@@ -11,7 +11,7 @@ import discord
 from easycord import Plugin, slash
 from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -112,7 +112,7 @@ class _PollView(discord.ui.View):
 
     def _make_callback(self, option_index: int):
         async def callback(interaction: discord.Interaction) -> None:
-            async with self._plugin._guild_lock(self._guild_id):
+            async with self._plugin._locks.lock(self._guild_id):
                 cfg = await self._plugin._store.load(self._guild_id)
                 polls: dict = cfg.get_other("polls", {})
                 data: dict | None = polls.get(str(self._message_id))
@@ -165,14 +165,9 @@ class PollsPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/polls") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
+        self._locks = GuildLockManager()
         # guild_id -> message_id -> Task
         self._timers: dict[int, dict[int, asyncio.Task]] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
 
     # ── Lifecycle ─────────────────────────────────────────────
 
@@ -240,7 +235,7 @@ class PollsPlugin(Plugin):
 
     async def _close_poll(self, guild_id: int, message_id: int) -> None:
         """Mark a poll closed in storage, then render the final results."""
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             polls: dict = cfg.get_other("polls", {})
             data: dict | None = polls.get(str(message_id))
@@ -315,7 +310,7 @@ class PollsPlugin(Plugin):
         message = await ctx.interaction.original_response()
         message_id = message.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             polls: dict = cfg.get_other("polls", {})
             polls[str(message_id)] = {

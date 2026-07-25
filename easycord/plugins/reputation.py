@@ -1,7 +1,6 @@
 """Per-guild reputation (rep) system plugin."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
@@ -10,7 +9,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -74,12 +73,7 @@ class ReputationPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/reputation") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
+        self._locks = GuildLockManager()
 
     # ------------------------------------------------------------------ #
     # Commands                                                             #
@@ -111,7 +105,7 @@ class ReputationPlugin(Plugin):
         guild_id = ctx.guild.id
         now = datetime.now(timezone.utc)
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data = cfg.get_other("reputation", {})
             cooldowns: dict = data.get("cooldowns", {})
@@ -210,7 +204,7 @@ class ReputationPlugin(Plugin):
 
         guild_id = ctx.guild.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data = cfg.get_other("reputation", {})
             scores: dict = data.get("scores", {})

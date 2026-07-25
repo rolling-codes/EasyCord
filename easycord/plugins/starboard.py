@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Context, Plugin, on, slash
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.plugins._config_manager import PluginConfigManager
 from ._shared import respond_error
 
@@ -125,22 +125,21 @@ class StarboardPlugin(Plugin):
             if img:
                 embed.set_image(url=img.url)
 
-        try:
-            if existing_post_id:
-                try:
-                    post = await channel.fetch_message(existing_post_id)
-                    await post.edit(embed=embed)
-                    return
-                except discord.NotFound:
-                    pass # Post was deleted, send a new one
+        if existing_post_id:
+            try:
+                post = await channel.fetch_message(existing_post_id)
+                await post.edit(embed=embed)
+                return
+            except discord.NotFound:
+                pass  # Post was deleted, send a new one
+            except (discord.Forbidden, discord.HTTPException) as exc:
+                logger.warning("Could not update existing starboard post %s: %s", existing_post_id, exc)
+                return
 
-            post = await channel.send(embed=embed)
+        post = await send_safe(channel, log=logger, what="starboard post", embed=embed)
+        if post is not None:
             await self._set_archived(message.guild.id, message.id, post.id)
             logger.info("Archived message %s to starboard", message.id)
-        except discord.Forbidden:
-            logger.error("No permission to post to starboard channel %s", channel_id)
-        except discord.HTTPException as e:
-            logger.error("Failed to post to starboard: %s", e)
 
     async def _unarchive_message(self, guild_id: int, message_id: int) -> None:
         """Remove message from starboard."""

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, cast
 import discord
 
 from easycord import Plugin, RateLimit, ToolLimiter, slash
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
@@ -107,10 +107,7 @@ class ModerationPlugin(Plugin):
         embed.add_field(name="Moderator", value=ctx.user.mention, inline=True)
         embed.set_footer(text=f"User ID: {target.id}")
 
-        try:
-            await audit_channel.send(embed=embed)
-        except discord.Forbidden:
-            logger.warning("Cannot post to audit channel %s", audit_channel_id)
+        await send_safe(audit_channel, log=logger, what="moderation audit log", embed=embed)
 
     async def _get_or_create_mute_role(self, guild: discord.Guild) -> discord.Role | None:
         """Get or create mute role for guild."""

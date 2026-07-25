@@ -1,7 +1,6 @@
 """Member verification plugin — role-grant flow with optional challenge question."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -9,8 +8,9 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
+from easycord.helpers.embed import EmbedBuilder
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -25,13 +25,11 @@ def _build_panel_embed(question: str | None) -> discord.Embed:
     )
     if question:
         description += f"\n\n**You will be asked:** {question}"
-    embed = discord.Embed(
-        title="✅ Server Verification",
-        description=description,
-        color=discord.Color.green(),
+    return (
+        EmbedBuilder("✅ Server Verification", description, discord.Color.green())
+        .set_footer("Click the button to begin verification.")
+        .build()
     )
-    embed.set_footer(text="Click the button to begin verification.")
-    return embed
 
 
 class _VerifyModal(discord.ui.Modal, title="Server Verification"):
@@ -194,12 +192,7 @@ class VerificationPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/verification") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
+        self._locks = GuildLockManager()
 
     async def on_ready(self) -> None:
         """Re-register persistent verify views for all configured guilds."""
@@ -226,7 +219,7 @@ class VerificationPlugin(Plugin):
                     panel_message_id,
                 )
 
-    @slash(description="Set the verified role and channel for the verification panel.", guild_only=True)
+    @slash(description="Set the verified role and channel for the verification panel.", guild_only=True, require_admin=True)
     async def verification_setup(
         self,
         ctx: Context,
@@ -245,12 +238,9 @@ class VerificationPlugin(Plugin):
         if ctx.guild is None:
             await respond_error(ctx, "This command can only be used in a server.")
             return
-        if not ctx.is_admin:
-            await respond_error(ctx, "You need the Administrator permission to use this command.")
-            return
 
         guild_id = ctx.guild.id
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("verification", {})
             data["role_id"] = role.id
@@ -263,14 +253,11 @@ class VerificationPlugin(Plugin):
             ephemeral=True,
         )
 
-    @slash(description="Post the verification panel in the configured channel.", guild_only=True)
+    @slash(description="Post the verification panel in the configured channel.", guild_only=True, require_admin=True)
     async def verification_panel(self, ctx: Context) -> None:
         """Post a persistent embed with a Verify button in the configured channel."""
         if ctx.guild is None:
             await respond_error(ctx, "This command can only be used in a server.")
-            return
-        if not ctx.is_admin:
-            await respond_error(ctx, "You need the Administrator permission to use this command.")
             return
 
         guild_id = ctx.guild.id
@@ -312,7 +299,7 @@ class VerificationPlugin(Plugin):
             return
         self.bot.add_view(view, message_id=message.id)
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data = cfg.get_other("verification", {})
             data["panel_message_id"] = message.id
@@ -323,7 +310,7 @@ class VerificationPlugin(Plugin):
             f"✅ Verification panel posted in {channel.mention}.", ephemeral=True
         )
 
-    @slash(description="Set an optional challenge question for the verification flow.", guild_only=True)
+    @slash(description="Set an optional challenge question for the verification flow.", guild_only=True, require_admin=True)
     async def verification_question(self, ctx: Context, text: str) -> None:
         """Set a challenge question members must answer before receiving the role.
 
@@ -335,14 +322,11 @@ class VerificationPlugin(Plugin):
         if ctx.guild is None:
             await respond_error(ctx, "This command can only be used in a server.")
             return
-        if not ctx.is_admin:
-            await respond_error(ctx, "You need the Administrator permission to use this command.")
-            return
 
         guild_id = ctx.guild.id
         question: str | None = text.strip() or None
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("verification", {})
             data["question"] = question

@@ -167,7 +167,7 @@ class TestBirthdayStore:
         guild_id = 100
         user_id = 42
 
-        async with p._guild_lock(guild_id):
+        async with p._locks.lock(guild_id):
             cfg = await p._store.load(guild_id)
             data = cfg.get_other("birthday", {})
             data.setdefault("birthdays", {})[str(user_id)] = {"month": 3, "day": 14}
@@ -183,14 +183,14 @@ class TestBirthdayStore:
         guild_id = 100
         user_id = 42
 
-        async with p._guild_lock(guild_id):
+        async with p._locks.lock(guild_id):
             cfg = await p._store.load(guild_id)
             data = cfg.get_other("birthday", {})
             data.setdefault("birthdays", {})[str(user_id)] = {"month": 3, "day": 14}
             cfg.set_other("birthday", data)
             await p._store.save(cfg)
 
-        async with p._guild_lock(guild_id):
+        async with p._locks.lock(guild_id):
             cfg = await p._store.load(guild_id)
             data = cfg.get_other("birthday", {})
             data["birthdays"].pop(str(user_id), None)
@@ -206,7 +206,7 @@ class TestBirthdayStore:
         guild_a, guild_b = 100, 200
         user_id = 1
 
-        async with p._guild_lock(guild_a):
+        async with p._locks.lock(guild_a):
             cfg = await p._store.load(guild_a)
             data = cfg.get_other("birthday", {})
             data.setdefault("birthdays", {})[str(user_id)] = {"month": 5, "day": 1}

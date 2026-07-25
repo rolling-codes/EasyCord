@@ -81,7 +81,7 @@ class TestVerificationStore:
         plugin = _plugin(tmp_path)
         guild_id = 200
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 11, "channel_id": 22})
             await plugin._store.save(cfg)
@@ -96,7 +96,7 @@ class TestVerificationStore:
         plugin = _plugin(tmp_path)
         guild_id = 201
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 1, "channel_id": 2, "question": "What is 2+2?"})
             await plugin._store.save(cfg)
@@ -110,7 +110,7 @@ class TestVerificationStore:
         plugin = _plugin(tmp_path)
         guild_id = 202
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 1, "channel_id": 2, "panel_message_id": 9999})
             await plugin._store.save(cfg)
@@ -130,7 +130,7 @@ class TestVerificationStore:
     async def test_guild_isolation(self, tmp_path) -> None:
         plugin = _plugin(tmp_path)
 
-        async with plugin._guild_lock(1):
+        async with plugin._locks.lock(1):
             cfg1 = await plugin._store.load(1)
             cfg1.set_other("verification", {"role_id": 10})
             await plugin._store.save(cfg1)
@@ -163,25 +163,11 @@ class TestVerificationSetupCommand:
         call_args = ctx.respond.call_args
         assert call_args.kwargs.get("ephemeral", False)
 
-    @pytest.mark.asyncio
-    async def test_setup_not_admin_blocked(self, tmp_path) -> None:
-        plugin = _plugin(tmp_path)
-        ctx = _ctx(is_admin=False)
+    def test_setup_not_admin_blocked(self) -> None:
+        assert VerificationPlugin.verification_setup._slash_require_admin is True
 
-        role = MagicMock(spec=discord.Role)
-        role.id = 50
-        role.name = "Member"
-        channel = MagicMock(spec=discord.TextChannel)
-        channel.id = 60
-        channel.mention = "#verify"
-
-        await plugin.verification_setup(ctx, role, channel)
-        ctx.respond.assert_called_once()
-        call_args = ctx.respond.call_args
-        # Should respond with ephemeral error
-        assert call_args.kwargs.get("ephemeral", False)
-        response_text = call_args.args[0] if call_args.args else ""
-        assert "Administrator" in response_text or "permission" in response_text.lower()
+    def test_panel_require_admin_decorator(self) -> None:
+        assert VerificationPlugin.verification_panel._slash_require_admin is True
 
     @pytest.mark.asyncio
     async def test_panel_no_config_responds_error(self, tmp_path) -> None:
@@ -234,7 +220,7 @@ class TestVerificationSetupCommand:
         ctx = _ctx(guild_id=100)
 
         # First set a question
-        async with plugin._guild_lock(100):
+        async with plugin._locks.lock(100):
             cfg = await plugin._store.load(100)
             cfg.set_other("verification", {"role_id": 1, "channel_id": 2, "question": "Old question"})
             await plugin._store.save(cfg)
@@ -246,14 +232,8 @@ class TestVerificationSetupCommand:
         data = cfg.get_other("verification", {})
         assert data.get("question") is None
 
-    @pytest.mark.asyncio
-    async def test_question_command_blocked_when_not_admin(self, tmp_path) -> None:
-        plugin = _plugin(tmp_path)
-        ctx = _ctx(is_admin=False)
-
-        await plugin.verification_question(ctx, "Test question?")
-        call_args = ctx.respond.call_args
-        assert call_args.kwargs.get("ephemeral", False)
+    def test_question_command_blocked_when_not_admin(self) -> None:
+        assert VerificationPlugin.verification_question._slash_require_admin is True
 
     @pytest.mark.asyncio
     async def test_panel_posts_to_guild_channel(self, tmp_path) -> None:
@@ -262,7 +242,7 @@ class TestVerificationSetupCommand:
         ctx = _ctx(guild_id=guild_id)
 
         # Pre-configure verification
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 5, "channel_id": 99})
             await plugin._store.save(cfg)
@@ -295,7 +275,7 @@ class TestVerificationSetupCommand:
         guild_id = 100
         ctx = _ctx(guild_id=guild_id)
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 5, "channel_id": 99})
             await plugin._store.save(cfg)
@@ -322,7 +302,7 @@ class TestVerificationSetupCommand:
         guild_id = 100
         ctx = _ctx(guild_id=guild_id)
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 5, "channel_id": 99})
             await plugin._store.save(cfg)

@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 from easycord.plugins.giveaway import _parse_duration  # noqa: F401 — re-exported for tests
 
 if TYPE_CHECKING:
@@ -70,14 +70,9 @@ class ReminderPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/reminder") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
+        self._locks = GuildLockManager()
         # guild_id -> reminder_id -> Task
         self._tasks: dict[int, dict[int, asyncio.Task]] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
 
     # ── Lifecycle ─────────────────────────────────────────────
 
@@ -149,7 +144,7 @@ class ReminderPlugin(Plugin):
 
     async def _deliver_reminder(self, guild_id: int, reminder_id: int) -> None:
         """Load reminder from store, send the message, mark it done."""
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("reminders", {})
             reminders: list[dict] = data.get("reminders", [])
@@ -186,12 +181,7 @@ class ReminderPlugin(Plugin):
             return
 
         embed = _reminder_embed(target)
-        try:
-            await channel.send(content=f"<@{user_id}>", embed=embed)
-        except discord.HTTPException:
-            logger.exception(
-                "Failed to deliver reminder %d in channel %d", reminder_id, channel_id
-            )
+        await send_safe(channel, log=logger, what="reminder", content=f"<@{user_id}>", embed=embed)
 
     # ── Slash commands ────────────────────────────────────────
 
@@ -217,7 +207,7 @@ class ReminderPlugin(Plugin):
         now = datetime.now(timezone.utc)
         fire_at = now + timedelta(seconds=seconds)
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("reminders", {})
             next_id: int = data.get("next_id", 1)
@@ -254,7 +244,7 @@ class ReminderPlugin(Plugin):
         guild_id = ctx.guild.id
         user_id = ctx.user.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("reminders", {})
             all_reminders: list[dict] = data.get("reminders", [])
@@ -295,7 +285,7 @@ class ReminderPlugin(Plugin):
         guild_id = ctx.guild.id
         user_id = ctx.user.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("reminders", {})
             reminders: list[dict] = data.get("reminders", [])
