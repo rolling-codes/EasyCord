@@ -102,7 +102,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from easycord import Plugin, on, slash, task
 from easycord.decorators import ai_tool, describe, subscribe
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 # Juice WRLD finder service layer — install the juice-wrld-finder package alongside EasyCord.
 # None of these modules import app.core.config.settings at import time.
@@ -178,14 +178,7 @@ class JuiceWRLDPlugin(Plugin):
         self._use_external_api = use_external_api
 
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
-
-    # ── Internal helpers ───────────────────────────────────────
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
+        self._locks = GuildLockManager()
 
     @contextmanager
     def _db(self) -> Generator[Session, None, None]:
