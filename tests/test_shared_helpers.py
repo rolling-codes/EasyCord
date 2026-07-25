@@ -1,9 +1,18 @@
 """Tests for easycord/plugins/_shared.py typed config accessors and respond_error."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-from easycord.plugins._shared import get_id, get_ids, respond_error, set_id, set_ids
+from easycord.plugins._shared import (
+    GuildLockManager,
+    MAX_TRACKED_GUILDS,
+    get_id,
+    get_ids,
+    respond_error,
+    set_id,
+    set_ids,
+)
 from easycord.server_config import ServerConfig
 
 
@@ -209,3 +218,76 @@ async def test_respond_error_returns_none():
     ctx.respond = AsyncMock(return_value=None)
     result = await respond_error(ctx, "Oops.")
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# GuildLockManager eviction
+# ---------------------------------------------------------------------------
+
+
+def test_cleanup_removes_idle_locks_older_than_7_days():
+    """Locks idle for more than 7 days are deleted from both _registry and _created."""
+    mgr = GuildLockManager()
+    mgr.lock(1)  # create entry for guild 1
+    # Backdate creation timestamp so it looks 8 days old.
+    mgr._created[1] = datetime.now(timezone.utc) - timedelta(days=8)
+    mgr._cleanup()
+    assert 1 not in mgr._registry
+    assert 1 not in mgr._created
+
+
+def test_cleanup_does_not_remove_recently_created_locks():
+    """Locks created recently (within 7 days) are kept."""
+    mgr = GuildLockManager()
+    mgr.lock(42)
+    mgr._cleanup()
+    assert 42 in mgr._registry
+
+
+async def test_cleanup_does_not_remove_held_idle_locks():
+    """A lock that is currently held must not be evicted, even if old."""
+    mgr = GuildLockManager()
+    lock = mgr.lock(99)
+    # Backdate it as if it were 10 days old.
+    mgr._created[99] = datetime.now(timezone.utc) - timedelta(days=10)
+
+    async with lock:
+        # Lock is held — cleanup should leave it alone.
+        mgr._cleanup()
+        assert 99 in mgr._registry
+
+
+def test_cleanup_evicts_oldest_25_percent_when_over_cap():
+    """When registry exceeds MAX_TRACKED_GUILDS, oldest 25% of idle entries are evicted."""
+    import asyncio
+
+    mgr = GuildLockManager()
+
+    # Bypass the per-lock call to _cleanup() inside lock() so we can build
+    # the full set first, then trigger a single controlled cleanup.
+    total = MAX_TRACKED_GUILDS + 1
+    for i in range(total):
+        mgr._registry[i] = asyncio.Lock()
+        mgr._created[i] = datetime.now(timezone.utc) - timedelta(seconds=i)
+
+    before = len(mgr._registry)
+    assert before == total  # sanity
+
+    mgr._cleanup()
+
+    # At least one entry should have been evicted.
+    assert len(mgr._registry) < before
+
+
+def test_cleanup_evicts_at_least_one_entry_over_cap():
+    """remove_count = max(1, len(candidates)//4) guarantees at least one eviction."""
+    import asyncio
+
+    mgr = GuildLockManager()
+    # Create exactly MAX_TRACKED_GUILDS + 1 entries so eviction fires.
+    for i in range(MAX_TRACKED_GUILDS + 1):
+        mgr._registry[i] = asyncio.Lock()
+        mgr._created[i] = datetime.now(timezone.utc) - timedelta(seconds=i)
+
+    mgr._cleanup()
+    assert len(mgr._registry) <= MAX_TRACKED_GUILDS

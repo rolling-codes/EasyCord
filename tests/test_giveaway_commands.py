@@ -219,3 +219,91 @@ class TestGiveawayReroll:
         ctx.respond.assert_called_once()
         args, _ = ctx.respond.call_args
         assert "🎉" in (args[0] if args else "")
+
+
+# ---------------------------------------------------------------------------
+# _end_giveaway send_safe winner announcement — lines ~249-262
+# ---------------------------------------------------------------------------
+
+import discord as _discord
+
+
+def _active_giveaway(entries: list[int], *, channel_id: int = 55) -> dict:
+    return {
+        "channel_id": channel_id,
+        "prize": "Cool Prize",
+        "end_time": "2024-01-01T00:00:00+00:00",
+        "winner_count": 1,
+        "entries": entries,
+        "status": "active",
+        "winners": [],
+    }
+
+
+class TestEndGiveawaySendSafe:
+    async def test_winners_path_sends_congratulations(self, tmp_path):
+        p = _plugin(tmp_path)
+        guild_id = 200
+        msg_id = 999
+
+        # Seed an active giveaway with one entry.
+        async with p._locks.lock(guild_id):
+            cfg = await p._store.load(guild_id)
+            cfg.set_other("giveaways", {str(msg_id): _active_giveaway([1001])})
+            await p._store.save(cfg)
+
+        # Wire up bot mocks: guild -> channel -> fetch_message -> message
+        mock_channel = MagicMock(spec=_discord.TextChannel)
+        mock_channel.id = 55
+        mock_channel.send = AsyncMock(return_value=MagicMock())
+
+        mock_message = MagicMock()
+        mock_message.edit = AsyncMock()
+        mock_channel.fetch_message = AsyncMock(return_value=mock_message)
+
+        mock_guild = MagicMock()
+        mock_guild.get_channel = MagicMock(return_value=mock_channel)
+
+        p._bot = MagicMock()
+        p._bot.get_guild = MagicMock(return_value=mock_guild)
+
+        await p._end_giveaway(guild_id, msg_id)
+
+        mock_channel.send.assert_called_once()
+        call_kwargs = mock_channel.send.call_args
+        content = call_kwargs.kwargs.get("content") or (call_kwargs.args[0] if call_kwargs.args else "")
+        assert "Congratulations" in content or "congratulations" in content.lower()
+        assert "Cool Prize" in content
+
+    async def test_no_entries_path_sends_no_winner_message(self, tmp_path):
+        p = _plugin(tmp_path)
+        guild_id = 201
+        msg_id = 888
+
+        # Seed an active giveaway with no entries.
+        async with p._locks.lock(guild_id):
+            cfg = await p._store.load(guild_id)
+            cfg.set_other("giveaways", {str(msg_id): _active_giveaway([])})
+            await p._store.save(cfg)
+
+        mock_channel = MagicMock(spec=_discord.TextChannel)
+        mock_channel.id = 55
+        mock_channel.send = AsyncMock(return_value=MagicMock())
+
+        mock_message = MagicMock()
+        mock_message.edit = AsyncMock()
+        mock_channel.fetch_message = AsyncMock(return_value=mock_message)
+
+        mock_guild = MagicMock()
+        mock_guild.get_channel = MagicMock(return_value=mock_channel)
+
+        p._bot = MagicMock()
+        p._bot.get_guild = MagicMock(return_value=mock_guild)
+
+        await p._end_giveaway(guild_id, msg_id)
+
+        mock_channel.send.assert_called_once()
+        call_kwargs = mock_channel.send.call_args
+        content = call_kwargs.kwargs.get("content") or (call_kwargs.args[0] if call_kwargs.args else "")
+        assert "no entries" in content.lower() or "ended" in content.lower()
+        assert "Cool Prize" in content

@@ -399,3 +399,63 @@ async def test_approve_leaves_other_suggestions_pending(tmp_path) -> None:
     suggestions = cfg_obj.get_other("suggestions", {})
     assert suggestions["1"]["status"] == "approved"
     assert suggestions["2"]["status"] == "pending"
+
+
+# ---------------------------------------------------------------------------
+# add_reaction Forbidden — lines 111-112 of suggestions.py
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_suggest_add_reaction_forbidden_does_not_propagate(tmp_path) -> None:
+    """When add_reaction raises Forbidden the command must still complete successfully."""
+    plugin = _make_plugin(tmp_path)
+    await plugin.config.update(1, "suggestions", suggestions_channel=123)
+    ctx = _make_context()
+
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_msg = AsyncMock(spec=discord.Message)
+    mock_msg.id = 888
+    # send() succeeds, but add_reaction() raises Forbidden
+    mock_channel.send = AsyncMock(return_value=mock_msg)
+    mock_msg.add_reaction = AsyncMock(
+        side_effect=discord.Forbidden(MagicMock(), "no perms")
+    )
+    ctx.guild.get_channel.return_value = mock_channel
+
+    # Must not raise
+    await plugin.suggest(ctx, "reaction-forbidden idea")
+
+    # Success response still sent
+    ctx.respond.assert_called_once()
+    args, kwargs = ctx.respond.call_args
+    response_text = args[0] if args else ""
+    assert "posted" in response_text.lower() or kwargs.get("ephemeral") is not True
+
+    # Suggestion still stored despite reaction failure
+    cfg_obj = await plugin.config.store.load(1)
+    suggestions = cfg_obj.get_other("suggestions", {})
+    assert any(v.get("idea") == "reaction-forbidden idea" for v in suggestions.values() if isinstance(v, dict))
+
+
+@pytest.mark.asyncio
+async def test_suggest_add_reaction_http_exception_does_not_propagate(tmp_path) -> None:
+    """When add_reaction raises HTTPException the command completes without error."""
+    plugin = _make_plugin(tmp_path)
+    await plugin.config.update(1, "suggestions", suggestions_channel=123)
+    ctx = _make_context()
+
+    mock_channel = MagicMock(spec=discord.TextChannel)
+    mock_msg = AsyncMock(spec=discord.Message)
+    mock_msg.id = 777
+    mock_channel.send = AsyncMock(return_value=mock_msg)
+    mock_msg.add_reaction = AsyncMock(
+        side_effect=discord.HTTPException(MagicMock(), "http error")
+    )
+    ctx.guild.get_channel.return_value = mock_channel
+
+    await plugin.suggest(ctx, "http-exception idea")
+
+    ctx.respond.assert_called_once()
+    cfg_obj = await plugin.config.store.load(1)
+    suggestions = cfg_obj.get_other("suggestions", {})
+    assert any(v.get("idea") == "http-exception idea" for v in suggestions.values() if isinstance(v, dict))
