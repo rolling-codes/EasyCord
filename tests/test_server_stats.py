@@ -179,18 +179,13 @@ class TestServerStatsStore:
 # ---------------------------------------------------------------------------
 
 class TestStatsSetupCommand:
-    @pytest.mark.asyncio
-    async def test_setup_requires_admin(self, tmp_path) -> None:
-        plugin = _plugin(tmp_path)
-        ctx = _ctx(is_admin=False)
+    def test_setup_requires_admin(self) -> None:
+        """require_admin=True on the decorator gates non-admins before the body runs."""
+        assert ServerStatsPlugin.stats_setup._slash_require_admin is True
 
-        await plugin.stats_setup(ctx)
-
-        ctx.respond.assert_called_once()
-        call_args = ctx.respond.call_args
-        assert call_args.kwargs.get("ephemeral", False)
-        text = call_args.args[0] if call_args.args else ""
-        assert "Administrator" in text or "permission" in text.lower()
+    def test_teardown_requires_admin(self) -> None:
+        """require_admin=True on the decorator gates non-admins before the body runs."""
+        assert ServerStatsPlugin.stats_teardown._slash_require_admin is True
 
     @pytest.mark.asyncio
     async def test_setup_requires_guild(self, tmp_path) -> None:

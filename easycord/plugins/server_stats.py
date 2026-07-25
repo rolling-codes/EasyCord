@@ -124,16 +124,11 @@ class ServerStatsPlugin(Plugin):
         except discord.HTTPException as exc:
             logger.error("Failed to update stat channels in guild %s: %s", guild_id, exc)
 
-    @slash(description="Create stat display channels and start auto-update.", guild_only=True)
+    @slash(description="Create stat display channels and start auto-update.", guild_only=True, require_admin=True)
     async def stats_setup(self, ctx: Context) -> None:
         """Create three voice channels showing member count, online count, and boosts."""
         if ctx.guild is None:
             await respond_error(ctx, "This command can only be used in a server.")
-            return
-        if not ctx.is_admin:
-            await ctx.respond(
-                "You need the Administrator permission to use this command.", ephemeral=True
-            )
             return
 
         guild = ctx.guild
@@ -176,16 +171,11 @@ class ServerStatsPlugin(Plugin):
         self._start_loop(guild_id)
         await ctx.respond("✅ Stat channels created and update loop started.", ephemeral=True)
 
-    @slash(description="Delete stat display channels and stop auto-update.", guild_only=True)
+    @slash(description="Delete stat display channels and stop auto-update.", guild_only=True, require_admin=True)
     async def stats_teardown(self, ctx: Context) -> None:
         """Remove all three stat channels and cancel the background update loop."""
         if ctx.guild is None:
             await respond_error(ctx, "This command can only be used in a server.")
-            return
-        if not ctx.is_admin:
-            await ctx.respond(
-                "You need the Administrator permission to use this command.", ephemeral=True
-            )
             return
 
         guild = ctx.guild
