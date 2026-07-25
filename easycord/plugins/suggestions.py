@@ -8,6 +8,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.config_schema import ConfigSchema
+from easycord.helpers.channel import send_safe
 from easycord.plugins._config_manager import PluginConfigManager
 from ._shared import respond_error
 
@@ -99,27 +100,28 @@ class SuggestionsPlugin(Plugin):
         embed.set_author(name=ctx.user.name, icon_url=ctx.user.avatar.url if ctx.user.avatar else None)
         embed.set_footer(text=f"ID: {suggestion_id}")
 
-        try:
-            msg = await channel.send(embed=embed)
-            await msg.add_reaction(upvote)
-            await msg.add_reaction(downvote)
-
-            # Store suggestion info atomically (preserve concurrent writers' entries)
-            def _store(cfg) -> None:
-                suggestions = cfg.get_other("suggestions", {})
-                suggestions[str(suggestion_id)] = {
-                    "user_id": ctx.user.id,
-                    "idea": idea,
-                    "message_id": msg.id,
-                    "status": "pending",
-                }
-                cfg.set_other("suggestions", suggestions)
-
-            await self.config.store.mutate(ctx.guild.id, _store)
-
-            await ctx.respond(f"✅ Suggestion #{suggestion_id} posted!", ephemeral=True)
-        except discord.Forbidden:
+        msg = await send_safe(channel, log=logger, what="suggestion post", embed=embed)
+        if msg is None:
             await respond_error(ctx, "❌ Cannot post to suggestions channel")
+            return
+
+        await msg.add_reaction(upvote)
+        await msg.add_reaction(downvote)
+
+        # Store suggestion info atomically (preserve concurrent writers' entries)
+        def _store(cfg) -> None:
+            suggestions = cfg.get_other("suggestions", {})
+            suggestions[str(suggestion_id)] = {
+                "user_id": ctx.user.id,
+                "idea": idea,
+                "message_id": msg.id,
+                "status": "pending",
+            }
+            cfg.set_other("suggestions", suggestions)
+
+        await self.config.store.mutate(ctx.guild.id, _store)
+
+        await ctx.respond(f"✅ Suggestion #{suggestion_id} posted!", ephemeral=True)
 
     @slash(description="View pending suggestions", guild_only=True)
     async def suggestions(self, ctx: Context) -> None:

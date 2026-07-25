@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.server_config import ServerConfigStore
 from ._shared import GuildLockManager, respond_error
 
@@ -246,12 +246,18 @@ class GiveawayPlugin(Plugin):
 
         if winners:
             mentions = " ".join(f"<@{w}>" for w in winners)
-            await channel.send(
-                f"🎉 Congratulations {mentions}! You won **{data['prize']}**!"
+            await send_safe(
+                channel,
+                log=logger,
+                what="giveaway winner announcement",
+                content=f"🎉 Congratulations {mentions}! You won **{data['prize']}**!",
             )
         else:
-            await channel.send(
-                f"🎉 Giveaway for **{data['prize']}** has ended — no entries were submitted."
+            await send_safe(
+                channel,
+                log=logger,
+                what="giveaway winner announcement",
+                content=f"🎉 Giveaway for **{data['prize']}** has ended — no entries were submitted.",
             )
 
         self._timers.get(guild_id, {}).pop(message_id, None)
