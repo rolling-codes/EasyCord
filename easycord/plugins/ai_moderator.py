@@ -14,7 +14,7 @@ from easycord import (
     on,
     slash,
 )
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
@@ -216,7 +216,7 @@ class AIModeratorPlugin(Plugin):
                     embed.add_field(name="Action", value=action, inline=True)
                     embed.add_field(name="Confidence", value=f"{confidence*100:.1f}%", inline=True)
                     embed.add_field(name="Reason", value=reason, inline=False)
-                    await channel.send(embed=embed)
+                    await send_safe(channel, log=logger, what="notify_only mod review", embed=embed)
 
     # ────────────────────────────────────────────────────────────
     # Slash commands for config
