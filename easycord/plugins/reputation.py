@@ -10,6 +10,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -100,11 +101,11 @@ class ReputationPlugin(Plugin):
         target_id = user.id
 
         if target_id == giver_id:
-            await ctx.respond("You cannot give rep to yourself.", ephemeral=True)
+            await respond_error(ctx, "You cannot give rep to yourself.")
             return
 
         if user.bot:
-            await ctx.respond("You cannot give rep to a bot.", ephemeral=True)
+            await respond_error(ctx, "You cannot give rep to a bot.")
             return
 
         guild_id = ctx.guild.id
@@ -116,10 +117,7 @@ class ReputationPlugin(Plugin):
             cooldowns: dict = data.get("cooldowns", {})
 
             if _is_on_cooldown(cooldowns.get(str(giver_id)), now):
-                await ctx.respond(
-                    "You already gave rep in the last 24 hours. Try again later.",
-                    ephemeral=True,
-                )
+                await respond_error(ctx, "You already gave rep in the last 24 hours. Try again later.")
                 return
 
             scores: dict = data.get("scores", {})
@@ -170,7 +168,7 @@ class ReputationPlugin(Plugin):
         scores: dict = data.get("scores", {})
 
         if not scores:
-            await ctx.respond("No rep has been given yet.", ephemeral=True)
+            await respond_error(ctx, "No rep has been given yet.")
             return
 
         entries = _top_entries(scores)
@@ -204,10 +202,7 @@ class ReputationPlugin(Plugin):
         if not getattr(ctx, "is_admin", False) and not (
             ctx.member and ctx.member.guild_permissions.manage_guild
         ):
-            await ctx.respond(
-                "You need the **Manage Guild** permission to reset rep.",
-                ephemeral=True,
-            )
+            await respond_error(ctx, "You need the **Manage Guild** permission to reset rep.")
             return
 
         if ctx.guild is None:
