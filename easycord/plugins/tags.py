@@ -6,7 +6,7 @@ from pathlib import Path
 
 from easycord.decorators import slash
 from easycord.plugin import Plugin
-from ._shared import read_json_file, write_json_file
+from ._shared import read_json_file, respond_error, write_json_file
 
 
 class TagsStore:
@@ -76,7 +76,7 @@ class TagsPlugin(Plugin):
     async def get(self, ctx, name: str) -> None:
         entry = self._store.get(ctx.guild_id, name)
         if entry is None:
-            await ctx.respond(ctx.t("tags.not_found", default="Tag `{name}` not found.", name=name), ephemeral=True)
+            await respond_error(ctx, ctx.t("tags.not_found", default="Tag `{name}` not found.", name=name))
             return
         await ctx.respond(entry["text"])
 
@@ -93,7 +93,7 @@ class TagsPlugin(Plugin):
                 msg = ctx.t("tags.not_found", default="Tag `{name}` not found.", name=name)
             else:  # unauthorized
                 msg = ctx.t("tags.cannot_delete", default="You can only delete your own tags (or be an admin).")
-            await ctx.respond(msg, ephemeral=True)
+            await respond_error(ctx, msg)
         else:
             await ctx.respond(ctx.t("tags.deleted", default="Tag `{name}` deleted.", name=name), ephemeral=True)
 
@@ -101,7 +101,7 @@ class TagsPlugin(Plugin):
     async def list(self, ctx) -> None:
         names = self._store.list_names(ctx.guild_id)
         if not names:
-            await ctx.respond(ctx.t("tags.empty", default="No tags yet."), ephemeral=True)
+            await respond_error(ctx, ctx.t("tags.empty", default="No tags yet."))
             return
         
         header = ctx.t("tags.header", default="**Tags in this server:**")
