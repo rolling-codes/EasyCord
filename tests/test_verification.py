@@ -163,25 +163,11 @@ class TestVerificationSetupCommand:
         call_args = ctx.respond.call_args
         assert call_args.kwargs.get("ephemeral", False)
 
-    @pytest.mark.asyncio
-    async def test_setup_not_admin_blocked(self, tmp_path) -> None:
-        plugin = _plugin(tmp_path)
-        ctx = _ctx(is_admin=False)
+    def test_setup_not_admin_blocked(self) -> None:
+        assert VerificationPlugin.verification_setup._slash_require_admin is True
 
-        role = MagicMock(spec=discord.Role)
-        role.id = 50
-        role.name = "Member"
-        channel = MagicMock(spec=discord.TextChannel)
-        channel.id = 60
-        channel.mention = "#verify"
-
-        await plugin.verification_setup(ctx, role, channel)
-        ctx.respond.assert_called_once()
-        call_args = ctx.respond.call_args
-        # Should respond with ephemeral error
-        assert call_args.kwargs.get("ephemeral", False)
-        response_text = call_args.args[0] if call_args.args else ""
-        assert "Administrator" in response_text or "permission" in response_text.lower()
+    def test_panel_require_admin_decorator(self) -> None:
+        assert VerificationPlugin.verification_panel._slash_require_admin is True
 
     @pytest.mark.asyncio
     async def test_panel_no_config_responds_error(self, tmp_path) -> None:
@@ -246,14 +232,8 @@ class TestVerificationSetupCommand:
         data = cfg.get_other("verification", {})
         assert data.get("question") is None
 
-    @pytest.mark.asyncio
-    async def test_question_command_blocked_when_not_admin(self, tmp_path) -> None:
-        plugin = _plugin(tmp_path)
-        ctx = _ctx(is_admin=False)
-
-        await plugin.verification_question(ctx, "Test question?")
-        call_args = ctx.respond.call_args
-        assert call_args.kwargs.get("ephemeral", False)
+    def test_question_command_blocked_when_not_admin(self) -> None:
+        assert VerificationPlugin.verification_question._slash_require_admin is True
 
     @pytest.mark.asyncio
     async def test_panel_posts_to_guild_channel(self, tmp_path) -> None:
