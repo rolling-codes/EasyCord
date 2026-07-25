@@ -125,7 +125,7 @@ class TestServerStatsStore:
         plugin = _plugin(tmp_path)
         guild_id = 200
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other(
                 "server_stats",
@@ -144,7 +144,7 @@ class TestServerStatsStore:
         plugin = _plugin(tmp_path)
         guild_id = 201
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other(
                 "server_stats",
@@ -153,7 +153,7 @@ class TestServerStatsStore:
             await plugin._store.save(cfg)
 
         # Remove config
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.remove_other("server_stats")
             await plugin._store.save(cfg)
@@ -165,7 +165,7 @@ class TestServerStatsStore:
     async def test_guild_isolation(self, tmp_path) -> None:
         plugin = _plugin(tmp_path)
 
-        async with plugin._guild_lock(1):
+        async with plugin._locks.lock(1):
             cfg1 = await plugin._store.load(1)
             cfg1.set_other("server_stats", {"member_channel_id": 99})
             await plugin._store.save(cfg1)
@@ -271,7 +271,7 @@ class TestStatsSetupCommand:
         ctx = _ctx(guild_id=guild_id)
 
         # Pre-configure stats
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other(
                 "server_stats",
@@ -305,7 +305,7 @@ class TestStatsSetupCommand:
         ch2 = _mock_channel("🟢 Online: 3", 20)
         ch3 = _mock_channel("💎 Boosts: 0", 30)
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other(
                 "server_stats",
