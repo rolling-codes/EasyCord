@@ -1,16 +1,15 @@
 """Economy system — earn, spend, and trade in-game currency."""
 from __future__ import annotations
 
-import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import discord
 
 from easycord import Plugin, slash, on
 from easycord.plugins._config_manager import PluginConfigManager
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -54,60 +53,7 @@ class EconomyPlugin(Plugin):
     def __init__(self):
         super().__init__()
         self.config = PluginConfigManager(".easycord/economy")
-        self._balance_locks: dict[int, asyncio.Lock] = {}
-        self._lock_created: dict[int, datetime] = {}  # Track creation time for cleanup
-
-    def _balance_lock(self, guild_id: int) -> asyncio.Lock:
-        """Per-guild lock serializing all economy state mutations.
-
-        All economy operations that call ``store.save()`` for a guild must run
-        under this lock. Because ``ServerConfigStore.save()`` writes the full
-        config object, an unlocked save based on a stale load can silently
-        overwrite balances or claim state written by a concurrent locked path.
-        """
-        if guild_id not in self._balance_locks:
-            self._balance_locks[guild_id] = asyncio.Lock()
-            self._cleanup_old_locks()
-        # Refresh last-used time on every access so active guilds are never evicted.
-        self._lock_created[guild_id] = datetime.now(timezone.utc)
-        return self._balance_locks[guild_id]
-
-    def _cleanup_old_locks(self) -> None:
-        """Remove idle locks to prevent unbounded memory growth.
-
-        A lock is a candidate for removal only when it has been idle for more
-        than 7 days AND is not currently acquired. Skipping acquired locks
-        prevents the race where a new caller receives a fresh unacquired lock
-        while an existing holder still considers itself the sole writer.
-        """
-        now = datetime.now(timezone.utc)
-        max_age = timedelta(days=7)
-
-        # Remove locks idle for more than 7 days, but never remove an acquired lock.
-        keys_to_remove = [
-            guild_id
-            for guild_id, last_used in self._lock_created.items()
-            if now - last_used > max_age
-            and not self._balance_locks[guild_id].locked()
-        ]
-        for guild_id in keys_to_remove:
-            del self._balance_locks[guild_id]
-            del self._lock_created[guild_id]
-
-        # If still over the limit, evict the longest-idle unlocked entries.
-        if len(self._balance_locks) > MAX_TRACKED_GUILDS:
-            candidates = sorted(
-                (
-                    (guild_id, ts)
-                    for guild_id, ts in self._lock_created.items()
-                    if not self._balance_locks[guild_id].locked()
-                ),
-                key=lambda x: x[1],
-            )
-            remove_count = max(1, len(candidates) // 4)
-            for guild_id, _ in candidates[:remove_count]:
-                del self._balance_locks[guild_id]
-                del self._lock_created[guild_id]
+        self._locks = GuildLockManager()
 
     async def on_load(self) -> None:
         """Initialize economy plugin."""
@@ -133,7 +79,7 @@ class EconomyPlugin(Plugin):
     async def _set_balance(self, guild_id: int, user_id: int, amount: int) -> None:
         """Set user's balance.
 
-        Must only be called while the caller holds ``_balance_lock(guild_id)``.
+        Must only be called while the caller holds ``self._locks.lock(guild_id)``.
         """
         cfg_obj = await self.config.store.load(guild_id)
         balances = cfg_obj.get_other("balances", {})
@@ -147,7 +93,7 @@ class EconomyPlugin(Plugin):
         Returns the new balance. The operation is atomic: balance is read,
         modified, and saved under a single lock acquisition.
         """
-        async with self._balance_lock(guild_id):
+        async with self._locks.lock(guild_id):
             current = await self._get_balance(guild_id, user_id)
             new_balance = current + amount
             await self._set_balance(guild_id, user_id, new_balance)
@@ -170,7 +116,7 @@ class EconomyPlugin(Plugin):
 
         Returns ``(success, sender_balance_after)``.
         """
-        async with self._balance_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg_obj = await self.config.store.load(guild_id)
             balances = cfg_obj.get_other("balances", {})
 
@@ -197,12 +143,12 @@ class EconomyPlugin(Plugin):
     async def _mark_daily_claimed(self, guild_id: int, user_id: int) -> None:
         """Mark daily reward as claimed, acquiring the per-guild lock.
 
-        Self-contained: takes ``_balance_lock`` itself so the load→modify→save
+        Self-contained: takes the lock itself so the load→modify→save
         cannot interleave with a concurrent balance update and clobber it. The
         ``/daily`` command does its own claim-marking inline under the lock, so
         this helper is only used where the lock is not already held.
         """
-        async with self._balance_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg_obj = await self.config.store.load(guild_id)
             daily_claims = cfg_obj.get_other("daily_claims", {})
             today = datetime.now(timezone.utc).date().isoformat()
@@ -248,7 +194,7 @@ class EconomyPlugin(Plugin):
         # after releasing it so response latency never stalls the guild.
         # claimed stays None when today's reward was already taken.
         claimed: tuple[int, str, str, int] | None = None
-        async with self._balance_lock(ctx.guild.id):
+        async with self._locks.lock(ctx.guild.id):
             cfg_obj = await self.config.store.load(ctx.guild.id)
 
             daily_claims = cfg_obj.get_other("daily_claims", {})

@@ -49,11 +49,10 @@ def _make_message(
 
 def _make_economy_plugin(tmp_path):
     """Construct an EconomyPlugin with a temp store, using only the public API."""
+    from easycord.plugins._shared import GuildLockManager
     p = EconomyPlugin.__new__(EconomyPlugin)
-    # Initialise _balance_locks and _lock_created the same way __init__ does.
-    # (Plain assignments — annotations aren't valid on attribute targets.)
-    p._balance_locks = {}
-    p._lock_created = {}
+    # Initialise _locks the same way __init__ does.
+    p._locks = GuildLockManager()
     p.config = PluginConfigManager(str(tmp_path / "economy"))
     return p
 

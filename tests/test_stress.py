@@ -91,20 +91,20 @@ class TestBugs:
         """
         from easycord.plugins.economy import EconomyPlugin
         from easycord.plugins import PluginConfigManager
+        from easycord.plugins._shared import GuildLockManager
 
         plugin = EconomyPlugin.__new__(EconomyPlugin)
-        plugin._balance_locks = {}
-        plugin._lock_created = {}
+        plugin._locks = GuildLockManager()
         plugin.config = PluginConfigManager(str(tmp_path / "economy"))
 
         guild_id = 999
 
-        # Insert the lock and its timestamp directly — bypassing _balance_lock()
-        # so the timestamp refresh in that method doesn't undo our backdating.
-        plugin._balance_locks[guild_id] = asyncio.Lock()
-        plugin._lock_created[guild_id] = datetime.now(timezone.utc) - timedelta(days=8)
+        # Insert the lock and its timestamp directly into the manager
+        # — bypassing .lock() so the timestamp refresh doesn't undo our backdating.
+        plugin._locks._locks[guild_id] = asyncio.Lock()
+        plugin._locks._created[guild_id] = datetime.now(timezone.utc) - timedelta(days=8)
 
-        original_lock = plugin._balance_locks[guild_id]
+        original_lock = plugin._locks._locks[guild_id]
 
         acquired_event = asyncio.Event()
         cleanup_done_event = asyncio.Event()
@@ -115,7 +115,7 @@ class TestBugs:
                 acquired_event.set()
                 await cleanup_done_event.wait()
                 # The lock must still be present in the dict while we hold it.
-                assert plugin._balance_locks.get(guild_id) is original_lock, (
+                assert plugin._locks._locks.get(guild_id) is original_lock, (
                     "Lock for guild 999 was deleted while it was acquired; "
                     "future callers would get a fresh unacquired lock, bypassing serialization."
                 )
@@ -123,7 +123,7 @@ class TestBugs:
         async def cleanup_task():
             await acquired_event.wait()
             # Trigger cleanup by registering a new guild.
-            plugin._balance_lock(guild_id + 1)
+            plugin._locks.lock(guild_id + 1)
             cleanup_done_event.set()
 
         await asyncio.wait_for(
@@ -585,10 +585,10 @@ class TestEconomyPluginHighLoad:
     def plugin(self, tmp_path):
         from easycord.plugins.economy import EconomyPlugin
         from easycord.plugins import PluginConfigManager
+        from easycord.plugins._shared import GuildLockManager
 
         p = EconomyPlugin.__new__(EconomyPlugin)
-        p._balance_locks = {}
-        p._lock_created = {}
+        p._locks = GuildLockManager()
         p.config = PluginConfigManager(str(tmp_path / "economy"))
 
         # Wrap load/save with a cooperative yield to expose any async races.
