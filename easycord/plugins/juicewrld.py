@@ -102,6 +102,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from easycord import Plugin, on, slash, task
 from easycord.decorators import ai_tool, describe, subscribe
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 # Juice WRLD finder service layer — install the juice-wrld-finder package alongside EasyCord.
 # None of these modules import app.core.config.settings at import time.
@@ -432,7 +433,7 @@ class JuiceWRLDPlugin(Plugin):
             )
         except Exception as exc:
             logger.error("jw_search: %s", exc)
-            await ctx.respond("Search failed — please try again.", ephemeral=True)
+            await respond_error(ctx, "Search failed — please try again.")
             return
 
         api_titles = [r.get("title", "") for r in api_results]
@@ -440,7 +441,7 @@ class JuiceWRLDPlugin(Plugin):
         # Simple path — no API configured
         if not api_results:
             if not local_results:
-                await ctx.respond(f"No songs found matching `{query}`.", ephemeral=True)
+                await respond_error(ctx, f"No songs found matching `{query}`.")
                 return
             embed = discord.Embed(
                 title=f"Results for `{query}`",
@@ -479,7 +480,7 @@ class JuiceWRLDPlugin(Plugin):
         ]
 
         if not local_results and not api_results:
-            await ctx.respond(f"No songs found matching `{query}` in either source.", ephemeral=True)
+            await respond_error(ctx, f"No songs found matching `{query}` in either source.")
             return
 
         embed = discord.Embed(
@@ -535,7 +536,7 @@ class JuiceWRLDPlugin(Plugin):
                 safe_api = self._safe_url(getattr(song, "api_download_url", None)) if song else None
         except Exception as exc:
             logger.error("jw_song: %s", exc)
-            await ctx.respond("Failed to fetch song details.", ephemeral=True)
+            await respond_error(ctx, "Failed to fetch song details.")
             return
 
         if not song:
@@ -563,7 +564,7 @@ class JuiceWRLDPlugin(Plugin):
                     user_id=ctx.user.id,
                 )
             else:
-                await ctx.respond(f"No song found with ID `{song_id}`.", ephemeral=True)
+                await respond_error(ctx, f"No song found with ID `{song_id}`.")
             return
 
         embed = discord.Embed(title=song.title, color=discord.Color.blue())
@@ -618,7 +619,7 @@ class JuiceWRLDPlugin(Plugin):
             )
         except Exception as exc:
             logger.error("jw_era: %s", exc)
-            await ctx.respond("Era lookup failed.", ephemeral=True)
+            await respond_error(ctx, "Era lookup failed.")
             return
 
         local_titles = [s.title for s in local_songs]
@@ -628,7 +629,7 @@ class JuiceWRLDPlugin(Plugin):
         ]
 
         if not era_obj and not api_only:
-            await ctx.respond(f"Era `{era_name}` not found.", ephemeral=True)
+            await respond_error(ctx, f"Era `{era_name}` not found.")
             return
 
         if not era_obj:
@@ -651,7 +652,7 @@ class JuiceWRLDPlugin(Plugin):
             return
 
         if not local_songs and not api_only:
-            await ctx.respond(f"No songs in era `{era_obj.name}`.", ephemeral=True)
+            await respond_error(ctx, f"No songs in era `{era_obj.name}`.")
             return
 
         embed = discord.Embed(
@@ -689,7 +690,7 @@ class JuiceWRLDPlugin(Plugin):
                 resolved = self._resolve_song_url(song, db) if song else None
         except Exception as exc:
             logger.error("jw_random: %s", exc)
-            await ctx.respond("Failed to get a random song.", ephemeral=True)
+            await respond_error(ctx, "Failed to get a random song.")
             return
 
         if not song:
@@ -709,7 +710,7 @@ class JuiceWRLDPlugin(Plugin):
                 embed.set_footer(text="Source: Juice WRLD API  •  Not yet in local catalog")
                 await ctx.respond(embed=embed)
             else:
-                await ctx.respond("No songs in the catalog yet.", ephemeral=True)
+                await respond_error(ctx, "No songs in the catalog yet.")
             return
 
         embed = discord.Embed(title=f"🎲 {song.title}", color=discord.Color.gold())
@@ -756,7 +757,7 @@ class JuiceWRLDPlugin(Plugin):
                 )
         except Exception as exc:
             logger.error("jw_add_song: %s", exc)
-            await ctx.respond("Failed to add song — check logs for details.", ephemeral=True)
+            await respond_error(ctx, "Failed to add song — check logs for details.")
             return
 
         await ctx.respond(
@@ -788,7 +789,7 @@ class JuiceWRLDPlugin(Plugin):
             return
         except Exception as exc:
             logger.error("jw_reindex: %s", exc)
-            await ctx.respond("Reindex failed — check logs for details.", ephemeral=True)
+            await respond_error(ctx, "Reindex failed — check logs for details.")
             return
 
         await ctx.respond(
