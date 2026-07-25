@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from easycord.plugins._shared import get_id, get_ids, respond_error, set_id, set_ids
 from easycord.server_config import ServerConfig
 

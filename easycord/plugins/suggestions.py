@@ -105,8 +105,11 @@ class SuggestionsPlugin(Plugin):
             await respond_error(ctx, "❌ Cannot post to suggestions channel")
             return
 
-        await msg.add_reaction(upvote)
-        await msg.add_reaction(downvote)
+        try:
+            await msg.add_reaction(upvote)
+            await msg.add_reaction(downvote)
+        except (discord.Forbidden, discord.HTTPException):
+            logger.warning("Could not add reactions to suggestion #%s", suggestion_id)
 
         # Store suggestion info atomically (preserve concurrent writers' entries)
         def _store(cfg) -> None:

@@ -47,8 +47,8 @@ class ServerStatsPlugin(Plugin):
 
     Slash commands registered
     -------------------------
-    ``/stats_setup``    — Create stat channels and start auto-update (manage_guild).
-    ``/stats_teardown`` — Delete stat channels and stop updates (manage_guild).
+    ``/stats_setup``    — Create stat channels and start auto-update (administrator).
+    ``/stats_teardown`` — Delete stat channels and stop updates (administrator).
     """
 
     def __init__(self, *, store_path: str = ".easycord/server_stats") -> None:

@@ -131,7 +131,10 @@ class StarboardPlugin(Plugin):
                 await post.edit(embed=embed)
                 return
             except discord.NotFound:
-                pass # Post was deleted, send a new one
+                pass  # Post was deleted, send a new one
+            except (discord.Forbidden, discord.HTTPException) as exc:
+                logger.warning("Could not update existing starboard post %s: %s", existing_post_id, exc)
+                return
 
         post = await send_safe(channel, log=logger, what="starboard post", embed=embed)
         if post is not None:

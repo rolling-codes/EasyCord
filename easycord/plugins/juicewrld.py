@@ -472,10 +472,6 @@ class JuiceWRLDPlugin(Plugin):
             if not any(self._titles_match(r.get("title", ""), lt) for lt in local_titles)
         ]
 
-        if not local_results and not api_results:
-            await respond_error(ctx, f"No songs found matching `{query}` in either source.")
-            return
-
         embed = discord.Embed(
             title=f"Results for `{query}`",
             color=discord.Color.green(),
