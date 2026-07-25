@@ -9,6 +9,7 @@ import discord
 
 from easycord import Plugin, on, slash
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -96,7 +97,7 @@ class WordFilterPlugin(Plugin):
     @slash(description="Add a word or phrase to the guild blocklist.", permissions=["manage_guild"])
     async def filter_add(self, ctx: "Context", word: str) -> None:
         if ctx.guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await respond_error(ctx, "This command only works in a server.")
             return
         async with self._guild_lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)
@@ -112,7 +113,7 @@ class WordFilterPlugin(Plugin):
     @slash(description="Remove a word or phrase from the blocklist.", permissions=["manage_guild"])
     async def filter_remove(self, ctx: "Context", word: str) -> None:
         if ctx.guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await respond_error(ctx, "This command only works in a server.")
             return
         removed = False
         async with self._guild_lock(ctx.guild.id):
@@ -125,20 +126,20 @@ class WordFilterPlugin(Plugin):
             cfg.set_other("word_filter", data)
             await self._store.save(cfg)
         if not removed:
-            await ctx.respond(f"**{word}** was not in the blocklist.", ephemeral=True)
+            await respond_error(ctx, f"**{word}** was not in the blocklist.")
         else:
             await ctx.respond(f"Removed **{word}** from the blocklist.", ephemeral=True)
 
     @slash(description="Show all blocked words for this server.", permissions=["manage_guild"])
     async def filter_list(self, ctx: "Context") -> None:
         if ctx.guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await respond_error(ctx, "This command only works in a server.")
             return
         cfg = await self._store.load(ctx.guild.id)
         data = cfg.get_other("word_filter", {})
         words: list[str] = data.get("words", [])
         if not words:
-            await ctx.respond("No blocked words configured.", ephemeral=True)
+            await respond_error(ctx, "No blocked words configured.")
             return
         word_list = "\n".join(f"• {w}" for w in words)
         await ctx.respond(f"**Blocked words:**\n{word_list}", ephemeral=True)
@@ -146,10 +147,10 @@ class WordFilterPlugin(Plugin):
     @slash(description="Set the filter action: 'delete', 'warn', or 'both'.", permissions=["manage_guild"], bot_permissions=["manage_messages"])
     async def filter_action(self, ctx: "Context", action: str) -> None:
         if action not in ("delete", "warn", "both"):
-            await ctx.respond("Action must be 'delete', 'warn', or 'both'.", ephemeral=True)
+            await respond_error(ctx, "Action must be 'delete', 'warn', or 'both'.")
             return
         if ctx.guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await respond_error(ctx, "This command only works in a server.")
             return
         async with self._guild_lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)
@@ -162,7 +163,7 @@ class WordFilterPlugin(Plugin):
     @slash(description="Exempt a role from word filtering.", permissions=["manage_guild"])
     async def filter_exempt(self, ctx: "Context", role: discord.Role) -> None:
         if ctx.guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await respond_error(ctx, "This command only works in a server.")
             return
         async with self._guild_lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)

@@ -10,6 +10,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -341,7 +342,7 @@ class TicketsPlugin(Plugin):
                 reason=f"Ticket #{ticket_number} opened by {ctx.user}",
             )
         except discord.HTTPException as exc:
-            await ctx.respond(f"Failed to create ticket: {exc}", ephemeral=True)
+            await respond_error(ctx, f"Failed to create ticket: {exc}")
             return
 
         await thread.add_user(ctx.user)
@@ -404,7 +405,7 @@ class TicketsPlugin(Plugin):
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(thread_id))
             if not data or data.get("status") != "open":
-                await ctx.respond("This is not an open ticket.", ephemeral=True)
+                await respond_error(ctx, "This is not an open ticket.")
                 return
             support_role_id: int | None = cfg.get_other("support_role_id")
             log_channel_id: int | None = cfg.get_other("log_channel_id")
@@ -447,7 +448,7 @@ class TicketsPlugin(Plugin):
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(thread_id))
             if not data or data.get("status") != "open":
-                await ctx.respond("This is not an open ticket.", ephemeral=True)
+                await respond_error(ctx, "This is not an open ticket.")
                 return
             support_role_id: int | None = cfg.get_other("support_role_id")
             if not _is_support(member, support_role_id):
@@ -492,4 +493,4 @@ class TicketsPlugin(Plugin):
             await ctx.channel.add_user(user)
             await ctx.respond(f"Added {user.mention} to the ticket.")
         except discord.HTTPException as exc:
-            await ctx.respond(f"Failed to add user: {exc}", ephemeral=True)
+            await respond_error(ctx, f"Failed to add user: {exc}")

@@ -11,6 +11,7 @@ import discord
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
 from easycord.plugins.giveaway import _parse_duration
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -207,7 +208,7 @@ class ScheduledAnnouncementsPlugin(Plugin):
         try:
             interval_seconds = _parse_duration(interval)
         except ValueError as exc:
-            await ctx.respond(str(exc), ephemeral=True)
+            await respond_error(ctx, str(exc))
             return
 
         if ctx.guild is None:
@@ -264,7 +265,7 @@ class ScheduledAnnouncementsPlugin(Plugin):
         items: list[dict] = data.get("items", [])
 
         if not items:
-            await ctx.respond("No announcements scheduled.", ephemeral=True)
+            await respond_error(ctx, "No announcements scheduled.")
             return
 
         embeds = [_announcement_embed(ann) for ann in items]

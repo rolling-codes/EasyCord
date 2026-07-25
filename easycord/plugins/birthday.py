@@ -10,6 +10,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -320,7 +321,7 @@ class BirthdayPlugin(Plugin):
             data: dict = cfg.get_other("birthday", {})
             birthdays: dict = data.get("birthdays", {})
             if str(user_id) not in birthdays:
-                await ctx.respond("You don't have a birthday registered.", ephemeral=True)
+                await respond_error(ctx, "You don't have a birthday registered.")
                 return
             birthdays.pop(str(user_id), None)
             data["birthdays"] = birthdays
@@ -392,7 +393,7 @@ class BirthdayPlugin(Plugin):
         sorted_entries = _sort_upcoming(birthdays, today)
 
         if not sorted_entries:
-            await ctx.respond("No birthdays have been registered yet.", ephemeral=True)
+            await respond_error(ctx, "No birthdays have been registered yet.")
             return
 
         lines: list[str] = []

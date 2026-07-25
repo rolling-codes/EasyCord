@@ -10,6 +10,7 @@ import discord
 from easycord import Plugin, slash
 from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -242,10 +243,10 @@ class VerificationPlugin(Plugin):
             The channel where the verification panel will be posted.
         """
         if ctx.guild is None:
-            await ctx.respond("This command can only be used in a server.", ephemeral=True)
+            await respond_error(ctx, "This command can only be used in a server.")
             return
         if not ctx.is_admin:
-            await ctx.respond("You need the Administrator permission to use this command.", ephemeral=True)
+            await respond_error(ctx, "You need the Administrator permission to use this command.")
             return
 
         guild_id = ctx.guild.id
@@ -266,10 +267,10 @@ class VerificationPlugin(Plugin):
     async def verification_panel(self, ctx: Context) -> None:
         """Post a persistent embed with a Verify button in the configured channel."""
         if ctx.guild is None:
-            await ctx.respond("This command can only be used in a server.", ephemeral=True)
+            await respond_error(ctx, "This command can only be used in a server.")
             return
         if not ctx.is_admin:
-            await ctx.respond("You need the Administrator permission to use this command.", ephemeral=True)
+            await respond_error(ctx, "You need the Administrator permission to use this command.")
             return
 
         guild_id = ctx.guild.id
@@ -332,10 +333,10 @@ class VerificationPlugin(Plugin):
             The question text. Pass an empty string to clear the question.
         """
         if ctx.guild is None:
-            await ctx.respond("This command can only be used in a server.", ephemeral=True)
+            await respond_error(ctx, "This command can only be used in a server.")
             return
         if not ctx.is_admin:
-            await ctx.respond("You need the Administrator permission to use this command.", ephemeral=True)
+            await respond_error(ctx, "You need the Administrator permission to use this command.")
             return
 
         guild_id = ctx.guild.id

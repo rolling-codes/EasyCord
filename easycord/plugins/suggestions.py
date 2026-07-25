@@ -9,6 +9,7 @@ import discord
 from easycord import Plugin, slash
 from easycord.config_schema import ConfigSchema
 from easycord.plugins._config_manager import PluginConfigManager
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -78,12 +79,12 @@ class SuggestionsPlugin(Plugin):
         channel_id = cfg.get("suggestions_channel")
 
         if not channel_id:
-            await ctx.respond("❌ Suggestions channel not configured", ephemeral=True)
+            await respond_error(ctx, "❌ Suggestions channel not configured")
             return
 
         channel = ctx.guild.get_channel(channel_id)
         if not isinstance(channel, (discord.TextChannel, discord.Thread)):
-            await ctx.respond("❌ Suggestions channel not found", ephemeral=True)
+            await respond_error(ctx, "❌ Suggestions channel not found")
             return
 
         suggestion_id = await self._get_next_id(ctx.guild.id)
@@ -118,7 +119,7 @@ class SuggestionsPlugin(Plugin):
 
             await ctx.respond(f"✅ Suggestion #{suggestion_id} posted!", ephemeral=True)
         except discord.Forbidden:
-            await ctx.respond("❌ Cannot post to suggestions channel", ephemeral=True)
+            await respond_error(ctx, "❌ Cannot post to suggestions channel")
 
     @slash(description="View pending suggestions", guild_only=True)
     async def suggestions(self, ctx: Context) -> None:
@@ -156,7 +157,7 @@ class SuggestionsPlugin(Plugin):
         assert ctx.guild is not None  # guaranteed by guild_only=True
         assert isinstance(ctx.user, discord.Member)  # guild_only ⇒ invoker is a Member
         if not ctx.user.guild_permissions.manage_guild:
-            await ctx.respond("❌ You lack `manage_guild` permission", ephemeral=True)
+            await respond_error(ctx, "❌ You lack `manage_guild` permission")
             return
 
         def _apply(cfg) -> bool:
@@ -169,7 +170,7 @@ class SuggestionsPlugin(Plugin):
             return True
 
         if not await self.config.store.mutate(ctx.guild.id, _apply):
-            await ctx.respond("❌ Suggestion not found", ephemeral=True)
+            await respond_error(ctx, "❌ Suggestion not found")
             return
 
         await ctx.respond(f"✅ Suggestion #{suggestion_id} approved")
@@ -180,7 +181,7 @@ class SuggestionsPlugin(Plugin):
         assert ctx.guild is not None  # guaranteed by guild_only=True
         assert isinstance(ctx.user, discord.Member)  # guild_only ⇒ invoker is a Member
         if not ctx.user.guild_permissions.manage_guild:
-            await ctx.respond("❌ You lack `manage_guild` permission", ephemeral=True)
+            await respond_error(ctx, "❌ You lack `manage_guild` permission")
             return
 
         def _apply(cfg) -> bool:
@@ -193,7 +194,7 @@ class SuggestionsPlugin(Plugin):
             return True
 
         if not await self.config.store.mutate(ctx.guild.id, _apply):
-            await ctx.respond("❌ Suggestion not found", ephemeral=True)
+            await respond_error(ctx, "❌ Suggestion not found")
             return
 
         await ctx.respond(f"✅ Suggestion #{suggestion_id} rejected")

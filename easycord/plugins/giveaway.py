@@ -13,6 +13,7 @@ import discord
 from easycord import Plugin, slash
 from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -282,10 +283,10 @@ class GiveawayPlugin(Plugin):
         try:
             seconds = _parse_duration(duration)
         except ValueError as exc:
-            await ctx.respond(str(exc), ephemeral=True)
+            await respond_error(ctx, str(exc))
             return
         if winners < 1:
-            await ctx.respond("Winner count must be at least 1.", ephemeral=True)
+            await respond_error(ctx, "Winner count must be at least 1.")
             return
         if ctx.guild is None:
             return
@@ -300,7 +301,7 @@ class GiveawayPlugin(Plugin):
         guild_id = ctx.guild.id
         channel = ctx.channel
         if not isinstance(channel, SENDABLE_CHANNEL_TYPES):
-            await ctx.respond("This command must be used in a channel.", ephemeral=True)
+            await respond_error(ctx, "This command must be used in a channel.")
             return
         channel_id: int = channel.id
 
@@ -387,4 +388,4 @@ class GiveawayPlugin(Plugin):
             mentions = " ".join(f"<@{w}>" for w in new_winners)
             await ctx.respond(f"🎉 New winners: {mentions}!")
         else:
-            await ctx.respond("No entries to pick from.", ephemeral=True)
+            await respond_error(ctx, "No entries to pick from.")

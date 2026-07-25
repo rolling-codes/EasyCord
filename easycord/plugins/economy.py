@@ -10,6 +10,7 @@ import discord
 
 from easycord import Plugin, slash, on
 from easycord.plugins._config_manager import PluginConfigManager
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -319,11 +320,11 @@ class EconomyPlugin(Plugin):
         """Send currency to another user."""
         assert ctx.guild is not None  # guaranteed by guild_only=True
         if amount <= 0:
-            await ctx.respond("❌ Amount must be positive", ephemeral=True)
+            await respond_error(ctx, "❌ Amount must be positive")
             return
 
         if user.id == ctx.user.id:
-            await ctx.respond("❌ Can't transfer to yourself", ephemeral=True)
+            await respond_error(ctx, "❌ Can't transfer to yourself")
             return
 
         ok, sender_balance_after = await self._transfer(
