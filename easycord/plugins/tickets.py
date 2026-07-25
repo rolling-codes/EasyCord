@@ -10,7 +10,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
-from ._shared import get_id, respond_error, set_id
+from ._shared import GuildLockManager, get_id, respond_error, set_id
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -104,7 +104,7 @@ class _TicketView(discord.ui.View):
             )
             return
 
-        async with self._plugin._guild_lock(self._guild_id):
+        async with self._plugin._locks.lock(self._guild_id):
             cfg = await self._plugin._store.load(self._guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(self._thread_id))
@@ -135,7 +135,7 @@ class _TicketView(discord.ui.View):
             )
             return
 
-        async with self._plugin._guild_lock(self._guild_id):
+        async with self._plugin._locks.lock(self._guild_id):
             cfg = await self._plugin._store.load(self._guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(self._thread_id))
@@ -189,12 +189,7 @@ class TicketsPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/tickets") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
+        self._locks = GuildLockManager()
 
     async def on_ready(self) -> None:
         """Re-register ticket panel views for all open tickets after reconnect."""
@@ -297,7 +292,7 @@ class TicketsPlugin(Plugin):
             return
 
         guild_id = ctx.guild.id
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             set_id(cfg, "support_role_id", support_role.id)
             set_id(cfg, "log_channel_id", log_channel.id)
@@ -323,7 +318,7 @@ class TicketsPlugin(Plugin):
 
         guild_id = ctx.guild.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             counter: int = cfg.get_other("ticket_counter", 0) + 1
             cfg.set_other("ticket_counter", counter)
@@ -370,7 +365,7 @@ class TicketsPlugin(Plugin):
         panel_msg = await thread.send(embed=_ticket_embed(data), view=view)
         data["panel_message_id"] = panel_msg.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             tickets[str(thread.id)] = data
@@ -400,7 +395,7 @@ class TicketsPlugin(Plugin):
         guild_id = ctx.guild.id
         thread_id = ctx.channel.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(thread_id))
@@ -443,7 +438,7 @@ class TicketsPlugin(Plugin):
         guild_id = ctx.guild.id
         thread_id = ctx.channel.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(thread_id))
@@ -479,7 +474,7 @@ class TicketsPlugin(Plugin):
             return
 
         guild_id = ctx.guild.id
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             support_role_id: int | None = get_id(cfg, "support_role_id")
             if not _is_support(member, support_role_id):

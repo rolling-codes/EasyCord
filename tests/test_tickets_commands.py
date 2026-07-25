@@ -218,7 +218,7 @@ class TestTicketClose:
         ctx.member.guild_permissions.manage_threads = False
         ctx.member.roles = []
 
-        async with p._guild_lock(100):
+        async with p._locks.lock(100):
             cfg = await p._store.load(100)
             cfg.set_other("tickets", {"77": _open_ticket(77)})
             await p._store.save(cfg)
@@ -263,7 +263,7 @@ class TestTicketClaim:
         ctx.member.guild_permissions.manage_threads = False
         ctx.member.roles = []
 
-        async with p._guild_lock(100):
+        async with p._locks.lock(100):
             cfg = await p._store.load(100)
             cfg.set_other("tickets", {"99": _open_ticket(99)})
             await p._store.save(cfg)
@@ -282,7 +282,7 @@ class TestTicketClaim:
         ctx.channel.id = 101
         ctx.member.guild_permissions.manage_threads = True
 
-        async with p._guild_lock(100):
+        async with p._locks.lock(100):
             cfg = await p._store.load(100)
             cfg.set_other("tickets", {"101": _open_ticket(101)})
             await p._store.save(cfg)
