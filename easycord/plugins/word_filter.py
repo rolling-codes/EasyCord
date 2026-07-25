@@ -1,7 +1,6 @@
 """Word filter plugin — block messages containing configured words/phrases."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -9,7 +8,7 @@ import discord
 
 from easycord import Plugin, on, slash
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -55,12 +54,7 @@ class WordFilterPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/word_filter") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
+        self._locks = GuildLockManager()
 
     # ── Event handler ─────────────────────────────────────────
 
@@ -99,7 +93,7 @@ class WordFilterPlugin(Plugin):
         if ctx.guild is None:
             await respond_error(ctx, "This command only works in a server.")
             return
-        async with self._guild_lock(ctx.guild.id):
+        async with self._locks.lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)
             data = cfg.get_other("word_filter", {})
             words: list[str] = data.get("words", [])
@@ -116,7 +110,7 @@ class WordFilterPlugin(Plugin):
             await respond_error(ctx, "This command only works in a server.")
             return
         removed = False
-        async with self._guild_lock(ctx.guild.id):
+        async with self._locks.lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)
             data = cfg.get_other("word_filter", {})
             words: list[str] = data.get("words", [])
@@ -152,7 +146,7 @@ class WordFilterPlugin(Plugin):
         if ctx.guild is None:
             await respond_error(ctx, "This command only works in a server.")
             return
-        async with self._guild_lock(ctx.guild.id):
+        async with self._locks.lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)
             data = cfg.get_other("word_filter", {})
             data = {**data, "action": action}
@@ -165,7 +159,7 @@ class WordFilterPlugin(Plugin):
         if ctx.guild is None:
             await respond_error(ctx, "This command only works in a server.")
             return
-        async with self._guild_lock(ctx.guild.id):
+        async with self._locks.lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)
             data = cfg.get_other("word_filter", {})
             data = {**data, "exempt_role_id": role.id}
