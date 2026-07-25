@@ -194,7 +194,7 @@ class TestGiveawayReroll:
         p = _plugin(tmp_path)
         ctx = _ctx(guild_id=100)
 
-        async with p._guild_lock(100):
+        async with p._locks.lock(100):
             cfg = await p._store.load(100)
             cfg.set_other("giveaways", {"42": _ended_giveaway(entries=[])})
             await p._store.save(cfg)
@@ -209,7 +209,7 @@ class TestGiveawayReroll:
         p = _plugin(tmp_path)
         ctx = _ctx(guild_id=100)
 
-        async with p._guild_lock(100):
+        async with p._locks.lock(100):
             cfg = await p._store.load(100)
             cfg.set_other("giveaways", {"77": _ended_giveaway(entries=[1001, 1002, 1003])})
             await p._store.save(cfg)

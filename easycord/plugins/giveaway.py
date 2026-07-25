@@ -13,7 +13,7 @@ import discord
 from easycord import Plugin, slash
 from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -88,7 +88,7 @@ class _GiveawayView(discord.ui.View):
 
     async def _toggle(self, interaction: discord.Interaction) -> None:
         user_id = interaction.user.id
-        async with self._plugin._guild_lock(self._guild_id):
+        async with self._plugin._locks.lock(self._guild_id):
             cfg = await self._plugin._store.load(self._guild_id)
             giveaways: dict = cfg.get_other("giveaways", {})
             data: dict | None = giveaways.get(str(self._message_id))
@@ -142,13 +142,8 @@ class GiveawayPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/giveaway") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
+        self._locks = GuildLockManager()
         self._timers: dict[int, dict[int, asyncio.Task]] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
 
     async def on_ready(self) -> None:
         """Re-register entry views and resume timers for all active giveaways."""
@@ -205,7 +200,7 @@ class GiveawayPlugin(Plugin):
 
     async def _end_giveaway(self, guild_id: int, message_id: int) -> None:
         """Pick winners, update the embed, and post the announcement."""
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             giveaways: dict = cfg.get_other("giveaways", {})
             data: dict | None = giveaways.get(str(message_id))
@@ -305,7 +300,7 @@ class GiveawayPlugin(Plugin):
             return
         channel_id: int = channel.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             giveaways: dict = cfg.get_other("giveaways", {})
             giveaways[str(message_id)] = {
@@ -339,7 +334,7 @@ class GiveawayPlugin(Plugin):
             return
 
         guild_id = ctx.guild.id
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             giveaways: dict = cfg.get_other("giveaways", {})
             if giveaways.get(str(msg_id), {}).get("status") != "active":
@@ -369,7 +364,7 @@ class GiveawayPlugin(Plugin):
             return
 
         guild_id = ctx.guild.id
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             giveaways: dict = cfg.get_other("giveaways", {})
             data: dict | None = giveaways.get(str(msg_id))
