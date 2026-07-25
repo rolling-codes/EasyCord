@@ -11,6 +11,7 @@ import discord
 from easycord import Plugin, slash
 from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 from easycord.plugins.giveaway import _parse_duration  # noqa: F401 — re-exported for tests
 
 if TYPE_CHECKING:
@@ -202,14 +203,14 @@ class ReminderPlugin(Plugin):
         try:
             seconds = _parse_duration(when)
         except ValueError as exc:
-            await ctx.respond(str(exc), ephemeral=True)
+            await respond_error(ctx, str(exc))
             return
 
         guild_id = ctx.guild.id
         user_id = ctx.user.id
         channel = ctx.channel
         if not isinstance(channel, SENDABLE_CHANNEL_TYPES):
-            await ctx.respond("This command must be used in a channel.", ephemeral=True)
+            await respond_error(ctx, "This command must be used in a channel.")
             return
         channel_id: int = channel.id
 
@@ -264,7 +265,7 @@ class ReminderPlugin(Plugin):
         ]
 
         if not pending:
-            await ctx.respond("You have no pending reminders.", ephemeral=True)
+            await respond_error(ctx, "You have no pending reminders.")
             return
 
         lines: list[str] = []
@@ -306,9 +307,7 @@ class ReminderPlugin(Plugin):
                     break
 
             if target is None:
-                await ctx.respond(
-                    f"No pending reminder with ID {id} found.", ephemeral=True
-                )
+                await respond_error(ctx, f"No pending reminder with ID {id} found.")
                 return
 
             target["done"] = True

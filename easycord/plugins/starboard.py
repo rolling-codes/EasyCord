@@ -9,6 +9,7 @@ import discord
 from easycord import Context, Plugin, on, slash
 from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.plugins._config_manager import PluginConfigManager
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     pass
@@ -275,7 +276,7 @@ class StarboardPlugin(Plugin):
     async def starboard_threshold(self, ctx: Context, threshold: int) -> None:
         assert ctx.guild is not None  # guaranteed by guild_only=True
         if threshold < 1:
-            await ctx.respond("Threshold must be at least 1.", ephemeral=True)
+            await respond_error(ctx, "Threshold must be at least 1.")
             return
         await self._update_config(ctx.guild.id, threshold=threshold)
         await ctx.respond(f"Starboard threshold set to {threshold}.", ephemeral=True)

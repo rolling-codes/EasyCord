@@ -12,6 +12,7 @@ from easycord import Plugin, ToolSafety, slash
 from easycord.orchestrator import Orchestrator, RunContext
 from easycord.plugins._config_manager import PluginConfigManager
 from easycord.tools import ToolRegistry
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -115,7 +116,7 @@ class OpenClawPlugin(Plugin):
                 if self.client is not None
                 else "Provide an EasyCord Orchestrator to OpenClawPlugin."
             )
-            await ctx.respond(f"OpenClaw is not configured. {detail}", ephemeral=True)
+            await respond_error(ctx, f"OpenClaw is not configured. {detail}")
             return
 
         guild_id = ctx.guild.id
@@ -155,7 +156,7 @@ class OpenClawPlugin(Plugin):
         assert ctx.guild is not None  # guaranteed by guild_only=True
         task = self._active.get(ctx.guild.id)
         if not task:
-            await ctx.respond("No OpenClaw task is running for this server.", ephemeral=True)
+            await respond_error(ctx, "No OpenClaw task is running for this server.")
             return
         await ctx.respond(self._truncate(self._format_status(task)), ephemeral=True)
 
@@ -168,7 +169,7 @@ class OpenClawPlugin(Plugin):
         guild_id = ctx.guild.id
         task = self._active.get(guild_id)
         if not task:
-            await ctx.respond("No OpenClaw task is running for this server.", ephemeral=True)
+            await respond_error(ctx, "No OpenClaw task is running for this server.")
             return
 
         task.cancelled = True
@@ -191,7 +192,7 @@ class OpenClawPlugin(Plugin):
         assert ctx.guild is not None  # guaranteed by guild_only=True
         history = await self._load_history(ctx.guild.id)
         if not history:
-            await ctx.respond("No OpenClaw task history for this server.", ephemeral=True)
+            await respond_error(ctx, "No OpenClaw task history for this server.")
             return
         lines = ["Recent OpenClaw tasks:"]
         for item in history[-5:]:
@@ -263,7 +264,7 @@ class OpenClawPlugin(Plugin):
 
     async def _authorize(self, ctx: Context) -> bool:
         if not ctx.guild:
-            await ctx.respond("OpenClaw can only run inside a server.", ephemeral=True)
+            await respond_error(ctx, "OpenClaw can only run inside a server.")
             return False
         if self.require_admin:
             allowed = bool(getattr(ctx, "is_admin", False))
@@ -275,7 +276,7 @@ class OpenClawPlugin(Plugin):
                 or getattr(perms, "moderate_members", False)
             )
         if not allowed:
-            await ctx.respond("OpenClaw requires admin or moderator permission.", ephemeral=True)
+            await respond_error(ctx, "OpenClaw requires admin or moderator permission.")
             return False
         return True
 

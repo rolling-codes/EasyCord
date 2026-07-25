@@ -10,6 +10,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
+from ._shared import get_id, respond_error, set_id
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -112,7 +113,7 @@ class _TicketView(discord.ui.View):
                     "This ticket is no longer open.", ephemeral=True
                 )
                 return
-            support_role_id: int | None = cfg.get_other("support_role_id")
+            support_role_id: int | None = get_id(cfg, "support_role_id")
             if not _is_support(member, support_role_id):
                 await interaction.response.send_message(
                     "Only support team members can claim tickets.", ephemeral=True
@@ -143,8 +144,8 @@ class _TicketView(discord.ui.View):
                     "This ticket is already closed.", ephemeral=True
                 )
                 return
-            support_role_id: int | None = cfg.get_other("support_role_id")
-            log_channel_id: int | None = cfg.get_other("log_channel_id")
+            support_role_id: int | None = get_id(cfg, "support_role_id")
+            log_channel_id: int | None = get_id(cfg, "log_channel_id")
             if not _is_support(member, support_role_id):
                 await interaction.response.send_message(
                     "Only support team members can close tickets.", ephemeral=True
@@ -298,8 +299,8 @@ class TicketsPlugin(Plugin):
         guild_id = ctx.guild.id
         async with self._guild_lock(guild_id):
             cfg = await self._store.load(guild_id)
-            cfg.set_other("support_role_id", support_role.id)
-            cfg.set_other("log_channel_id", log_channel.id)
+            set_id(cfg, "support_role_id", support_role.id)
+            set_id(cfg, "log_channel_id", log_channel.id)
             await self._store.save(cfg)
 
         await ctx.respond(
@@ -326,7 +327,7 @@ class TicketsPlugin(Plugin):
             cfg = await self._store.load(guild_id)
             counter: int = cfg.get_other("ticket_counter", 0) + 1
             cfg.set_other("ticket_counter", counter)
-            support_role_id: int | None = cfg.get_other("support_role_id")
+            support_role_id: int | None = get_id(cfg, "support_role_id")
             await self._store.save(cfg)
 
         ticket_number = counter
@@ -341,7 +342,7 @@ class TicketsPlugin(Plugin):
                 reason=f"Ticket #{ticket_number} opened by {ctx.user}",
             )
         except discord.HTTPException as exc:
-            await ctx.respond(f"Failed to create ticket: {exc}", ephemeral=True)
+            await respond_error(ctx, f"Failed to create ticket: {exc}")
             return
 
         await thread.add_user(ctx.user)
@@ -404,10 +405,10 @@ class TicketsPlugin(Plugin):
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(thread_id))
             if not data or data.get("status") != "open":
-                await ctx.respond("This is not an open ticket.", ephemeral=True)
+                await respond_error(ctx, "This is not an open ticket.")
                 return
-            support_role_id: int | None = cfg.get_other("support_role_id")
-            log_channel_id: int | None = cfg.get_other("log_channel_id")
+            support_role_id: int | None = get_id(cfg, "support_role_id")
+            log_channel_id: int | None = get_id(cfg, "log_channel_id")
             if not _is_support(member, support_role_id):
                 await ctx.respond(
                     "Only support team members can close tickets.", ephemeral=True
@@ -447,9 +448,9 @@ class TicketsPlugin(Plugin):
             tickets: dict = cfg.get_other("tickets", {})
             data: dict | None = tickets.get(str(thread_id))
             if not data or data.get("status") != "open":
-                await ctx.respond("This is not an open ticket.", ephemeral=True)
+                await respond_error(ctx, "This is not an open ticket.")
                 return
-            support_role_id: int | None = cfg.get_other("support_role_id")
+            support_role_id: int | None = get_id(cfg, "support_role_id")
             if not _is_support(member, support_role_id):
                 await ctx.respond(
                     "Only support team members can claim tickets.", ephemeral=True
@@ -480,7 +481,7 @@ class TicketsPlugin(Plugin):
         guild_id = ctx.guild.id
         async with self._guild_lock(guild_id):
             cfg = await self._store.load(guild_id)
-            support_role_id: int | None = cfg.get_other("support_role_id")
+            support_role_id: int | None = get_id(cfg, "support_role_id")
             if not _is_support(member, support_role_id):
                 await ctx.respond(
                     "Only support team members can add users to tickets.",
@@ -492,4 +493,4 @@ class TicketsPlugin(Plugin):
             await ctx.channel.add_user(user)
             await ctx.respond(f"Added {user.mention} to the ticket.")
         except discord.HTTPException as exc:
-            await ctx.respond(f"Failed to add user: {exc}", ephemeral=True)
+            await respond_error(ctx, f"Failed to add user: {exc}")

@@ -11,6 +11,7 @@ import discord
 logger = logging.getLogger(__name__)
 
 from easycord import Plugin, slash, on
+from ._shared import respond_error
 from ._levels_data import (
     LevelsStore,
     progress_bar,
@@ -324,7 +325,7 @@ class LevelsPlugin(Plugin):
             self._lb_cache[ctx.guild.id] = (data, now)
 
         if not data:
-            await ctx.respond(ctx.t("levels.no_xp_yet", default="No one has earned XP yet!"), ephemeral=True)
+            await respond_error(ctx, ctx.t("levels.no_xp_yet", default="No one has earned XP yet!"))
             return
 
         config = self._store.read_config(ctx.guild.id)
@@ -333,7 +334,7 @@ class LevelsPlugin(Plugin):
     @slash(description="Award XP to a member.", permissions=["manage_guild"], guild_only=True)
     async def give_xp(self, ctx, member: discord.Member, amount: int) -> None:
         if amount <= 0:
-            await ctx.respond(ctx.t("levels.amount_positive", default="Amount must be a positive number."), ephemeral=True)
+            await respond_error(ctx, ctx.t("levels.amount_positive", default="Amount must be a positive number."))
             return
         xp, level, leveled_up = await self._store.add_xp(ctx.guild.id, member.id, amount)
         self._invalidate_lb_cache(ctx.guild.id)
@@ -358,10 +359,10 @@ class LevelsPlugin(Plugin):
     async def set_xp_multiplier(self, ctx, multiplier: float, duration_minutes: int = 60) -> None:
         assert ctx.guild is not None
         if multiplier <= 0:
-            await ctx.respond("❌ Multiplier must be greater than zero.", ephemeral=True)
+            await respond_error(ctx, "❌ Multiplier must be greater than zero.")
             return
         if duration_minutes < 1:
-            await ctx.respond("❌ Duration must be at least 1 minute.", ephemeral=True)
+            await respond_error(ctx, "❌ Duration must be at least 1 minute.")
             return
 
         expires_at = time.time() + duration_minutes * 60
@@ -395,7 +396,7 @@ class LevelsPlugin(Plugin):
     @slash(description="Name a rank for a specific level.", permissions=["manage_guild"], guild_only=True)
     async def set_rank(self, ctx, level: int, name: str) -> None:
         if not _positive_level(level):
-            await ctx.respond(ctx.t("levels.level_min", default="Level must be at least 1."), ephemeral=True)
+            await respond_error(ctx, ctx.t("levels.level_min", default="Level must be at least 1."))
             return
 
         await self._set_config_value(ctx.guild.id, "ranks", level, name)
@@ -408,10 +409,7 @@ class LevelsPlugin(Plugin):
     async def remove_rank(self, ctx, level: int) -> None:
         removed = await self._remove_config_value(ctx.guild.id, "ranks", level)
         if removed is None:
-            await ctx.respond(
-                ctx.t("levels.no_rank_at_level", default="No rank is configured at level {level}.", level=level),
-                ephemeral=True,
-            )
+            await respond_error(ctx, ctx.t("levels.no_rank_at_level", default="No rank is configured at level {level}.", level=level))
             return
         await ctx.respond(
             ctx.t("levels.rank_removed", default="Removed rank **{removed}** from Level {level}.", removed=removed, level=level),
@@ -421,7 +419,7 @@ class LevelsPlugin(Plugin):
     @slash(description="Assign a role reward when a member reaches a level.", permissions=["manage_guild"], guild_only=True)
     async def set_level_role(self, ctx, level: int, role: discord.Role) -> None:
         if not _positive_level(level):
-            await ctx.respond(ctx.t("levels.level_min", default="Level must be at least 1."), ephemeral=True)
+            await respond_error(ctx, ctx.t("levels.level_min", default="Level must be at least 1."))
             return
 
         await self._set_config_value(ctx.guild.id, "role_rewards", level, role.id)
@@ -434,9 +432,6 @@ class LevelsPlugin(Plugin):
     async def ranks(self, ctx) -> None:
         config = self._store.read_config(ctx.guild.id)
         if not (config.get("ranks") or config.get("role_rewards")):
-            await ctx.respond(
-                ctx.t("levels.no_ranks_configured", default="No ranks or role rewards configured yet.\nUse `/set_rank` or `/set_level_role` to add some."),
-                ephemeral=True,
-            )
+            await respond_error(ctx, ctx.t("levels.no_ranks_configured", default="No ranks or role rewards configured yet.\nUse `/set_rank` or `/set_level_role` to add some."))
             return
         await ctx.respond(embed=self._build_ranks_embed(ctx, config))

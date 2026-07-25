@@ -9,6 +9,7 @@ import discord
 
 from easycord import Plugin, on, slash
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -81,7 +82,7 @@ class AutoRolePlugin(Plugin):
     @slash(description="Add a role to the auto-assign list for new members.", permissions=["manage_guild"])
     async def autorole_add(self, ctx: "Context", role: discord.Role) -> None:
         if ctx.guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await respond_error(ctx, "This command only works in a server.")
             return
         async with self._guild_lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)
@@ -97,7 +98,7 @@ class AutoRolePlugin(Plugin):
     @slash(description="Remove a role from the auto-assign list.", permissions=["manage_guild"])
     async def autorole_remove(self, ctx: "Context", role: discord.Role) -> None:
         if ctx.guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await respond_error(ctx, "This command only works in a server.")
             return
         async with self._guild_lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)
@@ -112,14 +113,14 @@ class AutoRolePlugin(Plugin):
     @slash(description="Show currently configured auto-roles.", permissions=["manage_guild"])
     async def autorole_list(self, ctx: "Context") -> None:
         if ctx.guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await respond_error(ctx, "This command only works in a server.")
             return
         cfg = await self._store.load(ctx.guild.id)
         data = cfg.get_other("auto_role", {})
         role_ids: list[int] = data.get("role_ids", [])
         delay: int = data.get("delay_seconds", 0)
         if not role_ids:
-            await ctx.respond("No auto-roles configured.", ephemeral=True)
+            await respond_error(ctx, "No auto-roles configured.")
             return
         role_mentions = [f"<@&{rid}>" for rid in role_ids]
         role_list = "\n".join(f"• {m}" for m in role_mentions)
@@ -131,10 +132,10 @@ class AutoRolePlugin(Plugin):
     @slash(description="Set delay in seconds before assigning auto-roles (0 = immediate).", permissions=["manage_guild"])
     async def autorole_delay(self, ctx: "Context", seconds: int) -> None:
         if ctx.guild is None:
-            await ctx.respond("This command only works in a server.", ephemeral=True)
+            await respond_error(ctx, "This command only works in a server.")
             return
         if seconds < 0:
-            await ctx.respond("Delay must be 0 or greater.", ephemeral=True)
+            await respond_error(ctx, "Delay must be 0 or greater.")
             return
         async with self._guild_lock(ctx.guild.id):
             cfg = await self._store.load(ctx.guild.id)

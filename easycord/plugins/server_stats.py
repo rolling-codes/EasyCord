@@ -9,6 +9,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -132,7 +133,7 @@ class ServerStatsPlugin(Plugin):
     async def stats_setup(self, ctx: Context) -> None:
         """Create three voice channels showing member count, online count, and boosts."""
         if ctx.guild is None:
-            await ctx.respond("This command can only be used in a server.", ephemeral=True)
+            await respond_error(ctx, "This command can only be used in a server.")
             return
         if not ctx.is_admin:
             await ctx.respond(
@@ -162,7 +163,7 @@ class ServerStatsPlugin(Plugin):
             )
             return
         except discord.HTTPException as exc:
-            await ctx.respond(f"Failed to create stat channels: {exc}", ephemeral=True)
+            await respond_error(ctx, f"Failed to create stat channels: {exc}")
             return
 
         async with self._guild_lock(guild_id):
@@ -184,7 +185,7 @@ class ServerStatsPlugin(Plugin):
     async def stats_teardown(self, ctx: Context) -> None:
         """Remove all three stat channels and cancel the background update loop."""
         if ctx.guild is None:
-            await ctx.respond("This command can only be used in a server.", ephemeral=True)
+            await respond_error(ctx, "This command can only be used in a server.")
             return
         if not ctx.is_admin:
             await ctx.respond(

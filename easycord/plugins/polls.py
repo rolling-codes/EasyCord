@@ -11,6 +11,7 @@ import discord
 from easycord import Plugin, slash
 from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
 from easycord.server_config import ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -293,16 +294,16 @@ class PollsPlugin(Plugin):
     ) -> None:
         options = _poll_options(option1, option2, option3, option4, option5)
         if len(options) < 2:
-            await ctx.respond(ctx.t("polls.min_options", default="A poll needs at least 2 options."), ephemeral=True)
+            await respond_error(ctx, ctx.t("polls.min_options", default="A poll needs at least 2 options."))
             return
         if not _is_valid_duration(duration):
-            await ctx.respond(ctx.t("polls.min_duration", default="Duration must be at least 5 seconds."), ephemeral=True)
+            await respond_error(ctx, ctx.t("polls.min_duration", default="Duration must be at least 5 seconds."))
             return
         if ctx.guild is None:
             return
         channel = ctx.channel
         if not isinstance(channel, SENDABLE_CHANNEL_TYPES):
-            await ctx.respond(ctx.t("polls.channel_required", default="This command must be used in a channel."), ephemeral=True)
+            await respond_error(ctx, ctx.t("polls.channel_required", default="This command must be used in a channel."))
             return
 
         guild_id = ctx.guild.id
