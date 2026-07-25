@@ -128,13 +128,7 @@ class WelcomePlugin(Plugin):
     async def set_welcome_channel(self, ctx, channel: discord.TextChannel) -> None:
         guild = require_guild(ctx)
         if guild is None:
-            await ctx.respond(
-                ctx.t(
-                    "errors.guild_only",
-                    default="This command only works in a server.",
-                ),
-                ephemeral=True,
-            )
+            await respond_error(ctx, ctx.t("errors.guild_only", default="This command only works in a server."))
             return
         self._update(guild.id, welcome_channel=channel.id)
         await ctx.respond(f"Welcome messages will be posted in {channel.mention}.", ephemeral=True)
@@ -143,7 +137,7 @@ class WelcomePlugin(Plugin):
     async def set_goodbye_channel(self, ctx, channel: discord.TextChannel) -> None:
         guild = require_guild(ctx)
         if guild is None:
-            await respond_error(ctx, "This command only works in a server.")
+            await respond_error(ctx, ctx.t("errors.guild_only", default="This command only works in a server."))
             return
         self._update(guild.id, goodbye_channel=channel.id)
         await ctx.respond(f"Goodbye messages will be posted in {channel.mention}.", ephemeral=True)
@@ -152,7 +146,7 @@ class WelcomePlugin(Plugin):
     async def set_auto_role(self, ctx, role: discord.Role) -> None:
         guild = require_guild(ctx)
         if guild is None:
-            await respond_error(ctx, "This command only works in a server.")
+            await respond_error(ctx, ctx.t("errors.guild_only", default="This command only works in a server."))
             return
         self._update(guild.id, auto_role=role.id)
         await ctx.respond(f"New members will automatically receive {role.mention}.", ephemeral=True)
@@ -161,7 +155,7 @@ class WelcomePlugin(Plugin):
     async def set_welcome_message(self, ctx, message: str) -> None:
         guild = require_guild(ctx)
         if guild is None:
-            await respond_error(ctx, "This command only works in a server.")
+            await respond_error(ctx, ctx.t("errors.guild_only", default="This command only works in a server."))
             return
         try:
             preview = format_template(message, user=ctx.user.mention, server=guild.name)
@@ -178,7 +172,7 @@ class WelcomePlugin(Plugin):
     async def set_goodbye_message(self, ctx, message: str) -> None:
         guild = require_guild(ctx)
         if guild is None:
-            await respond_error(ctx, "This command only works in a server.")
+            await respond_error(ctx, ctx.t("errors.guild_only", default="This command only works in a server."))
             return
         try:
             preview = format_template(message, user=str(ctx.user), server=guild.name)
@@ -195,7 +189,7 @@ class WelcomePlugin(Plugin):
     async def welcome_config(self, ctx) -> None:
         guild = require_guild(ctx)
         if guild is None:
-            await respond_error(ctx, "This command only works in a server.")
+            await respond_error(ctx, ctx.t("errors.guild_only", default="This command only works in a server."))
             return
 
         cfg = self._read_config(guild.id)

@@ -360,10 +360,10 @@ class LevelsPlugin(Plugin):
     async def set_xp_multiplier(self, ctx, multiplier: float, duration_minutes: int = 60) -> None:
         assert ctx.guild is not None
         if multiplier <= 0:
-            await respond_error(ctx, "❌ Multiplier must be greater than zero.")
+            await respond_error(ctx, ctx.t("errors.multiplier_not_positive", default="❌ Multiplier must be greater than zero."))
             return
         if duration_minutes < 1:
-            await respond_error(ctx, "❌ Duration must be at least 1 minute.")
+            await respond_error(ctx, ctx.t("errors.duration_too_short", default="❌ Duration must be at least 1 minute."))
             return
 
         expires_at = time.time() + duration_minutes * 60
