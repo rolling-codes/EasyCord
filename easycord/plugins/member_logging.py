@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, on
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
@@ -67,12 +67,7 @@ class MemberLoggingPlugin(Plugin):
             logger.warning("Member log channel %s not found in guild %s", channel_id, guild.id)
             return
 
-        try:
-            await channel.send(embed=embed)
-        except discord.Forbidden:
-            logger.error("No permission to post to member log channel %s", channel_id)
-        except discord.HTTPException as e:
-            logger.error("Failed to post member log: %s", e)
+        await send_safe(channel, log=logger, what="member log", embed=embed)
 
     @on("member_join")
     async def _on_member_join(self, member: discord.Member) -> None:

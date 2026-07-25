@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, on
-from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES
+from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.plugins._config_manager import PluginConfigManager
 
 if TYPE_CHECKING:
@@ -95,12 +95,7 @@ class InviteTrackerPlugin(Plugin):
         embed.set_thumbnail(url=member.avatar.url if member.avatar else None)
         embed.set_footer(text=f"ID: {member.id}")
 
-        try:
-            await channel.send(embed=embed)
-        except discord.Forbidden:
-            logger.error("No permission to post to invite log channel %s", channel_id)
-        except discord.HTTPException as e:
-            logger.error("Failed to post invite log: %s", e)
+        await send_safe(channel, log=logger, what="invite log", embed=embed)
 
     @on("member_join")
     async def _on_member_join(self, member: discord.Member) -> None:

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
+from easycord.helpers.channel import send_safe
 from easycord.server_config import ServerConfigStore
 from ._shared import GuildLockManager, respond_error
 
@@ -227,10 +228,7 @@ class BirthdayPlugin(Plugin):
                 color=discord.Color.gold(),
             )
             embed.set_footer(text=f"🎉 {today.strftime('%B %d')}")
-            try:
-                await channel.send(embed=embed)
-            except discord.HTTPException:
-                logger.exception("Failed to send birthday message for user %d", uid)
+            await send_safe(channel, log=logger, what="birthday announcement", embed=embed)
 
             if role and member:
                 try:

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
+from easycord.helpers.channel import send_safe
 from easycord.server_config import ServerConfigStore
 from easycord.plugins.giveaway import _parse_duration
 from ._shared import GuildLockManager, respond_error
@@ -145,10 +146,7 @@ class ScheduledAnnouncementsPlugin(Plugin):
                 if guild:
                     ch = guild.get_channel(ann["channel_id"])
                     if isinstance(ch, discord.TextChannel):
-                        try:
-                            await ch.send(ann["message"])
-                        except (discord.Forbidden, discord.HTTPException) as e:
-                            logger.warning("Announcement %d in guild %d failed to send: %s", ann_id, guild_id, e)
+                        await send_safe(ch, log=logger, what="scheduled announcement", content=ann["message"])
 
                 # Advance next_fire
                 async with self._locks.lock(guild_id):
