@@ -10,7 +10,7 @@ import discord
 
 from easycord import Plugin, slash
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -116,14 +116,9 @@ class BirthdayPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/birthday") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
+        self._locks = GuildLockManager()
         self._loop_task: asyncio.Task | None = None
         self._role_tasks: set[asyncio.Task[None]] = set()
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
 
     # ── Lifecycle ─────────────────────────────────────────────
 
@@ -181,7 +176,7 @@ class BirthdayPlugin(Plugin):
     async def _check_guild_birthdays(
         self, guild_id: int, today: datetime.date
     ) -> None:
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("birthday", {})
             channel_id: int | None = data.get("channel_id")
@@ -295,7 +290,7 @@ class BirthdayPlugin(Plugin):
         guild_id = ctx.guild.id
         user_id = ctx.user.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("birthday", {})
             birthdays: dict = data.get("birthdays", {})
@@ -316,7 +311,7 @@ class BirthdayPlugin(Plugin):
         guild_id = ctx.guild.id
         user_id = ctx.user.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("birthday", {})
             birthdays: dict = data.get("birthdays", {})
@@ -342,7 +337,7 @@ class BirthdayPlugin(Plugin):
             return
         guild_id = ctx.guild.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("birthday", {})
             data["channel_id"] = channel.id
@@ -366,7 +361,7 @@ class BirthdayPlugin(Plugin):
             return
         guild_id = ctx.guild.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("birthday", {})
             data["role_id"] = role.id
@@ -384,7 +379,7 @@ class BirthdayPlugin(Plugin):
             return
         guild_id = ctx.guild.id
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("birthday", {})
             birthdays: dict = data.get("birthdays", {})
