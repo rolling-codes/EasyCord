@@ -1,7 +1,6 @@
 """Member verification plugin — role-grant flow with optional challenge question."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -10,7 +9,7 @@ import discord
 from easycord import Plugin, slash
 from easycord.helpers.channel import SENDABLE_CHANNEL_TYPES, send_safe
 from easycord.server_config import ServerConfigStore
-from ._shared import respond_error
+from ._shared import GuildLockManager, respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -194,12 +193,7 @@ class VerificationPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/verification") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks: dict[int, asyncio.Lock] = {}
-
-    def _guild_lock(self, guild_id: int) -> asyncio.Lock:
-        if guild_id not in self._locks:
-            self._locks[guild_id] = asyncio.Lock()
-        return self._locks[guild_id]
+        self._locks = GuildLockManager()
 
     async def on_ready(self) -> None:
         """Re-register persistent verify views for all configured guilds."""
@@ -250,7 +244,7 @@ class VerificationPlugin(Plugin):
             return
 
         guild_id = ctx.guild.id
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("verification", {})
             data["role_id"] = role.id
@@ -312,7 +306,7 @@ class VerificationPlugin(Plugin):
             return
         self.bot.add_view(view, message_id=message.id)
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data = cfg.get_other("verification", {})
             data["panel_message_id"] = message.id
@@ -342,7 +336,7 @@ class VerificationPlugin(Plugin):
         guild_id = ctx.guild.id
         question: str | None = text.strip() or None
 
-        async with self._guild_lock(guild_id):
+        async with self._locks.lock(guild_id):
             cfg = await self._store.load(guild_id)
             data: dict = cfg.get_other("verification", {})
             data["question"] = question

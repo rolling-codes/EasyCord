@@ -81,7 +81,7 @@ class TestVerificationStore:
         plugin = _plugin(tmp_path)
         guild_id = 200
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 11, "channel_id": 22})
             await plugin._store.save(cfg)
@@ -96,7 +96,7 @@ class TestVerificationStore:
         plugin = _plugin(tmp_path)
         guild_id = 201
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 1, "channel_id": 2, "question": "What is 2+2?"})
             await plugin._store.save(cfg)
@@ -110,7 +110,7 @@ class TestVerificationStore:
         plugin = _plugin(tmp_path)
         guild_id = 202
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 1, "channel_id": 2, "panel_message_id": 9999})
             await plugin._store.save(cfg)
@@ -130,7 +130,7 @@ class TestVerificationStore:
     async def test_guild_isolation(self, tmp_path) -> None:
         plugin = _plugin(tmp_path)
 
-        async with plugin._guild_lock(1):
+        async with plugin._locks.lock(1):
             cfg1 = await plugin._store.load(1)
             cfg1.set_other("verification", {"role_id": 10})
             await plugin._store.save(cfg1)
@@ -234,7 +234,7 @@ class TestVerificationSetupCommand:
         ctx = _ctx(guild_id=100)
 
         # First set a question
-        async with plugin._guild_lock(100):
+        async with plugin._locks.lock(100):
             cfg = await plugin._store.load(100)
             cfg.set_other("verification", {"role_id": 1, "channel_id": 2, "question": "Old question"})
             await plugin._store.save(cfg)
@@ -262,7 +262,7 @@ class TestVerificationSetupCommand:
         ctx = _ctx(guild_id=guild_id)
 
         # Pre-configure verification
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 5, "channel_id": 99})
             await plugin._store.save(cfg)
@@ -295,7 +295,7 @@ class TestVerificationSetupCommand:
         guild_id = 100
         ctx = _ctx(guild_id=guild_id)
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 5, "channel_id": 99})
             await plugin._store.save(cfg)
@@ -322,7 +322,7 @@ class TestVerificationSetupCommand:
         guild_id = 100
         ctx = _ctx(guild_id=guild_id)
 
-        async with plugin._guild_lock(guild_id):
+        async with plugin._locks.lock(guild_id):
             cfg = await plugin._store.load(guild_id)
             cfg.set_other("verification", {"role_id": 5, "channel_id": 99})
             await plugin._store.save(cfg)
