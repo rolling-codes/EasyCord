@@ -6,10 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .plugin import Plugin
+from typing import Callable
 
 logger = logging.getLogger("easycord")
 
@@ -52,7 +49,16 @@ class TaskManager:
         Returns the task (for chaining).
         """
         self.tasks[name] = task
-        task.add_done_callback(lambda t: self.tasks.pop(name, None))
+
+        def _cleanup(finished: asyncio.Task) -> None:
+            # Only evict if this exact task is still the one registered under
+            # *name*. Without the identity check, a task that finishes after a
+            # replacement was started under the same name would pop the
+            # replacement, leaving it untracked (and uncancellable).
+            if self.tasks.get(name) is finished:
+                self.tasks.pop(name, None)
+
+        task.add_done_callback(_cleanup)
         return task
     
     async def start_once(self, name: str, coro, *args, **kwargs) -> asyncio.Task:
