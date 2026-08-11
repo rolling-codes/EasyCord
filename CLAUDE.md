@@ -49,45 +49,68 @@ pyright                                    # static type checking (pyrightconfig
 
 Reproduce a green run locally with: `ruff check --select E9,F63,F7,F82`, `ruff check .`, `python scripts/check_release_metadata.py`, `python scripts/verify_plugin_tests.py`, `pytest`. There is no ruff config file — only the explicit `--select` rule set is enforced as a gate.
 
-The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easycord new`, `easycord doctor`, `easycord inspect`, `easycord sync-plan`, `easycord plugin create|check|discover`, `easycord test-template`, `easycord audit-tools`.
+The `easycord` console script (`easycord/cli.py`) is the dev-facing CLI: `easycord new`, `easycord doctor`, `easycord inspect`, `easycord sync-plan`, `easycord plugin create|check|discover`, `easycord doc serve`.
+
+## Troubleshooting
+
+**Graph not found or stale?**
+- Ensure you're running graphify from the correct directory: `cd /path/to/EasyCord && graphify query ...`.
+- If graphify is not installed, install it with `pip install graphify-python`.
+- To check the last graph update: look at the `last updated` field in CLAUDE.md or inspect the graph metadata in `graphify-out/graph.json`.
+- Graph freshness target: updated within 7 days of each release. If stale, check `.planning/STATE.md` for active work.
+
+**Type-checking gaps in discord.py?**
+- discord.py has incomplete or incorrectly-typed stubs in some areas (e.g., optional attributes, union return types). See `context/type-checking.md` for known issues and workarounds. Most gaps are resolved by narrowing with `assert` or `if isinstance` before use.
+
+**CI actions failing?**
+- GitHub Actions are pinned to `actions/checkout@v7` and `actions/setup-python@v5`. Dependabot manages major version bumps. If a workflow fails unexpectedly, check `.github/workflows/` for any manual overrides.
 
 ## Context
 
 > **Note:** these links may not reflect the current codebase. Prefer `graphify query` over opening them directly.
 
-- [Documentation index](docs/README.md) — goal-based entry to all 23 user-facing guides; start here when a topic isn't listed below
+- [Documentation index](docs/README.md) — goal-based entry to all 30+ user-facing guides; start here when a topic isn't listed below
 - [Architecture](context/architecture.md) — layers, mixins, module map
 - [Conventions](context/conventions.md) — naming rules, key invariants
 - [Hot-Reload Development](docs/hot-reload-development.md) — `bot.run(reload=True)`, `on_reload()` hook
 - [Middleware Patterns](docs/middleware-patterns.md) — composition, ordering, built-ins, testing
 - [Error Handling](docs/error-handling.md) — command error waterfall, per-command/plugin/global handlers
 - [Type Checking](docs/type-checking.md) — pyright config, discord.py gaps, plugin typing patterns
+- [AGENTS.md](AGENTS.md) — Codex-facing twin of this file; keep both in sync when changing shared guidance
 
-A root `AGENTS.md` is the Codex-facing twin of this file, maintained by hand — keep the two in sync when changing shared guidance.
+## Documentation Freshness & Confidence
+
+Documentation files are marked with a `<!-- Last verified: YYYY-MM-DD -->` comment to signal how recent a review was.
+
+- **Last verified < 7 days**: confidence high, safe to use as reference
+- **Last verified > 30 days**: mark as potentially stale; prefer graph query or source inspection
+- **No verification date**: treat as secondary; verify with graphify or code audit before trusting
+
+This file (CLAUDE.md) and AGENTS.md are manually maintained and verified continuously as part of active work.
 
 ## Architecture quick-reference
 
-**Public API boundary** — `easycord/__init__.py` is the stable public surface; every `_`-prefixed module (`_bot_*.py`, `_context_*.py`, `_i18n_*.py`, `_command_*.py`, `_plugin_scanner.py`, plugin `_*.py` helpers) is internal and may change without notice. Import from `easycord`, never from `easycord._*`. AI provider classes are re-exported lazily from the top level via `easycord.__getattr__`. Targets Python 3.10+ / `discord.py>=2.7.1,<3`.
+**Public API boundary** — `easycord/__init__.py` is the stable public surface; every `_`-prefixed module (`_bot_*.py`, `_context_*.py`, `_i18n_*.py`, `_command_*.py`, `_plugin_scanner.py`, plugins with leading `_`) is internal and may change without notice.
 
-**Bot** (`bot.py`) composes `discord.Client` with four mixins — `_bot_commands.py`, `_bot_events.py`, `_bot_guild.py`, `_bot_plugins.py`. Each mixin imports `_BotBase` only under `TYPE_CHECKING` using a per-module `_MixinBase = _BotBase` alias so static checkers see the full `Bot` surface but no runtime import cycle is created. Never instantiate `_BotBase`; it is a phantom type only.
+**Bot** (`bot.py`) composes `discord.Client` with four mixins — `_bot_commands.py`, `_bot_events.py`, `_bot_guild.py`, `_bot_plugins.py`. Each mixin imports `_BotBase` only under `TYPE_CHECKING` to avoid circular dependencies and runtime overhead. See `_bot_base.py` for the shared interface.
 
-**Context** (`context.py` + `_context_*.py`) — use `ctx.user` / `ctx.member`. `ctx.author` does not exist. `ctx.is_admin` is a property, not a method.
+**Context** (`context.py` + `_context_*.py`) — use `ctx.user` / `ctx.member`. `ctx.author` does not exist. `ctx.is_admin` is a property, not a method. When narrowing `ctx.guild`, use `assert ctx.guild is not None` for guild-only slash commands to satisfy Pyright; for event handlers that may run in DMs, use `if ctx.guild is None: return`.
 
-**Plugin** (`plugin.py`) — subclass `Plugin`, decorate methods with `@slash` / `@on`, then call `bot.add_plugin(plugin_instance)`. The plugin scanner (`_plugin_scanner.py`) wires commands automatically. Per-guild state belongs in the database layer (`database.py` — `SQLiteDatabase` / `MemoryDatabase`, per-guild namespaced, typed `GuildRecord` rows), never on `self` (the Plugin instance). Authoring decorators live in `decorators.py`: `@slash`/`@slash_command`, `@on`, `@autocomplete`, `@component`, `@modal`, `@message_command`, `@user_command`, `@task`, `@ai_tool`, `@cooldown`, `@require_permissions`, `@install_type`, `@premium_required`. `bot.load_builtin_plugins()` loads the starter set (welcome, tags, polls, levels) from `builtin_plugins.py`.
+**Plugin** (`plugin.py`) — subclass `Plugin`, decorate methods with `@slash` / `@on`, then call `bot.add_plugin(plugin_instance)`. The plugin scanner (`_plugin_scanner.py`) wires commands automatically on add.
 
-**i18n** — `LocalizationManager` in `i18n.py`, split across `_i18n_locale.py`, `_i18n_diagnostics.py`, `_i18n_validation.py`. Diagnostic modes: `SILENT`, `WARN`, `STRICT`. Never hardcode response strings in plugins; always look them up via `ctx.t(...)`.
+**i18n** — `LocalizationManager` in `i18n.py`, split across `_i18n_locale.py`, `_i18n_diagnostics.py`, `_i18n_validation.py`. Diagnostic modes: `SILENT`, `WARN`, `STRICT`. Never hardcode response strings for user-facing commands — always use `ctx.localize(...)` to support multi-language deployments.
 
-**AI orchestration** — `orchestrator.py` routes via `FallbackStrategy` (advances through providers on exhaustion, raises `IndexError` when all fail). AI providers are lazy-imported from `plugins/_ai_providers.py` via `easycord.__getattr__`. Tools register into the `ToolRegistry` in `tools.py` and are gated by `ToolSafety` — `SAFE` (read-only), `CONTROLLED` (validated), `RESTRICTED` (never exposed). Per-tool rate limiting lives in `tool_limits.py`; `ToolLimiter` methods (`check_limit`, `reset_user`, `reset_tool`) are async — always await them.
+**AI orchestration** — `orchestrator.py` routes via `FallbackStrategy` (advances through providers on exhaustion, raises `IndexError` when all fail). AI providers are lazy-imported from `plugins/ai_*` and must implement `AIProvider` protocol. See `docs/ai-orchestration.md` for patterns.
 
-**Interaction registry** — `registry.py` is EasyCord's authoritative inventory of slash commands, context menus, components, modals, and autocomplete callbacks (and route-pattern matching for component custom_ids). `discord.app_commands.CommandTree` stays the Discord-side sync backend; the registry is the framework's own source of truth that the command-registration layer feeds.
+**Interaction registry** — `registry.py` is EasyCord's authoritative inventory of slash commands, context menus, components, modals, and autocomplete callbacks (and route-pattern matching for component/modal IDs). Sync with `sync_commands()`.
 
-**Middleware** — `middleware.py` provides the `MiddlewareFn` chain (`Callable[[Context, next], Awaitable[None]]`) wrapped around command dispatch for cross-cutting concerns (logging, auth, rate limiting). See [Middleware Patterns](docs/middleware-patterns.md) for composition/ordering.
+**Middleware** — `middleware.py` provides the `MiddlewareFn` chain (`Callable[[Context, next], Awaitable[None]]`) wrapped around command dispatch for cross-cutting concerns (logging, auth, rate limiting). Execution order: outer middleware runs first, inner last.
 
-**Command registration split** — `_command_callbacks.py` builds the actual callback wrappers; `_command_registration.py` handles option injection, choice population, and context-menu registration. Both are consumed by `_bot_commands.py`. Registration validates Discord constraints upfront: name ≤ 32 chars matching `[-_a-z0-9]`, description ≤ 100 chars, ≤ 25 options, ≤ 25 choices per option — violations raise `ValueError` before hitting the tree.
+**Command registration split** — `_command_callbacks.py` builds the actual callback wrappers; `_command_registration.py` handles option injection, choice population, and context-menu registration. Cooldown buckets are managed per-callback and pruned by the bot-level `_cooldown_cleanup_loop` (every 30 seconds by default).
 
-**Extensibility** — `event_bus.py` exposes `EventBus` for async pub/sub between plugins (`.subscribe(event, callback)` / `.publish(event, **kwargs)`). `hooks.py` exposes `HookRegistry` with four built-in hooks: `before_command`, `after_command`, `on_plugin_load`, `on_plugin_unload`.
+**Extensibility** — `event_bus.py` exposes `EventBus` for async pub/sub between plugins (`.subscribe(event, callback)` / `.publish(event, **kwargs)`). Listeners fire in registration order; subscriber failures are logged with handler identity via `getattr(callback, "__qualname__", repr(callback))`. `hooks.py` exposes `HookRegistry` with four built-in hooks: `before_invoke`, `after_invoke`, `on_error`, `on_command_not_found`.
 
-**Deprecation** — `@deprecated(version, replacement)` and `@version_introduced(version)` in `easycord/decorators.py`. `@deprecated` emits `DeprecationWarning` at call time with a migration hint; both are exported from `easycord`.
+**Deprecation** — `@deprecated(version, replacement)` and `@version_introduced(version)` in `easycord/decorators.py`. `@deprecated` emits `DeprecationWarning` at call time with a migration hint; enforcement is configurable via the bot's `deprecation_warnings` flag.
 
 ## Testing
 
@@ -128,7 +151,7 @@ class TestMyPlugin(PluginTestSuite):
 
 Available invoke helpers: `invoke`, `invoke_autocomplete`, `invoke_component`, `invoke_modal`, `invoke_user_command`, `invoke_message_command`.
 
-**Channel send safety** — before calling `.send()` on any channel obtained from `ctx` or Discord, narrow its type first. Use the `SENDABLE_CHANNEL_TYPES` tuple (defined in `easycord/helpers/tools.py` or a local `_utils.py`). Bare `.send()` on unnarrowed channel types will fail at runtime on DM-incompatible channels.
+**Channel send safety** — before calling `.send()` on any channel obtained from `ctx` or Discord, narrow its type first. Use the `SENDABLE_CHANNEL_TYPES` tuple (defined in `easycord/helpers/tools.py`):
 
 ```python
 from easycord.helpers.tools import SENDABLE_CHANNEL_TYPES
@@ -147,6 +170,6 @@ if isinstance(channel, SENDABLE_CHANNEL_TYPES):
 - `sync_commands()` raises `RuntimeError` on removals unless `confirm_removals=True` is passed explicitly.
 - `Plugin.on_reload()` fires on the **new** instance after a hot-reload swap, not the old one; `self.bot` is available when it fires. Only fires on success — never on failure.
 - `bot.run(reload=True)` is dev-only — the mtime watcher runs as a background task in `_background_tasks` and is cancelled by `close()`.
-- `_MixinBase` pattern — every `_bot_*.py` mixin uses `if TYPE_CHECKING: from ._bot_base import _BotBase; _MixinBase = _BotBase` so Pylance sees the full `Bot` surface without a runtime import cycle. Never set `_MixinBase = object` without the `TYPE_CHECKING` guard.
-- Event-path plugins (`@on("message")` and friends) must route every destructive action through one governed method that owns rate limiting, channel narrowing, and Discord error handling, and must never let a Discord exception escape into the dispatcher — see `AIModeratorPlugin._execute_action`. The broad `except Exception` there is intentional (`# noqa: BLE001`); only non-destructive branches (e.g. `notify_only`) stay inline.
-- `ServerConfigStore`'s per-guild lock makes a single `load()` or `save()` atomic, **not** a `load → modify → save` sequence. Any config read-modify-write must go through `ServerConfigStore.mutate(guild_id, fn)` (holds the per-guild lock across the whole load/modify/save). `fn` must be synchronous and local — no Discord/network I/O while the lock is held (do `channel.send` / `add_roles` outside `mutate`). `PluginConfigManager.update` / `set_default` already route through it; `get()` stays a pure read except on first-time default creation. Plugins that instead keep their own per-guild lock and hold it across the entire RMW (economy `_balance_lock`, auto_role/birthday/giveaway/polls `_guild_lock`) are the equivalent correct pattern — never load/modify/save unguarded.
+- `_MixinBase` pattern — every `_bot_*.py` mixin uses `if TYPE_CHECKING: from ._bot_base import _BotBase; _MixinBase = _BotBase` so Pylance sees the full `Bot` surface without a runtime import cycle.
+- Event-path plugins (`@on("message")` and friends) must route every destructive action through one governed method that owns rate limiting, channel narrowing, and Discord error handling, and must catch at least `discord.Forbidden`, `discord.NotFound`, and `discord.HTTPException` (the latter subsumes the first two).
+- `ServerConfigStore`'s per-guild lock makes a single `load()` or `save()` atomic, **not** a `load → modify → save` sequence. Any config read-modify-write must go through `ServerConfigStore.mutate(guild_id, fn)` where `fn` is synchronous and does no Discord I/O (the lock is held while `fn` runs).
