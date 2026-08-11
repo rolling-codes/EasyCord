@@ -50,6 +50,33 @@ def format_doctor_report(report: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def format_try_result(result: Mapping[str, Any]) -> str:
+    """Return a compact text summary of an offline ``easycord try`` invocation."""
+    command = result.get("command", "<command>")
+    responses = list(result.get("responses", []))
+    lines = [f"EasyCord try: {command}"]
+    if not responses:
+        lines.append("(no response captured)")
+        return "\n".join(lines)
+    for index, response in enumerate(responses, start=1):
+        content = response.get("content")
+        marker = " (ephemeral)" if response.get("ephemeral") else ""
+        text = content if content is not None else "(no text)"
+        lines.append(f"[{index}]{marker} {text}")
+        embed = response.get("embed")
+        if embed:
+            title = embed.get("title")
+            description = embed.get("description")
+            field_count = embed.get("fields")
+            if title:
+                lines.append(f"    embed.title: {title}")
+            if description:
+                lines.append(f"    embed.description: {description}")
+            if field_count:
+                lines.append(f"    embed.fields: {field_count}")
+    return "\n".join(lines)
+
+
 def format_tool_audit(report: Mapping[str, Any]) -> str:
     """Return a compact text summary of an AI tool safety audit."""
     counts = dict(report.get("counts", {}))
@@ -85,4 +112,5 @@ __all__ = [
     "format_interaction_inventory",
     "format_sync_plan",
     "format_tool_audit",
+    "format_try_result",
 ]

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import importlib
 from importlib import metadata
 import json
@@ -12,7 +13,7 @@ import sys
 import textwrap
 import platform
 import warnings
-from typing import Literal, Sequence
+from typing import Any, Literal, Sequence
 
 from .bot import Bot
 from .formatters import (
@@ -20,6 +21,7 @@ from .formatters import (
     format_interaction_inventory,
     format_sync_plan,
     format_tool_audit,
+    format_try_result,
 )
 from .plugin_creator import (
     PluginScaffoldOptions,
@@ -399,6 +401,92 @@ def cmd_sync_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _coerce_arg(value: str) -> Any:
+    """Coerce a ``--set`` string into int, float, bool, or str (in that order)."""
+    if value.lower() in ("true", "false"):
+        return value.lower() == "true"
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    return value
+
+
+def _parse_set_args(pairs: list[str]) -> dict[str, Any]:
+    """Turn repeated ``--set key=value`` flags into command keyword arguments."""
+    kwargs: dict[str, Any] = {}
+    for pair in pairs:
+        key, sep, raw = pair.partition("=")
+        if not sep or not key:
+            raise SystemExit(f"--set expects key=value, got {pair!r}.")
+        kwargs[key] = _coerce_arg(raw)
+    return kwargs
+
+
+def _try_result(command: str, ctx) -> dict[str, object]:
+    """Build a JSON-serialisable summary of the responses captured by ``invoke``."""
+    responses: list[dict[str, object]] = []
+    for response in ctx.responses:
+        embed = None
+        if response.embed is not None:
+            embed = {
+                "title": response.embed.title,
+                "description": response.embed.description,
+                "fields": len(response.embed.fields),
+            }
+        responses.append(
+            {
+                "content": response.content,
+                "ephemeral": response.ephemeral,
+                "embed": embed,
+            }
+        )
+    return {
+        "command": command,
+        "response_count": len(responses),
+        "responses": responses,
+    }
+
+
+def cmd_try(args: argparse.Namespace) -> int:
+    from .testing import invoke
+
+    bot = _load_bot(args.target)
+    kwargs = _parse_set_args(args.set or [])
+    guild_id = None if args.dm else args.guild
+    try:
+        ctx = asyncio.run(
+            invoke(
+                bot,
+                args.command,
+                user_id=args.user,
+                guild_id=guild_id,
+                is_admin=not args.no_admin,
+                **kwargs,
+            )
+        )
+    except LookupError as exc:
+        # invoke() lists the available commands in its message.
+        print(str(exc), file=sys.stderr)
+        return 1
+    except Exception as exc:  # noqa: BLE001 - surfacing command errors offline is the point
+        print(
+            f"Command {args.command!r} raised {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return 1
+    result = _try_result(args.command, ctx)
+    if args.json:
+        print(json.dumps(result, indent=2, default=str))
+    else:
+        print(format_try_result(result))
+    return 0
+
+
 def _apply_schema_fixes(schema_plugins: list) -> int:
     """Sync-heal all guild configs for plugins that expose SCHEMA. Returns count fixed."""
     fixed = 0
@@ -727,6 +815,30 @@ def build_parser() -> argparse.ArgumentParser:
     sync_plan.add_argument("--remote", action="append", default=[], help="Remote command name to compare")
     sync_plan.add_argument("--json", action="store_true", help="Print raw JSON")
     sync_plan.set_defaults(func=cmd_sync_plan)
+
+    try_ = subcommands.add_parser(
+        "try",
+        help="Run a slash command offline without connecting to Discord",
+    )
+    try_.add_argument("target", help="Bot object as module:object, for example bot:bot")
+    try_.add_argument("command", help="Slash command name to invoke")
+    try_.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Command argument as key=value (repeatable; coerced to int/float/bool/str)",
+    )
+    try_.add_argument("--user", type=int, default=1, help="Invoking user ID (default 1)")
+    try_.add_argument("--guild", type=int, default=100, help="Guild ID (default 100)")
+    try_.add_argument("--dm", action="store_true", help="Invoke in a DM (no guild)")
+    try_.add_argument(
+        "--no-admin",
+        action="store_true",
+        help="Invoke without administrator permissions",
+    )
+    try_.add_argument("--json", action="store_true", help="Print raw JSON")
+    try_.set_defaults(func=cmd_try)
 
     doctor = subcommands.add_parser("doctor", help="Check local EasyCord development setup")
     doctor.add_argument("target", nargs="?", help="Optional bot object as module:object")

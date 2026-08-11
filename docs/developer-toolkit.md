@@ -152,6 +152,30 @@ with remote names you pass manually and prints the same plan shape returned by
 `bot.plan_command_sync(...)`. Use `--json` for stable `added`, `changed`,
 `removed`, `unchanged`, and `warnings` lists.
 
+## Run a command offline
+
+Invoke a registered slash command and see its response without connecting to
+Discord — no token, no network:
+
+```bash
+easycord try bot:bot ping
+easycord try bot:bot greet --set name=World --set times=3
+easycord try bot:bot config --dm --no-admin      # invoke in a DM, as a non-admin
+easycord try bot:bot ping --json
+```
+
+`try` imports the bot, runs the command through the same offline harness as
+`easycord.testing.invoke`, and prints every captured response (with an
+`(ephemeral)` marker and embed title/description when present). `--set key=value`
+is repeatable; values are coerced to `int`, `float`, `bool`, then `str`. Context
+defaults to an admin invocation in guild `100` — override with `--user`,
+`--guild`, `--dm`, and `--no-admin`.
+
+It exits non-zero when the command name is unknown (listing available commands)
+or when the command raises, so it doubles as a quick smoke check in scripts. The
+target module is imported, so guard `bot.run(...)` behind `if __name__ ==
+"__main__":` or the import will block.
+
 ## Generate a test
 
 ```bash
@@ -254,5 +278,6 @@ pytest
 easycord doctor bot:bot
 easycord audit-tools bot:bot
 easycord inspect bot:bot --json
+easycord try bot:bot ping
 easycord sync-plan bot:bot --remote old_command --json
 ```
