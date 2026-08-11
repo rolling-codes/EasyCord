@@ -39,7 +39,7 @@ def slash_admin_command(
     description: str = "No description provided.",
     cooldown: float | None = None,
     bot_permissions: list[str] | None = None,
-    ephemeral: bool = False,
+    ephemeral: bool | None = None,
 ) -> Callable[[F], F]:
     """Pre-composed stack for admin-only commands.
     
@@ -53,8 +53,8 @@ def slash_admin_command(
         Optional per-user cooldown in seconds.
     bot_permissions: list[str]
         Bot permissions required (e.g., ["ban_members"]).
-    ephemeral: bool
-        Whether the response is ephemeral.
+    ephemeral: bool | None
+        Whether the response is ephemeral (default True).
     
     Example::
     
@@ -68,7 +68,7 @@ def slash_admin_command(
             require_admin=True,
             cooldown=cooldown,
             bot_permissions=bot_permissions,
-            ephemeral=ephemeral or True,
+            ephemeral=True if ephemeral is None else ephemeral,
         )(func)
         return func
     return decorator
