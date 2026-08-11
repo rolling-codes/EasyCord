@@ -216,10 +216,12 @@ class PluginConfigHelper:
 
         Example::
 
-            await plugin.config_mutate(
-                guild_id,
-                lambda data: data.setdefault("members", []).append(user_id),
-            )
+            def add_member(data: dict) -> int:
+                members = data.setdefault("members", [])
+                members.append(user_id)
+                return len(members)  # config_mutate returns this
+
+            count = await plugin.config_mutate(guild_id, add_member)
         """
         store = self._require_store()
         section = self._resolve_section(section)

@@ -95,7 +95,7 @@ async def test_track_removes_task_when_done() -> None:
     tm = TaskManager()
     task = await tm.start_once("job", asyncio.sleep, 0)
     await task
-    await asyncio.sleep(0.01)  # let the done callback run
+    await asyncio.sleep(0)  # done callbacks dispatch on the next loop iteration
     assert "job" not in tm.tasks
 
 
@@ -122,7 +122,8 @@ async def test_track_cleanup_is_identity_safe() -> None:
     replacement = asyncio.create_task(asyncio.sleep(3600))
     tm.track("bg", replacement)  # replace under the same name, synchronously
 
-    await asyncio.sleep(0.05)  # let `finishing` complete and its callback fire
+    await finishing  # deterministically wait for the first task to complete
+    await asyncio.sleep(0)  # let its done-callback dispatch
 
     assert finishing.done()
     assert tm.tasks.get("bg") is replacement  # not evicted by finishing's callback
@@ -250,9 +251,11 @@ async def test_config_requires_store() -> None:
         await _NoStore().config_set(1, "k", "v")
 
 
-async def test_concurrent_writes_have_no_lost_updates(tmp_path: Path) -> None:
-    # Every write goes through store.mutate (one lock domain), so 200 concurrent
-    # single-key writes must all survive.
+async def test_many_concurrent_writes_all_persist(tmp_path: Path) -> None:
+    # Sanity check that many concurrent helper writes don't drop or corrupt keys.
+    # Not a cross-domain race guard: the store's load/save wrap synchronous I/O
+    # and never suspend between them, so writes serialize regardless of which
+    # lock is used. Routing through store.mutate keeps it that way by design.
     p = _make_plugin(tmp_path)
     await asyncio.gather(*[p.config_set(1, f"k{i}", i) for i in range(200)])
     cfg = await p._store.load(1)
