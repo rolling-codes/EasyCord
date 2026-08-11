@@ -2,6 +2,29 @@
 
 All notable changes to EasyCord are documented here. See [Semantic Versioning](https://semver.org) for version numbering.
 
+## EasyCord v5.61.0 — 2026-08-11
+
+### Added
+
+- **`easycord try <target> <command>` CLI** — run a registered slash command offline (no token, no network) through the existing `testing.invoke()` harness. Supports `--set key=value` argument coercion, context flags (`--user` / `--guild` / `--dm` / `--no-admin`), and `--json` output. Exits non-zero on an unknown command (listing available names) or when the command raises, so it doubles as a scriptable smoke check (#128)
+- **Plugin ergonomics helpers** — opt-in modules for common plugin patterns: `PluginConfigHelper` (a mixin providing atomic `config_get/set/update/delete/mutate/clear`, each routed through `ServerConfigStore.mutate` so writes share the store's single per-guild lock domain); pre-composed decorator stacks (`slash_admin_command`, `slash_management_command`, `slash_mod_command`, `slash_user_command`, `slash_with_confirm`); and `TaskManager` / `TimerManager` lifecycle helpers for tracking and cancelling background tasks and timers (#129)
+- **`discord_errors()` middleware** — a central, type-aware complement to `catch_errors()`: catches `discord.Forbidden`, `NotFound`, and `HTTPException` and replies with localized, type-specific ephemeral messages. Register it after `catch_errors()` so it handles Discord errors first while `catch_errors()` remains the generic fallback; non-Discord errors propagate untouched (#130)
+
+### Changed
+
+- **`server_stats` config writes** now route through `ServerConfigStore.mutate` instead of a plugin-owned `GuildLockManager` + manual `load`/`save`, consolidating on the store's single lock domain (behavior-preserving) (#130)
+
+### Fixed
+
+- **`slash_mod_command` permission name** — required `moderate_members` (the real discord.py timeout permission) instead of the nonexistent `timeout_members`. Because permissions are enforced via `getattr(guild_permissions, name, False)`, the old entry was silently always-false, breaking the intended gate for any command built on the stack (#131)
+- **`TaskManager.track` cleanup race** — a task that finished after a replacement was registered under the same name could evict the replacement, leaving it untracked and uncancellable; the done-callback now removes a task only if it is still the one registered under that name (#129)
+- **Removed three unused imports** in `_decorator_stacks.py` (`cooldown`, `require_permissions`, `describe`) flagged by CodeQL (#131)
+
+### Release metadata
+
+- Wheel: `easycord-5.61.0-py3-none-any.whl`
+- Source: `easycord-5.61.0.tar.gz` — `releases/download/v5.61.0/easycord-5.61.0.tar.gz`
+
 ## EasyCord v5.60.0 — 2026-07-25
 
 ### Changed
