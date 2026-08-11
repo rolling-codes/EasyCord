@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.60.0-blue)
+![Version](https://img.shields.io/badge/v-5.61.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-1777%2B-brightgreen)
@@ -25,7 +25,7 @@
 ## Quick Start
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.60.0/easycord-5.60.0-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.61.0/easycord-5.61.0-py3-none-any.whl"
 ```
 
 Or scaffold a full project:
@@ -304,4 +304,4 @@ Copyright (c) 2026 Rolling Codes.
 
 **Docs:** [Getting Started](docs/getting-started.md) · [Built-in Plugins](docs/builtin-plugins.md) · [AI Features](docs/conversation-memory.md) · [All guides →](docs/README.md)
 
-Release: [v5.60.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.60.0) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
+Release: [v5.61.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.61.0) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
