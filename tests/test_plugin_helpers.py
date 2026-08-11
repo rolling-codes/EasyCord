@@ -67,7 +67,12 @@ def test_slash_mod_command_sets_user_and_bot_perms() -> None:
     async def cmd(self, ctx):  # pragma: no cover
         ...
 
-    assert "ban_members" in getattr(cmd, "_slash_permissions")
+    perms = getattr(cmd, "_slash_permissions")
+    assert "ban_members" in perms
+    # moderate_members is the real discord.py timeout permission; timeout_members
+    # does not exist on discord.Permissions and would silently never be granted.
+    assert "moderate_members" in perms
+    assert "timeout_members" not in perms
     assert "ban_members" in getattr(cmd, "_slash_bot_permissions")
 
 
