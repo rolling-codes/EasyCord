@@ -4,6 +4,8 @@ from __future__ import annotations
 import contextlib
 import logging
 import time
+
+import discord
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
@@ -323,6 +325,76 @@ def catch_errors(
                     default="Something went wrong. Please try again.",
                 )
                 await ctx.respond(text, ephemeral=True)
+
+    return handler
+
+
+def discord_errors(
+    *,
+    forbidden: str | None = None,
+    not_found: str | None = None,
+    http_error: str | None = None,
+) -> MiddlewareFn:
+    """Translate Discord API errors into friendly, type-specific replies.
+
+    Catches :class:`discord.Forbidden`, :class:`discord.NotFound`, and
+    :class:`discord.HTTPException` raised while running a command and sends a
+    localized ephemeral message instead of surfacing a raw error. This is the
+    central, type-aware complement to :func:`catch_errors` (which is a generic
+    catch-all) — it saves plugins from repeating the same
+    ``try/except (discord.Forbidden, discord.HTTPException)`` block per command.
+
+    Register it *after* :func:`catch_errors` so it runs closer to the command
+    and handles Discord errors first, leaving ``catch_errors`` as the outer
+    fallback for everything else::
+
+        bot.use(catch_errors())
+        bot.use(discord_errors())
+
+    Messages default to the i18n keys ``errors.forbidden`` / ``errors.not_found``
+    / ``errors.http`` so translators can override them; pass *forbidden* /
+    *not_found* / *http_error* to override the text directly.
+    """
+    logger = logging.getLogger("easycord")
+
+    async def handler(ctx: Context, proceed: Callable[[], Awaitable[None]]) -> None:
+        # Forbidden and NotFound subclass HTTPException, so their clauses must
+        # come first for the specific messages to win.
+        try:
+            await proceed()
+        except discord.Forbidden:
+            logger.warning("Forbidden in %s", ctx.command_name)
+            with contextlib.suppress(Exception):
+                await ctx.respond(
+                    forbidden
+                    or ctx.t(
+                        "errors.forbidden",
+                        default="I don't have permission to do that.",
+                    ),
+                    ephemeral=True,
+                )
+        except discord.NotFound:
+            logger.warning("NotFound in %s", ctx.command_name)
+            with contextlib.suppress(Exception):
+                await ctx.respond(
+                    not_found
+                    or ctx.t(
+                        "errors.not_found",
+                        default="That item no longer exists.",
+                    ),
+                    ephemeral=True,
+                )
+        except discord.HTTPException as exc:
+            logger.error("HTTPException in %s: %s", ctx.command_name, exc)
+            with contextlib.suppress(Exception):
+                await ctx.respond(
+                    http_error
+                    or ctx.t(
+                        "errors.http",
+                        default="Discord returned an error. Please try again.",
+                    ),
+                    ephemeral=True,
+                )
 
     return handler
 
