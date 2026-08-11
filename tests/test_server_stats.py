@@ -125,13 +125,13 @@ class TestServerStatsStore:
         plugin = _plugin(tmp_path)
         guild_id = 200
 
-        async with plugin._locks.lock(guild_id):
-            cfg = await plugin._store.load(guild_id)
-            cfg.set_other(
+        await plugin._store.mutate(
+            guild_id,
+            lambda cfg: cfg.set_other(
                 "server_stats",
                 {"member_channel_id": 1, "online_channel_id": 2, "boost_channel_id": 3},
-            )
-            await plugin._store.save(cfg)
+            ),
+        )
 
         reloaded = await plugin._store.load(guild_id)
         data = reloaded.get_other("server_stats", {})
@@ -144,19 +144,16 @@ class TestServerStatsStore:
         plugin = _plugin(tmp_path)
         guild_id = 201
 
-        async with plugin._locks.lock(guild_id):
-            cfg = await plugin._store.load(guild_id)
-            cfg.set_other(
+        await plugin._store.mutate(
+            guild_id,
+            lambda cfg: cfg.set_other(
                 "server_stats",
                 {"member_channel_id": 10, "online_channel_id": 20, "boost_channel_id": 30},
-            )
-            await plugin._store.save(cfg)
+            ),
+        )
 
         # Remove config
-        async with plugin._locks.lock(guild_id):
-            cfg = await plugin._store.load(guild_id)
-            cfg.remove_other("server_stats")
-            await plugin._store.save(cfg)
+        await plugin._store.mutate(guild_id, lambda cfg: cfg.remove_other("server_stats"))
 
         reloaded = await plugin._store.load(guild_id)
         assert reloaded.get_other("server_stats", {}) == {}
@@ -165,10 +162,9 @@ class TestServerStatsStore:
     async def test_guild_isolation(self, tmp_path) -> None:
         plugin = _plugin(tmp_path)
 
-        async with plugin._locks.lock(1):
-            cfg1 = await plugin._store.load(1)
-            cfg1.set_other("server_stats", {"member_channel_id": 99})
-            await plugin._store.save(cfg1)
+        await plugin._store.mutate(
+            1, lambda cfg: cfg.set_other("server_stats", {"member_channel_id": 99})
+        )
 
         cfg2 = await plugin._store.load(2)
         assert cfg2.get_other("server_stats", {}) == {}
@@ -266,13 +262,13 @@ class TestStatsSetupCommand:
         ctx = _ctx(guild_id=guild_id)
 
         # Pre-configure stats
-        async with plugin._locks.lock(guild_id):
-            cfg = await plugin._store.load(guild_id)
-            cfg.set_other(
+        await plugin._store.mutate(
+            guild_id,
+            lambda cfg: cfg.set_other(
                 "server_stats",
                 {"member_channel_id": 10, "online_channel_id": 20, "boost_channel_id": 30},
-            )
-            await plugin._store.save(cfg)
+            ),
+        )
 
         # Pre-seed a mock task in _loops
         mock_task = MagicMock()
@@ -300,13 +296,13 @@ class TestStatsSetupCommand:
         ch2 = _mock_channel("🟢 Online: 3", 20)
         ch3 = _mock_channel("💎 Boosts: 0", 30)
 
-        async with plugin._locks.lock(guild_id):
-            cfg = await plugin._store.load(guild_id)
-            cfg.set_other(
+        await plugin._store.mutate(
+            guild_id,
+            lambda cfg: cfg.set_other(
                 "server_stats",
                 {"member_channel_id": 10, "online_channel_id": 20, "boost_channel_id": 30},
-            )
-            await plugin._store.save(cfg)
+            ),
+        )
 
         channel_map = {10: ch1, 20: ch2, 30: ch3}
         ctx.guild.get_channel = MagicMock(side_effect=lambda cid: channel_map.get(cid))

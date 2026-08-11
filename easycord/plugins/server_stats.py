@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import discord
 
 from easycord import Plugin, slash
-from easycord.server_config import ServerConfigStore
-from ._shared import GuildLockManager, respond_error
+from easycord.server_config import ServerConfig, ServerConfigStore
+from ._shared import respond_error
 
 if TYPE_CHECKING:
     from easycord import Context
@@ -54,7 +54,6 @@ class ServerStatsPlugin(Plugin):
     def __init__(self, *, store_path: str = ".easycord/server_stats") -> None:
         super().__init__()
         self._store = ServerConfigStore(store_path)
-        self._locks = GuildLockManager()
         self._loops: dict[int, asyncio.Task] = {}
 
     def _start_loop(self, guild_id: int) -> None:
@@ -156,8 +155,7 @@ class ServerStatsPlugin(Plugin):
             await respond_error(ctx, f"Failed to create stat channels: {exc}")
             return
 
-        async with self._locks.lock(guild_id):
-            cfg = await self._store.load(guild_id)
+        def _save_channels(cfg: ServerConfig) -> None:
             cfg.set_other(
                 "server_stats",
                 {
@@ -166,7 +164,8 @@ class ServerStatsPlugin(Plugin):
                     "boost_channel_id": boost_ch.id,
                 },
             )
-            await self._store.save(cfg)
+
+        await self._store.mutate(guild_id, _save_channels)
 
         self._start_loop(guild_id)
         await ctx.respond("✅ Stat channels created and update loop started.", ephemeral=True)
@@ -211,9 +210,9 @@ class ServerStatsPlugin(Plugin):
                 logger.warning("Failed to delete stat channel %s: %s", ch_id, exc)
 
         # Remove config
-        async with self._locks.lock(guild_id):
-            cfg = await self._store.load(guild_id)
+        def _clear(cfg: ServerConfig) -> None:
             cfg.remove_other("server_stats")
-            await self._store.save(cfg)
+
+        await self._store.mutate(guild_id, _clear)
 
         await ctx.respond("✅ Stat channels removed and update loop stopped.", ephemeral=True)
