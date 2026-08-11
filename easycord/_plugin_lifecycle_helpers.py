@@ -13,6 +13,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("easycord")
 
+# Special key for timers that are not grouped by guild_id
+_UNGROUPED_KEY = "__ungrouped__"
+
 
 class TaskManager:
     """Simple task storage and lifecycle management for plugins.
@@ -141,7 +144,8 @@ class TimerManager:
     
     def __init__(self) -> None:
         # Maps timer_id -> {guild_id -> task} for hierarchical cancellation
-        self.timers: dict[str, dict[int, asyncio.Task]] = {}
+        # Timers without guild_id are stored under _UNGROUPED_KEY
+        self.timers: dict[str, dict[int | str, asyncio.Task]] = {}
     
     async def schedule(
         self,
@@ -180,10 +184,13 @@ class TimerManager:
             finally:
                 if guild_id is not None:
                     self.timers.get(timer_id, {}).pop(guild_id, None)
+                else:
+                    self.timers.get(timer_id, {}).pop(_UNGROUPED_KEY, None)
         
         task = asyncio.create_task(delayed())
-        if guild_id is not None:
-            self.timers.setdefault(timer_id, {})[guild_id] = task
+        # Store ungrouped timers under a special key so cancel_all() catches them
+        key = guild_id if guild_id is not None else _UNGROUPED_KEY
+        self.timers.setdefault(timer_id, {})[key] = task
         return task
     
     async def cancel_timer(self, timer_id: str, guild_id: int | None = None) -> None:
