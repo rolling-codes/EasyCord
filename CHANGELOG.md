@@ -6,19 +6,33 @@ All notable changes to EasyCord are documented here. See [Semantic Versioning](h
 
 ### Added
 
-- **`easycord try <target> <command>` CLI** — run a registered slash command offline (no token, no network) through the existing `testing.invoke()` harness. Supports `--set key=value` argument coercion, context flags (`--user` / `--guild` / `--dm` / `--no-admin`), and `--json` output. Exits non-zero on an unknown command (listing available names) or when the command raises, so it doubles as a scriptable smoke check (#128)
-- **Plugin ergonomics helpers** — opt-in modules for common plugin patterns: `PluginConfigHelper` (a mixin providing atomic `config_get/set/update/delete/mutate/clear`, each routed through `ServerConfigStore.mutate` so writes share the store's single per-guild lock domain); pre-composed decorator stacks (`slash_admin_command`, `slash_management_command`, `slash_mod_command`, `slash_user_command`, `slash_with_confirm`); and `TaskManager` / `TimerManager` lifecycle helpers for tracking and cancelling background tasks and timers (#129)
+- **`easycord try <target> <command>` CLI** — run a registered slash command offline (no token, no network) through the existing `testing.invoke()` harness. Supports `--set key=value` argument coercion, context flags (`--user` / `--guild` / `--dm` / `--no-admin`), and `--json` output. Exits non-zero on an unknown command (listing available names) or when the command raises, so it doubles as a scriptable smoke check. Documented in the developer-toolkit guide, and backed by a new `format_try_result()` formatter (#128)
+- **`PluginConfigHelper` mixin** — drop-in atomic per-guild config CRUD for plugins: `config_get`, `config_set`, `config_update`, `config_delete`, `config_mutate`, and `config_clear`. Every write routes through `ServerConfigStore.mutate`, so operations share the store's single per-guild lock domain — no separate lock to manage, and the section defaults to the plugin name (#129)
+- **Pre-composed decorator stacks** — five decorators that collapse the common `@slash` + permissions + cooldown + ephemeral boilerplate into one line: `slash_admin_command` (admin-only), `slash_management_command` (defaults to `manage_guild`), `slash_mod_command` (moderation perms), `slash_user_command` (public, guild-only), and `slash_with_confirm` (marks a destructive command for a `ctx.confirm()` flow) (#129)
+- **`TaskManager` / `TimerManager` lifecycle helpers** — track and cancel background work without hand-rolled dicts: `TaskManager` supports `start_once` (dedup by name), `start_recurring` (fixed-interval loop), and `cancel_all`; `TimerManager` schedules one-shot delayed callbacks with optional per-guild grouping and `cancel_timer` / `cancel_guild` / `cancel_all` (#129)
 - **`discord_errors()` middleware** — a central, type-aware complement to `catch_errors()`: catches `discord.Forbidden`, `NotFound`, and `HTTPException` and replies with localized, type-specific ephemeral messages. Register it after `catch_errors()` so it handles Discord errors first while `catch_errors()` remains the generic fallback; non-Discord errors propagate untouched (#130)
 
 ### Changed
 
-- **`server_stats` config writes** now route through `ServerConfigStore.mutate` instead of a plugin-owned `GuildLockManager` + manual `load`/`save`, consolidating on the store's single lock domain (behavior-preserving) (#130)
+- **`server_stats` config writes** now route through `ServerConfigStore.mutate` instead of a plugin-owned `GuildLockManager` + manual `load`/`save`, consolidating on the store's single lock domain (behavior-preserving). Serves as the reference pattern for migrating the remaining plugins (#130)
+- **Shared plugin helpers** — refinements to `easycord/plugins/_shared.py` (`require_guild`, `respond_error`) that collapse repeated guild-guard and ephemeral-error-reply patterns across the bundled plugins
 
 ### Fixed
 
 - **`slash_mod_command` permission name** — required `moderate_members` (the real discord.py timeout permission) instead of the nonexistent `timeout_members`. Because permissions are enforced via `getattr(guild_permissions, name, False)`, the old entry was silently always-false, breaking the intended gate for any command built on the stack (#131)
 - **`TaskManager.track` cleanup race** — a task that finished after a replacement was registered under the same name could evict the replacement, leaving it untracked and uncancellable; the done-callback now removes a task only if it is still the one registered under that name (#129)
+- **Starboard resilience** — updating an existing starboard post now catches `discord.Forbidden` / `HTTPException` and logs instead of letting the handler crash when the bot lacks permission or the post is gone
+- **Suggestions resilience** — adding the up/down vote reactions now catches `discord.Forbidden` / `HTTPException` and logs, so a missing-permission case no longer breaks suggestion creation
 - **Removed three unused imports** in `_decorator_stacks.py` (`cooldown`, `require_permissions`, `describe`) flagged by CodeQL (#131)
+
+### Tests
+
+- New command-level suites for the giveaway (`test_giveaway_commands.py`) and tickets (`test_tickets_commands.py`) plugins, plus expanded coverage for suggestions and the shared plugin helpers — roughly 900 new lines of tests overall (including the CLI, middleware, and plugin-helper suites from #128–#130). Full suite: 1865 passing
+
+### Internal
+
+- **CLAUDE.md context framework** — restored truncated context and added a troubleshooting section, a documentation-freshness framework, an `AGENTS.md` link, and stronger invariants for contributors and agents
+- **CI workflow refresh** — updates to the CodeQL, release-drafter, stale, and Claude Code/review workflows
 
 ### Release metadata
 
