@@ -24,12 +24,7 @@ from __future__ import annotations
 
 from typing import Callable, TypeVar
 
-from .decorators import (
-    slash as _slash,
-    cooldown as _cooldown,
-    require_permissions as _require_permissions,
-    describe as _describe,
-)
+from .decorators import slash as _slash
 
 F = TypeVar("F", bound=Callable)
 
@@ -127,7 +122,7 @@ def slash_mod_command(
 ) -> Callable[[F], F]:
     """Pre-composed stack for moderation commands.
     
-    Default permissions: kick_members, ban_members, timeout_members.
+    Default permissions: kick_members, ban_members, moderate_members.
     
     Parameters
     ----------
@@ -145,7 +140,7 @@ def slash_mod_command(
             await member.ban(reason=reason)
             await ctx.respond(f"Banned {member.mention}", ephemeral=True)
     """
-    mod_perms = ["kick_members", "ban_members", "timeout_members"]
+    mod_perms = ["kick_members", "ban_members", "moderate_members"]
     all_bot_perms = (bot_permissions or []) + ["ban_members", "kick_members"]
     
     def decorator(func: F) -> F:
