@@ -20,6 +20,24 @@ The plan is a dict with five keys:
 | `unchanged` | Command names matching exactly on both sides |
 | `warnings` | Diagnostic messages (e.g., duplicate names, scope conflicts) |
 
+`changed` is reserved for a future full-schema comparison and is currently
+empty. The offline planner compares command presence by name.
+
+## Preview Discord's current commands
+
+Once the bot has an authenticated Discord application connection, fetch a
+read-only, type-aware preview from Discord:
+
+```python
+plan = await bot.preview_command_sync()
+guild_plan = await bot.preview_command_sync(guild_id=123456789012345678)
+```
+
+The preview distinguishes slash, user-context, and message-context commands.
+It never calls `sync()`, copies commands, or changes registry state. Discord
+authentication, permission, network, and rate-limit exceptions propagate to
+the caller so applications can apply their own retry policy.
+
 ---
 
 ## Dry-run sync
