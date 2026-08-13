@@ -201,6 +201,84 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
             "warnings": warnings,
         }
 
+    def _plan_typed_command_sync(
+        self,
+        *,
+        local_commands: list[app_commands.Command | app_commands.Group | app_commands.ContextMenu],
+        remote_commands: list[app_commands.AppCommand],
+    ) -> dict[str, list[str]]:
+        """Compare local and remote commands by Discord command type and name."""
+        local_identities = [self._local_command_identity(command) for command in local_commands]
+        remote_identities = [(command.type.name, command.name) for command in remote_commands]
+        duplicates = sorted(
+            {
+                identity
+                for identity in local_identities
+                if local_identities.count(identity) > 1
+            }
+        )
+        warnings = [
+            f"Duplicate local command: {command_type}:{name}"
+            for command_type, name in duplicates
+        ]
+
+        local_set = set(local_identities)
+        remote_set = set(remote_identities)
+
+        def names(identities: set[tuple[str, str]]) -> list[str]:
+            return [name for _, name in sorted(identities)]
+
+        return {
+            "added": names(local_set - remote_set),
+            "changed": [],
+            "removed": names(remote_set - local_set),
+            "unchanged": names(local_set & remote_set),
+            "warnings": warnings,
+        }
+
+    @staticmethod
+    def _local_command_identity(
+        command: app_commands.Command | app_commands.Group | app_commands.ContextMenu,
+    ) -> tuple[str, str]:
+        command_type = (
+            command.type.name
+            if isinstance(command, app_commands.ContextMenu)
+            else discord.AppCommandType.chat_input.name
+        )
+        return command_type, command.name
+
+    async def preview_command_sync(
+        self,
+        *,
+        guild_id: int | None = None,
+    ) -> dict[str, list[str]]:
+        """Fetch Discord's commands and build a read-only, type-aware sync plan.
+
+        Discord and network exceptions are intentionally allowed to propagate so
+        callers can apply their own retry and reporting policies.
+        """
+        guild = discord.Object(id=guild_id) if guild_id is not None else None
+        if guild is None:
+            remote_commands = await self.tree.fetch_commands()
+            local_commands = self.tree.get_commands()
+        else:
+            remote_commands = await self.tree.fetch_commands(guild=guild)
+            effective = {
+                self._local_command_identity(command): command
+                for command in self.tree.get_commands(guild=guild)
+            }
+            effective.update(
+                {
+                    self._local_command_identity(command): command
+                    for command in self.tree.get_commands()
+                }
+            )
+            local_commands = list(effective.values())
+        return self._plan_typed_command_sync(
+            local_commands=local_commands,
+            remote_commands=remote_commands,
+        )
+
     async def sync_commands(
         self,
         *,
