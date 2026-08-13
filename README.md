@@ -72,6 +72,8 @@ No bot token, no Discord connection. See [Testing Commands](docs/testing.md).
 
 ## Reference Implementations
 
+For the current release notes and verified fix list, see [EasyCord v5.61.1](https://github.com/rolling-codes/EasyCord/releases/tag/v5.61.1).
+
 ### Community Bot
 
 A full-featured community server bot: leveling, tags, polls, moderation, economy, and a custom admin dashboard — all from built-in plugins and one custom `Plugin`.
@@ -306,6 +308,6 @@ EasyCord is released under the **MIT License**.
 See `pyproject.toml` for the canonical license metadata.  
 Copyright (c) 2026 Rolling Codes.
 
-**Docs:** [Getting Started](docs/getting-started.md) · [Built-in Plugins](docs/builtin-plugins.md) · [AI Features](docs/conversation-memory.md) · [All guides →](docs/README.md)
+**Docs:** [Getting Started](docs/getting-started.md) · [Built-in Plugins](docs/builtin-plugins.md) · [AI Features](docs/conversation-memory.md) · [All guides →](docs/README.md) · [Latest release notes](https://github.com/rolling-codes/EasyCord/releases/tag/v5.61.1)
 
 Release: [v5.61.1](https://github.com/rolling-codes/EasyCord/releases/tag/v5.61.1) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
