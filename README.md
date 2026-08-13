@@ -7,6 +7,8 @@
 
 > **Production-grade Discord bot framework** for building scalable, maintainable bots with clean, type-safe code.
 >
+> **Make EasyCord easy.** Ship Discord bots with less ceremony, safer defaults, and plugin patterns that stay understandable as your server grows.
+>
 > Slash commands, context menus, modal forms, components with dynamic routing, plugins with versioned config schemas and dependency management, per-guild storage, multi-language i18n, conversation memory, optional AI orchestration, middleware pipeline, lifecycle hooks, and task scheduling—all with **zero boilerplate**.
 >
 > **30 built-in plugins** including levels, economy, moderation, starboard, polls, translation, AI moderation, and more. **1871 tests**, atomic database operations, concurrent plugin safety, proper error isolation, and comprehensive type hints. Deploy with confidence.
