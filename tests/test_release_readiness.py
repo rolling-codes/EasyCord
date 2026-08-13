@@ -125,6 +125,7 @@ def test_release_docs_cover_new_public_features() -> None:
         "easycord new",
         "--template minimal",
         "--template plugin",
+        "--template community",
         "--template ai",
         "--template database",
         "new --list-templates",
