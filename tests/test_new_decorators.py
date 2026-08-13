@@ -553,6 +553,33 @@ class TestScannerMetadataPropagation:
         assert kwargs["allowed_installs"].guild is True
         assert kwargs["allowed_installs"].user is True
 
+    def test_slash_metadata_can_be_declared_directly_on_plugin_command(self):
+        from easycord import Plugin
+        from easycord._bot_plugins import _PluginsMixin
+
+        contexts = app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False)
+        installs = app_commands.AppInstallationType(guild=True, user=False)
+
+        class DirectPlugin(Plugin):
+            @slash(
+                description="Age-restricted command",
+                nsfw=True,
+                allowed_contexts=contexts,
+                allowed_installs=installs,
+            )
+            async def restricted(self, ctx):
+                pass
+
+        bot = self._mock_bot_for_scan()
+        plugin = DirectPlugin()
+        plugin._bot = bot
+        _PluginsMixin._scan_methods(bot, plugin)
+
+        kwargs = bot._register_slash.call_args.kwargs
+        assert kwargs["nsfw"] is True
+        assert kwargs["allowed_contexts"] is contexts
+        assert kwargs["allowed_installs"] is installs
+
     def test_context_menu_metadata_propagates_to_register_context_menu(self):
         from easycord import Plugin
         from easycord._bot_plugins import _PluginsMixin

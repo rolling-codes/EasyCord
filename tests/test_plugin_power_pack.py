@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from easycord import Bot, Plugin, PluginDependencyError, slash
+from easycord import Bot, Plugin, PluginDependencyError, SlashGroup, slash
 from easycord._bot_plugins import _PluginsMixin
 from easycord.testing import invoke
 
@@ -69,6 +69,18 @@ class TestPluginDependencyDeclarations:
             bot.add_plugin(InventoryPlugin())
         assert "economy" in str(exc_info.value)
         assert "economy" in exc_info.value.missing
+
+    async def test_missing_dep_raises_for_slash_group(self) -> None:
+        class InventoryGroup(SlashGroup, name="inventory", description="Inventory commands"):
+            requires = ("economy",)
+
+        bot = Bot(auto_sync=False, db_backend="memory")
+        try:
+            with pytest.raises(PluginDependencyError) as exc_info:
+                bot.add_plugin(InventoryGroup())
+            assert "economy" in exc_info.value.missing
+        finally:
+            await bot.close()
 
     def test_error_names_the_plugin_class(self) -> None:
         class MyPlugin(Plugin):

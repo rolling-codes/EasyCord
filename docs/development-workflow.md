@@ -98,7 +98,7 @@ Releases are label-driven and mostly automated. The order matters:
    | `feature`, `plugin`, `enhancement` | minor |
    | `bug`, `fix`, `security`, `dependencies`, `test`, `documentation` | patch |
 
-5. **Merge, then publish.** Merging alone ships nothing — **publishing** the drafted GitHub Release triggers `publish-pypi.yml`, which builds the wheel + sdist and uploads to PyPI.
+5. **Merge, then publish.** Merging alone ships nothing. Build artifacts locally with `python -m build`, upload them with `twine upload dist/*`, then publish the drafted GitHub Release with the same wheel and sdist attached.
 6. **Verify:** the version appears on [PyPI](https://pypi.org/project/easycord/) and the release assets are attached to the GitHub Release.
 
 ## Invariants worth pinning

@@ -292,6 +292,9 @@ def slash(
     choices: dict[str, list] | None = None,
     aliases: list[str] | None = None,
     rate_limit: tuple[int, int] | None = None,
+    nsfw: bool = False,
+    allowed_contexts: app_commands.AppCommandContext | None = None,
+    allowed_installs: app_commands.AppInstallationType | None = None,
 ) -> Callable:
     """Mark a Plugin method as a slash command.
 
@@ -328,6 +331,12 @@ def slash(
     cooldown:
         Per-user cooldown in seconds. Blocks the command ephemerally until the
         window expires.
+    nsfw:
+        Mark the command as age-restricted in Discord.
+    allowed_contexts:
+        Discord contexts where the command can be used.
+    allowed_installs:
+        Discord installation types where the command can be used.
 
     Example::
 
@@ -370,9 +379,9 @@ def slash(
         func._slash_choices = choices or {}
         func._slash_aliases = aliases or []
         func._slash_rate_limit = rate_limit
-        func._slash_nsfw = False
-        func._slash_allowed_contexts = getattr(func, "_slash_allowed_contexts", None)
-        func._slash_allowed_installs = getattr(func, "_slash_allowed_installs", None)
+        func._slash_nsfw = nsfw
+        func._slash_allowed_contexts = allowed_contexts or getattr(func, "_slash_allowed_contexts", None)
+        func._slash_allowed_installs = allowed_installs or getattr(func, "_slash_allowed_installs", None)
         func._slash_premium_required = getattr(func, "_slash_premium_required", False)
         return func
 

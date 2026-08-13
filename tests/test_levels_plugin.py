@@ -421,9 +421,11 @@ async def test_give_xp_no_role_when_no_reward_configured(plugin):
 
 async def test_set_rank_saves_config(plugin, tmp_path):
     ctx = _make_ctx(guild_id=1)
+    plugin._cfg_cache[1] = ({"ranks": {}}, 999999.0)
     await plugin.set_rank(ctx, level=5, name="Veteran")
     config = plugin._store.read_config(1)
     assert config["ranks"]["5"] == "Veteran"
+    assert 1 not in plugin._cfg_cache
 
 
 async def test_set_rank_rejects_level_zero(plugin):
@@ -435,9 +437,11 @@ async def test_set_rank_rejects_level_zero(plugin):
 async def test_remove_rank_deletes_entry(plugin):
     ctx = _make_ctx(guild_id=1)
     await plugin.set_rank(ctx, level=5, name="Veteran")
+    plugin._cfg_cache[1] = ({"ranks": {"5": "Veteran"}}, 999999.0)
     await plugin.remove_rank(ctx, level=5)
     config = plugin._store.read_config(1)
     assert "5" not in config.get("ranks", {})
+    assert 1 not in plugin._cfg_cache
 
 
 async def test_remove_rank_missing_level(plugin):

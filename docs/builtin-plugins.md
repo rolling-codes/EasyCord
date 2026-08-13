@@ -17,7 +17,7 @@ bot = Bot(load_builtin_plugins=True)
 | Plugin | Commands |
 |---|---|
 | `WelcomePlugin` | Sends a configurable welcome message when a member joins |
-| `TagsPlugin` | `/tag create`, `/tag get`, `/tag delete`, `/tag list` — per-guild text snippets |
+| `TagsPlugin` | `/tag set`, `/tag get`, `/tag delete`, `/tag list` — per-guild text snippets |
 | `PollsPlugin` | `/poll` — create emoji polls with configurable options |
 | `LevelsPlugin` | Tracks XP per message; `/rank`, `/leaderboard`, configurable role rewards |
 
@@ -50,13 +50,13 @@ from easycord.plugins import SuggestionsPlugin
 bot.add_plugin(SuggestionsPlugin())
 ```
 
-**`ReputationPlugin`** — `/rep give`, `/rep check` — lets members award reputation points to each other.
+**`ReputationPlugin`** — `/rep`, `/rep_check`, `/rep_top` — lets members award reputation points to each other.
 ```python
 from easycord.plugins import ReputationPlugin
 bot.add_plugin(ReputationPlugin())
 ```
 
-**`GiveawayPlugin`** — `/giveaway start`, `/giveaway end`, `/giveaway reroll` — timed prize drawings.
+**`GiveawayPlugin`** — `/giveaway`, `/giveaway_end`, `/giveaway_reroll` — timed prize drawings.
 ```python
 from easycord.plugins import GiveawayPlugin
 bot.add_plugin(GiveawayPlugin())
@@ -72,16 +72,23 @@ from easycord.plugins import ModerationPlugin
 bot.add_plugin(ModerationPlugin())
 ```
 
-**`WordFilterPlugin`** — Auto-deletes messages containing configured forbidden words. Configure via `/filter add`, `/filter remove`, `/filter list`.
+**`WordFilterPlugin`** — Auto-deletes messages containing configured forbidden words. Configure via `/filter_add`, `/filter_remove`, `/filter_list`.
 ```python
 from easycord.plugins import WordFilterPlugin
 bot.add_plugin(WordFilterPlugin())
 ```
 
-**`AIModeratorPlugin`** — Uses an AI provider to evaluate messages and flag or remove those that violate configured rules. Requires `Bot(ai_provider=…)`.
+**`AIModeratorPlugin`** — Uses an orchestrator to evaluate messages and flag or remove those that violate configured rules. Without an orchestrator, AI analysis is disabled.
 ```python
-from easycord.plugins import AIModeratorPlugin
-bot.add_plugin(AIModeratorPlugin())
+from easycord import Bot, FallbackStrategy, Orchestrator
+from easycord.plugins import AIModeratorPlugin, OpenAIProvider
+
+bot = Bot()
+orchestrator = Orchestrator(
+    strategy=FallbackStrategy([OpenAIProvider()]),
+    tools=bot.tool_registry,
+)
+bot.add_plugin(AIModeratorPlugin(orchestrator=orchestrator))
 ```
 
 **`VerificationPlugin`** — Gate new members behind a verification step before they can access the server.
@@ -100,7 +107,7 @@ bot.add_plugin(SecurityLabPlugin())
 
 ### Automation & roles
 
-**`AutoRolePlugin`** — Assign roles automatically when members join. Configure target role IDs via `/autorole set`.
+**`AutoRolePlugin`** — Assign roles automatically when members join. Configure target role IDs via `/autorole_add`, `/autorole_remove`, and `/autorole_list`.
 ```python
 from easycord.plugins import AutoRolePlugin
 bot.add_plugin(AutoRolePlugin())
@@ -171,7 +178,7 @@ from easycord.plugins import ScheduledAnnouncementsPlugin
 bot.add_plugin(ScheduledAnnouncementsPlugin())
 ```
 
-**`TicketsPlugin`** — `/ticket open` — creates a private support thread per user with staff access control.
+**`TicketsPlugin`** — `/ticket_open` — creates a private support thread per user with staff access control.
 ```python
 from easycord.plugins import TicketsPlugin
 bot.add_plugin(TicketsPlugin())
@@ -193,11 +200,11 @@ bot.add_plugin(TranslatePlugin())
 
 ### AI plugins
 
-**`AIPlugin`** — `/ask` — conversational AI powered by your configured provider. Requires `Bot(ai_provider=…)`. `OpenClaudePlugin` is a backwards-compatible subclass of `AIPlugin` and can be used interchangeably.
+**`AIPlugin`** — `/ask` — conversational AI powered by the provider you pass to the plugin. `OpenClaudePlugin` is a backwards-compatible subclass of `AIPlugin` and can be used interchangeably.
 
 ```python
-from easycord.plugins import AIPlugin
-bot.add_plugin(AIPlugin())
+from easycord.plugins import AIPlugin, OpenAIProvider
+bot.add_plugin(AIPlugin(provider=OpenAIProvider()))
 ```
 
 **`OpenClawPlugin`** — Extended Claude/Anthropic integration with tool-calling support.
@@ -210,18 +217,18 @@ bot.add_plugin(OpenClawPlugin())
 
 ## Storage requirements
 
-Most plugins that persist data (LevelsPlugin, EconomyPlugin, BirthdayPlugin, etc.) use `Bot.db`. The default is an in-memory store. For production, configure SQLite:
+Most plugins that persist data (LevelsPlugin, EconomyPlugin, BirthdayPlugin, etc.) use `Bot.db`. The default is local SQLite at `.easycord/library.db`; use `db_backend="memory"` for disposable tests. For production, configure an explicit SQLite path:
 
 ```python
 from easycord import Bot, SQLiteDatabase
 
 bot = Bot(
-    db=SQLiteDatabase("data/bot.db"),
+    database=SQLiteDatabase("data/bot.db"),
     load_builtin_plugins=True,
 )
 ```
 
-Plugins that need persistent data will silently fall back to in-memory storage if no database is configured — data will not survive bot restarts.
+Plugins that need persistent data use the configured database, or the default local SQLite database when none is configured.
 
 ---
 
@@ -240,7 +247,7 @@ from easycord.plugins import (
 
 bot = Bot(
     load_builtin_plugins=True,  # loads: welcome, tags, polls, levels
-    db=SQLiteDatabase("bot.db"),  # for persistence
+    database=SQLiteDatabase("bot.db"),  # for persistence
 )
 
 # Add opt-in plugins

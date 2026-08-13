@@ -19,9 +19,9 @@ Ensure the CI pipelines return clean slates before proceeding.
     pytest tests/
     python scripts/verify_plugin_tests.py
     ```
-* **Type Checking:** Pyright must pass cleanly.
+* **Type Checking:** Pyright must report zero errors. Dynamic decorator warnings are tracked separately.
     ```bash
-    pyright easycord/ tests/ --warnings
+    pyright easycord/ tests/
     ```
 * **Linting:** Ruff must return zero critical rule violations.
     ```bash

@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import discord
+
 from easycord.decorators import slash
-from easycord.plugin import Plugin
+from easycord.group import SlashGroup
 from ._shared import GuildLockManager, read_json_file, respond_error, write_json_file
 
 
@@ -58,7 +60,7 @@ class TagsStore:
         return sorted(self._load(guild_id).keys())
 
 
-class TagsPlugin(Plugin):
+class TagsPlugin(SlashGroup, name="tag", description="Server tags"):
     """Slash-command tag store. Adds ``/tag get``, ``/tag set``, ``/tag delete``, ``/tag list``."""
 
     def __init__(self, *, data_dir: str = "tags_data") -> None:
@@ -71,7 +73,10 @@ class TagsPlugin(Plugin):
         if entry is None:
             await respond_error(ctx, ctx.t("tags.not_found", default="Tag `{name}` not found.", name=name))
             return
-        await ctx.respond(entry["text"])
+        await ctx.respond(
+            entry["text"],
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
     @slash(description="Create or update a tag.", guild_only=True)
     async def set(self, ctx, name: str, text: str) -> None:

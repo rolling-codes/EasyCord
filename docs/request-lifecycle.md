@@ -399,7 +399,7 @@ class MonitorPlugin(Plugin):
         self.bot.hooks.register("before_command", self._before)
     
     async def on_unload(self) -> None:
-        self.bot.hooks._callbacks["before_command"].remove(self._before)
+        self.bot.hooks.unregister("before_command", self._before)
     
     async def _before(self, ctx, name: str) -> None:
         print(f"Command: {name}")

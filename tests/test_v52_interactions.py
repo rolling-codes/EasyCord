@@ -82,7 +82,7 @@ async def test_discord_271_metadata_reaches_slash_context_menu_and_group() -> No
         async def profile(ctx, member):
             await ctx.respond(str(member.id))
 
-        bot.add_group(UtilityGroup())
+        bot.add_plugin(UtilityGroup())
 
         slash_cmd = bot.tree.get_command("info")
         menu_cmd = bot.tree.get_command("Profile", type=discord.AppCommandType.user)
@@ -97,6 +97,24 @@ async def test_discord_271_metadata_reaches_slash_context_menu_and_group() -> No
         assert menu_cmd.allowed_installs is installs
         assert group_cmd.allowed_contexts is contexts
         assert group_cmd.allowed_installs is installs
+        assert bot.tree.get_command("utility") is not None
+    finally:
+        await bot.close()
+
+
+async def test_decorated_methods_on_plain_mixin_are_registered() -> None:
+    class AuditMixin:
+        @slash(description="Mixin command")
+        async def audit(self, ctx):
+            await ctx.respond("audit")
+
+    class AuditPlugin(AuditMixin, Plugin):
+        pass
+
+    bot = Bot(auto_sync=False, db_backend="memory")
+    try:
+        bot.add_plugin(AuditPlugin())
+        assert bot.tree.get_command("audit") is not None
     finally:
         await bot.close()
 

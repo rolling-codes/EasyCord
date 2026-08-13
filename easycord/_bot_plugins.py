@@ -43,12 +43,37 @@ class PluginDependencyError(RuntimeError):
 def _iter_methods(plugin: object) -> list[tuple[str, Any]]:
     """Return ``(name, method)`` pairs for *plugin*'s bound methods.
 
-    ``inspect.ismethod`` is typed as a ``TypeGuard[MethodType]``, so static
-    checkers forget the decorator-added attributes (``_slash_name`` etc.) that
-    the scanner reads.  Returning the pairs as ``Any`` keeps those dynamic
-    attribute accesses clean without a ``getattr`` call on every line.
+    Methods are yielded in source definition order so plugin authors see the
+    same command order in Discord that they wrote in Python.
     """
-    return inspect.getmembers(plugin, predicate=inspect.ismethod)
+    methods: list[tuple[str, Any]] = []
+    seen: set[str] = set()
+    for cls in type(plugin).__mro__:
+        if cls is object:
+            continue
+        for name, value in cls.__dict__.items():
+            if name in seen or not callable(value):
+                continue
+            method = getattr(plugin, name)
+            if inspect.ismethod(method):
+                seen.add(name)
+                methods.append((name, method))
+    return methods
+
+
+def _discard_command_cooldowns(bot: Any, command: Any) -> None:
+    """Remove cooldown registry entries attached to a command tree."""
+    callback = getattr(command, "callback", None)
+    entry = getattr(callback, "_cooldown_registry_entry", None)
+    if entry is not None:
+        registries = getattr(bot, "_cooldown_registries", None)
+        if registries is not None:
+            try:
+                registries.remove(entry)
+            except ValueError:
+                pass
+    for child in getattr(command, "commands", ()):
+        _discard_command_cooldowns(bot, child)
 
 
 class _PluginsMixin(_MixinBase):
@@ -75,11 +100,15 @@ class _PluginsMixin(_MixinBase):
         Raises ``ValueError`` if the same plugin instance has already been added.
         """
         from .plugin import Plugin  # local import keeps the module-level graph acyclic
+        from .group import SlashGroup
 
         if not isinstance(plugin, Plugin):
             raise TypeError(
                 f"expected a Plugin instance, got {type(plugin).__name__!r}"
             )
+        if isinstance(plugin, SlashGroup):
+            self.add_group(plugin)
+            return self
         if plugin in self._plugins:
             raise ValueError(
                 f"{type(plugin).__name__} is already added to this bot. "
@@ -99,6 +128,7 @@ class _PluginsMixin(_MixinBase):
             # so that background tasks never fire before on_load() finishes.
             async def _load_then_start(p: Plugin) -> None:
                 await p.on_load()
+                await self.hooks.fire("on_plugin_load", plugin_name=p.name)
                 self._start_plugin_tasks(p)
 
             task = asyncio.create_task(_load_then_start(plugin))
@@ -119,14 +149,33 @@ class _PluginsMixin(_MixinBase):
 
         Raises ``ValueError`` if the plugin was never added.
         """
+        from .group import SlashGroup
+
         if plugin not in self._plugins:
             raise ValueError(
                 f"{type(plugin).__name__} has not been added to this bot. "
                 "Call bot.add_plugin() before trying to remove it."
             )
         self._plugins.remove(plugin)
+        is_group = isinstance(plugin, SlashGroup)
+        if is_group:
+            guild = (
+                discord.Object(id=plugin._group_guild)
+                if plugin._group_guild
+                else None
+            )
+            group_command = self.tree.get_command(plugin._group_name, guild=guild)
+            if group_command is not None:
+                _discard_command_cooldowns(self, group_command)
+            try:
+                self.tree.remove_command(plugin._group_name, guild=guild)
+            except Exception:  # noqa: BLE001
+                logger.debug(
+                    "Could not remove group %r during unload",
+                    plugin._group_name,
+                )
         for _, method in _iter_methods(plugin):
-            if getattr(method, "_is_slash", False):
+            if getattr(method, "_is_slash", False) and not is_group:
                 guild = (
                     discord.Object(id=method._slash_guild)
                     if method._slash_guild
@@ -135,18 +184,7 @@ class _PluginsMixin(_MixinBase):
                 for cmd_name in [method._slash_name] + list(getattr(method, "_slash_aliases", [])):
                     _existing_cmd = self.tree.get_command(cmd_name, guild=guild)
                     if _existing_cmd is not None:
-                        _entry = getattr(
-                            getattr(_existing_cmd, "callback", None),
-                            "_cooldown_registry_entry",
-                            None,
-                        )
-                        if _entry is not None:
-                            _registries = getattr(self, "_cooldown_registries", None)
-                            if _registries is not None:
-                                try:
-                                    _registries.remove(_entry)
-                                except ValueError:
-                                    pass
+                        _discard_command_cooldowns(self, _existing_cmd)
                     try:
                         self.tree.remove_command(cmd_name, guild=guild)
                     except Exception:  # noqa: BLE001
@@ -204,6 +242,7 @@ class _PluginsMixin(_MixinBase):
             if key.startswith(f"{getattr(plugin, '_instance_id', str(id(plugin)))}."):
                 status["state"] = "stopped"
         await plugin.on_unload()
+        await self.hooks.fire("on_plugin_unload", plugin_name=plugin.name)
 
     async def reload_plugin(self, name: str) -> None:
         """Reload a plugin by class name — calls ``on_unload`` then ``on_load`` in-place.
@@ -214,7 +253,9 @@ class _PluginsMixin(_MixinBase):
         for plugin in self._plugins:
             if getattr(plugin, "_instance_id", type(plugin).__name__) == name or type(plugin).__name__ == name:
                 await plugin.on_unload()
+                await self.hooks.fire("on_plugin_unload", plugin_name=plugin.name)
                 await plugin.on_load()
+                await self.hooks.fire("on_plugin_load", plugin_name=plugin.name)
                 return
         raise ValueError(f"No plugin named {name!r} is loaded")
 

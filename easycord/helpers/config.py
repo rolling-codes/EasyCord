@@ -25,12 +25,14 @@ class ConfigHelpers:
     async def update_atomic(guild_id: int, store_path: str, updates: dict[str, Any]) -> dict[str, Any]:
         """Atomically update config with dict of changes."""
         store = ServerConfigStore(store_path)
-        cfg_obj = await store.load(guild_id)
-        cfg = cfg_obj.get_other("config") or {}
-        cfg.update(updates)
-        cfg_obj.set_other("config", cfg)
-        await store.save(cfg_obj)
-        return cfg
+
+        def updater(cfg_obj):
+            cfg = cfg_obj.get_other("config") or {}
+            cfg.update(updates)
+            cfg_obj.set_other("config", cfg)
+            return cfg
+
+        return await store.mutate(guild_id, updater)
 
     @staticmethod
     async def load_all_guilds(store_path: str) -> dict[int, dict[str, Any]]:

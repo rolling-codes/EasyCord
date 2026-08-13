@@ -2,6 +2,31 @@
 
 All notable changes to EasyCord are documented here. See [Semantic Versioning](https://semver.org) for version numbering.
 
+## EasyCord v5.61.1 — 2026-08-13
+
+### Fixed
+
+- **Lifecycle hooks are now real bot API** — `Bot` initializes `bot.hooks`, slash command execution fires `before_command` / `after_command`, and plugin load/unload paths fire `on_plugin_load` / `on_plugin_unload`, matching the documented `HookRegistry` workflow.
+- **Slash group lifecycle cleanup** — unloading a `SlashGroup` now removes cooldown registry entries for nested group commands, preventing stale callback/plugin state from surviving hot reloads.
+- **Slash group dependency checks** — grouped plugins now honor `requires` declarations the same way normal plugins do, failing fast with `PluginDependencyError` when dependencies are missing.
+- **Mixin command registration** — decorated methods inherited from plain Python mixins are discovered again, preserving the pre-v5.61 plugin composition pattern for slash commands, events, components, modals, and subscriptions.
+- **Tags plugin grouping and mention safety** — `TagsPlugin` now registers as the documented `/tag` slash-command group and disables mentions when serving tag text.
+- **Plugin slash decorator parity** — plugin `@slash(...)` now accepts and propagates `nsfw`, `allowed_contexts`, and `allowed_installs`, matching the direct `Bot.slash(...)` API.
+- **Ticket panel send failures** — `TicketsPlugin.ticket_open()` no longer crashes when the panel message cannot be sent; it records the ticket and skips persistent view registration without a message ID.
+- **Levels config cache invalidation** — rank and role-reward config mutations now invalidate the in-memory config cache immediately.
+- **Atomic config helper update** — `ConfigHelpers.update_atomic()` now routes through `ServerConfigStore.mutate()` instead of a separate load/save sequence.
+- **Documentation accuracy sweep** — refreshed release docs, README snippets, built-in plugin command names, AI setup examples, event bus behavior, command sync examples, and troubleshooting guidance to match the current v5.61 API.
+
+### Tests
+
+- Added regression coverage for bot hook firing, grouped plugin dependency errors, grouped cooldown cleanup, mixin-decorated command discovery, slash decorator metadata propagation, ticket panel `None` handling, tag mention suppression, levels cache invalidation, and config helper atomic updates.
+- Full suite: 1871 passing.
+
+### Release metadata
+
+- Wheel: `easycord-5.61.1-py3-none-any.whl`
+- Source: `easycord-5.61.1.tar.gz` — `releases/download/v5.61.1/easycord-5.61.1.tar.gz`
+
 ## EasyCord v5.61.0 — 2026-08-11
 
 ### Added

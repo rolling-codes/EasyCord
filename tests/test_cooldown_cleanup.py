@@ -209,3 +209,24 @@ async def test_remove_plugin_prunes_cooldown_registry() -> None:
     assert len(bot._cooldown_registries) == 0
 
     await bot.close()
+
+
+async def test_remove_slash_group_prunes_cooldown_registry() -> None:
+    """Cooldown registry entries on grouped commands are removed on unload."""
+    from easycord import SlashGroup
+    from easycord.decorators import slash as slash_decorator
+
+    class _CoolGroup(SlashGroup, name="cool", description="Cool commands"):
+        @slash_decorator(description="test group cooldown cmd", cooldown=5.0)
+        async def ping(self, ctx):
+            await ctx.respond("ok")
+
+    bot = _make_bot()
+    group = _CoolGroup()
+    bot.add_plugin(group)
+    assert len(bot._cooldown_registries) == 1
+
+    await bot.remove_plugin(group)
+    assert len(bot._cooldown_registries) == 0
+
+    await bot.close()

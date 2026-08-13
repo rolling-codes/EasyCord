@@ -105,7 +105,7 @@ Prefer `type: ignore[specific-code]` over a bare `type: ignore` so suppressions 
 For channel sends specifically, EasyCord provides `SENDABLE_CHANNEL_TYPES` to narrow the type properly instead of suppressing:
 
 ```python
-from easycord.helpers.tools import SENDABLE_CHANNEL_TYPES
+from easycord import SENDABLE_CHANNEL_TYPES
 
 if isinstance(channel, SENDABLE_CHANNEL_TYPES):
     await channel.send(content)

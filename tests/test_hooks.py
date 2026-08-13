@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import pytest
 
+from easycord import Bot, Plugin, slash
 from easycord.hooks import SUPPORTED_HOOKS, HookRegistry
+from easycord.testing import invoke
 
 
 def test_registry_initialises_all_supported_hooks():
@@ -165,3 +167,40 @@ async def test_unregister_removes_only_target_callback():
     registry.unregister("before_command", cb_a)
     await registry.fire("before_command", ctx=None, name="x")
     assert calls == ["b"]
+
+
+async def test_bot_exposes_hooks_and_fires_around_command_execution():
+    bot = Bot(auto_sync=False, db_backend="memory")
+    calls: list[tuple[str, str]] = []
+
+    bot.hooks.register("before_command", lambda ctx, name: calls.append(("before", name)))
+    bot.hooks.register("after_command", lambda ctx, name: calls.append(("after", name)))
+
+    @bot.slash(description="Ping")
+    async def ping(ctx):
+        calls.append(("handler", "ping"))
+        await ctx.respond("pong")
+
+    try:
+        ctx = await invoke(bot, "ping")
+        assert ctx.last_response == "pong"
+        assert calls == [("before", "ping"), ("handler", "ping"), ("after", "ping")]
+    finally:
+        await bot.close()
+
+
+async def test_bot_fires_plugin_unload_hook():
+    class EmptyPlugin(Plugin):
+        pass
+
+    bot = Bot(auto_sync=False, db_backend="memory")
+    unloaded: list[str] = []
+    bot.hooks.register("on_plugin_unload", lambda plugin_name: unloaded.append(plugin_name))
+
+    plugin = EmptyPlugin()
+    bot.add_plugin(plugin)
+    try:
+        await bot.remove_plugin(plugin)
+        assert unloaded == [plugin.name]
+    finally:
+        await bot.close()

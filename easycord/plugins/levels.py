@@ -202,6 +202,7 @@ class LevelsPlugin(Plugin):
             config.setdefault(section, {})[str(key)] = value
 
         await self._store.update_config(guild_id, updater)
+        self._invalidate_config_cache(guild_id)
 
     async def _remove_config_value(
         self, guild_id: int, section: str, key: int
@@ -209,7 +210,9 @@ class LevelsPlugin(Plugin):
         def updater(config: dict) -> Any | None:
             return config.get(section, {}).pop(str(key), None)
 
-        return await self._store.update_config(guild_id, updater)
+        removed = await self._store.update_config(guild_id, updater)
+        self._invalidate_config_cache(guild_id)
+        return removed
 
     async def _grant_level_reward(
         self,

@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from .conversation_memory import ConversationMemory
     from .database import EasyCordDatabase
     from .event_bus import EventBus
+    from .hooks import HookRegistry
     from .i18n import LocalizationManager
     from .middleware import MiddlewareFn
     from .plugin import Plugin
@@ -47,6 +48,7 @@ class _BotBase:
     registry: InteractionRegistry
     tool_registry: ToolRegistry
     event_bus: EventBus
+    hooks: HookRegistry
     db: EasyCordDatabase
     localization: LocalizationManager | None
     conversation_memory: ConversationMemory | None
@@ -81,6 +83,7 @@ class _BotBase:
     _register_context_menu: Callable[..., Any]
     _register_component_handler: Callable[..., Any]
     _register_modal_handler: Callable[..., Any]
+    add_group: Callable[..., Any]
     _dispatch_framework_error: Callable[..., Any]
     _log_task_exception: Callable[..., Any]
     _scan_methods: Callable[..., Any]

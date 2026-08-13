@@ -95,7 +95,12 @@ async def test_get_existing_tag_responds_text(tmp_path) -> None:
     await plugin._store.set(1, "greet", "hi there", author_id=2)
     ctx = _make_context()
     await plugin.get(ctx, "greet")
-    ctx.respond.assert_called_once_with("hi there")
+    ctx.respond.assert_called_once()
+    args, kwargs = ctx.respond.call_args
+    assert args == ("hi there",)
+    assert kwargs["allowed_mentions"].everyone is False
+    assert kwargs["allowed_mentions"].users is False
+    assert kwargs["allowed_mentions"].roles is False
 
 
 @pytest.mark.asyncio

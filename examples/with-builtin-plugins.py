@@ -12,10 +12,10 @@ Run:
     DISCORD_TOKEN=... python examples/with-builtin-plugins.py
 
 Available commands (from built-in plugins):
-  - /tag create|get|delete|list — per-guild text snippets
+  - /tag set|get|delete|list — per-guild text snippets
   - /rank / /leaderboard — member levels and XP
   - /poll — emoji-based voting
-  - /welcome set — configurable member join message
+  - /welcome — configurable member join message
   - /kick|ban|unban|timeout|warn — moderation tools
   - /balance|daily|transfer — virtual economy
   - /remind me in 2h do thing — user reminders
@@ -79,7 +79,7 @@ bot = Bot(
     # Load the four default plugins: WelcomePlugin, TagsPlugin, PollsPlugin, LevelsPlugin
     load_builtin_plugins=True,
     # Use SQLite for persistent storage (tags, economy, levels, etc.)
-    db=SQLiteDatabase("builtin_plugins_bot.db"),
+    database=SQLiteDatabase("builtin_plugins_bot.db"),
 )
 
 # Add opt-in plugins

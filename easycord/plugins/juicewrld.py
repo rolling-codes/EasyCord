@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 """Juice WRLD song metadata finder — EasyCord plugin.
 
 This module was previously the standalone ``juice-wrld-finder`` project.  It is

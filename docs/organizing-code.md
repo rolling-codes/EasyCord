@@ -250,7 +250,7 @@ Fire an event. All subscribed callbacks are called with the provided keyword arg
 await bot.event_bus.publish("order_placed", order_id=42, user_id=ctx.user.id)
 ```
 
-**Important**: Sync callbacks run in order; async callbacks run concurrently via `asyncio.gather`. An exception in one callback doesn't crash other callbacks — each failure is logged and the bus continues.
+**Important**: Sync and async callbacks run sequentially in registration order. An exception in one callback doesn't crash other callbacks — each failure is logged and the bus continues.
 
 ### Event Naming
 
@@ -458,4 +458,4 @@ This generates a complete package structure with manifest, tests, and entry-poin
 
 - Need persistent storage? → [Storage & State](database-guide.md)
 - Want to test your plugins? → [Testing Commands](testing.md)
-- Building complex features? → [Advanced Development](advanced-development.md)
+- Building complex features? → [Development Workflow](development-workflow.md)

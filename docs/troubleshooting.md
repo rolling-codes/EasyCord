@@ -11,14 +11,14 @@ During development, set `auto_sync=True` in your bot configuration, or manually 
 easycord sync-plan
 ```
 
-## 2. Volatile/Resetting Cooldowns
+## 2. Volatile/Resetting Runtime State
 
-**Cause:** Cooldown states are being lost on local hot-reloads because you are using in-memory tracking structures (like dictionaries directly on the plugin).
+**Cause:** Runtime state is being lost on local hot-reloads because you are using in-memory tracking structures (like dictionaries directly on the plugin) for data that should survive reloads.
 **Fix:** 
-Move cooldown tracking to the central cache layer, which survives hot-reloads:
+Move persistent per-guild state to `PluginConfigManager` or `Bot.db`:
 ```python
-# Instead of self.cooldowns = {}
-await self.bot.cache.set(f"cooldown:{user_id}", timestamp, ttl=60)
+# Instead of self.settings = {}
+await self.config.update(ctx.guild.id, "settings", enabled=True)
 ```
 
 ## 3. Hot-Reload App Crashes
@@ -49,9 +49,9 @@ logging.getLogger("easycord.orchestrator").setLevel(logging.DEBUG)
 
 ## 5. Production Database Amnesia
 
-**Cause:** Default configurations revert to `db_backend="memory"`, causing all per-guild state to be lost when the bot restarts.
+**Cause:** The bot is configured with `db_backend="memory"`, causing database-backed state to be lost when the bot restarts.
 **Fix:** 
-Standardize on the SQLite backend and configure a volume-mapped path for persistent storage:
+Use the default local SQLite database or configure an explicit volume-mapped path for production:
 ```python
 bot = Bot(
     db_backend="sqlite",

@@ -9,7 +9,7 @@ Pick a goal below to jump straight to what you need. **No wasted clicks.**
 ## Start here (5 minutes)
 
 **New to EasyCord?** 
-1. **Do the [Day 1 walkthrough](../README.md#your-first-bot-day-1)** in the README (creates a bot, writes a command, tests it offline)
+1. **Do the [Day 1 walkthrough](../README.md#your-first-bot)** in the README (creates a bot, writes a command, tests it offline)
 2. **Follow the recommended learning path below**
 
 ---
@@ -96,7 +96,7 @@ Or jump straight to a specific goal:
 | [Command Sync](command-sync.md) | Registering commands to Discord |
 | [Request Lifecycle](request-lifecycle.md) | Middleware, error handlers, hooks, command flow |
 | [Organizing Code](organizing-code.md) | Plugins, task scheduling, event bus, patterns |
-| [Built-in Plugins](builtin-plugins.md) | 29 bundled plugins (levels, economy, moderation, AI, etc.) |
+| [Built-in Plugins](builtin-plugins.md) | 30 bundled plugins (levels, economy, moderation, AI, etc.) |
 | [Server Setup Templates](server-setup.md) | `/setup-server` presets: channels, roles, permissions |
 | [Conversation Memory](conversation-memory.md) | AI context, multi-turn memory |
 | [Testing Commands](testing.md) | Offline testing without Discord |

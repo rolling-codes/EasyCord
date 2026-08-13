@@ -350,13 +350,11 @@ class TestTicketOpenPanelMessage:
         assert str(mock_thread.id) in tickets
         assert tickets[str(mock_thread.id)]["panel_message_id"] == 12345
 
-    async def test_panel_message_id_guard_only_sets_when_not_none(self, tmp_path):
+    async def test_panel_message_id_guard_skips_view_when_send_returns_none(self, tmp_path):
         """panel_message_id is only updated when send_safe returns a message (not None).
 
-        This tests the ``if panel_msg is not None`` guard directly: when send_safe
-        succeeds, panel_message_id is stored; a second call with the same ticket
-        verifies the value persists correctly (the None-send path crashes the plugin
-        at bot.add_view, so we test the guard via the positive case only).
+        The ticket should still be recorded when the panel send fails, but no
+        persistent view can be registered without a panel message ID.
         """
         p = _plugin(tmp_path)
         ctx = _ctx(guild_id=100, user_id=5)
@@ -367,10 +365,7 @@ class TestTicketOpenPanelMessage:
         mock_thread.id = 8888
         mock_thread.mention = "<#8888>"
         mock_thread.add_user = AsyncMock()
-
-        mock_panel_msg = MagicMock()
-        mock_panel_msg.id = 42
-        mock_thread.send = AsyncMock(return_value=mock_panel_msg)
+        mock_thread.send = AsyncMock(return_value=None)
 
         ctx.channel.create_thread = AsyncMock(return_value=mock_thread)
         ctx.guild.get_role = MagicMock(return_value=None)
@@ -382,7 +377,8 @@ class TestTicketOpenPanelMessage:
 
         cfg = await p._store.load(100)
         tickets: dict = cfg.get_other("tickets", {})
-        assert tickets[str(mock_thread.id)]["panel_message_id"] == 42
+        assert tickets[str(mock_thread.id)]["panel_message_id"] is None
+        p._bot.add_view.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

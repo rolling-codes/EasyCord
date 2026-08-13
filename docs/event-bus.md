@@ -75,8 +75,7 @@ async def on_unload(self) -> None:
 
 Fire an event. All subscribed callbacks are called with the provided keyword arguments.
 
-- Sync callbacks are called directly in order of registration.
-- Async callbacks are gathered concurrently via `asyncio.gather`.
+- Sync and async callbacks are called sequentially in order of registration.
 - An exception in one callback does not prevent other callbacks from running — each failure is logged at ERROR and the bus continues.
 
 ```python

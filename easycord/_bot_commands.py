@@ -218,6 +218,14 @@ class _CommandsMixin(_MixinBase):
             )
         if group in self._plugins:
             raise ValueError(f"{type(group).__name__} is already added to this bot.")
+        required: tuple[str, ...] = getattr(type(group), "requires", ())
+        if required:
+            from ._bot_plugins import PluginDependencyError
+
+            loaded_names = {p.name for p in self._plugins}
+            missing = [n for n in required if n not in loaded_names]
+            if missing:
+                raise PluginDependencyError(type(group).__name__, missing)
         group._bot = self  # type: ignore[assignment]
         self._plugins.append(group)
 
@@ -236,8 +244,17 @@ class _CommandsMixin(_MixinBase):
         self.tree.add_command(discord_group, guild=guild)
 
         if self.is_ready():
-            asyncio.create_task(group.on_load())
-            self._start_plugin_tasks(group)
+            async def _load_then_start(p: SlashGroup) -> None:
+                await p.on_load()
+                await self.hooks.fire("on_plugin_load", plugin_name=p.name)
+                self._start_plugin_tasks(p)
+
+            task = asyncio.create_task(_load_then_start(group))
+            background_tasks = getattr(self, "_background_tasks", None)
+            if background_tasks is not None:
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
+            task.add_done_callback(self._log_task_exception)
 
     def add_groups(self, *groups: "SlashGroup") -> None:
         """Register several SlashGroup namespaces in one call."""

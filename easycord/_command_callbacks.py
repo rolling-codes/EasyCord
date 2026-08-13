@@ -195,31 +195,40 @@ def build_slash_callback(
                     return
                 used_at.append(now)
                 cooldown_last_used[bucket_key] = used_at
+            hooks = getattr(bot, "hooks", None)
+            fire_hook = getattr(hooks, "fire", None)
+            hook_name = command_name or func.__name__
+            if inspect.iscoroutinefunction(fire_hook):
+                await fire_hook("before_command", ctx=ctx, name=hook_name)
             try:
-                await func(ctx, **kwargs)
-            except Exception as exc:
-                per_cmd = (
-                    getattr(bot, "_command_error_handlers", {}).get(command_name)
-                    if command_name
-                    else None
-                )
-                if per_cmd is not None:
-                    await per_cmd(ctx, exc)
-                    return
-                plugin = getattr(func, "__self__", None)
-                if plugin is not None:
-                    from .plugin import Plugin as _Plugin
+                try:
+                    await func(ctx, **kwargs)
+                except Exception as exc:
+                    per_cmd = (
+                        getattr(bot, "_command_error_handlers", {}).get(command_name)
+                        if command_name
+                        else None
+                    )
+                    if per_cmd is not None:
+                        await per_cmd(ctx, exc)
+                        return
+                    plugin = getattr(func, "__self__", None)
+                    if plugin is not None:
+                        from .plugin import Plugin as _Plugin
 
-                    if isinstance(plugin, _Plugin):
-                        plugin_on_error = type(plugin).on_error
-                        base_on_error = _Plugin.on_error
-                        if plugin_on_error is not base_on_error:
-                            await plugin.on_error(ctx, exc)
-                            return
-                if bot._error_handler is not None:
-                    await bot._error_handler(ctx, exc)
-                else:
-                    raise
+                        if isinstance(plugin, _Plugin):
+                            plugin_on_error = type(plugin).on_error
+                            base_on_error = _Plugin.on_error
+                            if plugin_on_error is not base_on_error:
+                                await plugin.on_error(ctx, exc)
+                                return
+                    if bot._error_handler is not None:
+                        await bot._error_handler(ctx, exc)
+                    else:
+                        raise
+            finally:
+                if inspect.iscoroutinefunction(fire_hook):
+                    await fire_hook("after_command", ctx=ctx, name=hook_name)
 
         # When dev hot-reload is active, serialize against plugin swaps so a
         # command never executes against a half-removed registry. In production

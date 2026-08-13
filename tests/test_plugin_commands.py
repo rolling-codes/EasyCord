@@ -74,7 +74,12 @@ class TestTagsPluginCommands:
 
         ctx2 = _make_ctx()
         await plugin.get(ctx2, "hello")
-        ctx2.respond.assert_called_once_with("Hello, world!")
+        ctx2.respond.assert_called_once()
+        args, kwargs = ctx2.respond.call_args
+        assert args == ("Hello, world!",)
+        assert kwargs["allowed_mentions"].everyone is False
+        assert kwargs["allowed_mentions"].users is False
+        assert kwargs["allowed_mentions"].roles is False
 
     @pytest.mark.asyncio
     async def test_get_missing_tag(self, plugin) -> None:

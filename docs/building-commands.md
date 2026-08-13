@@ -345,7 +345,8 @@ await bot.sync_commands()
 Discord only sees commands that have been synced. EasyCord provides tools to preview changes:
 
 ```python
-await bot.preview_sync_commands()  # Shows what will change without applying
+plan = bot.plan_command_sync(remote_commands=[])  # Shows what would change
+await bot.sync_commands(dry_run=True, remote_commands=[])
 ```
 
 For more control, see [Command Sync & Registration](command-sync.md).

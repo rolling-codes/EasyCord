@@ -365,7 +365,8 @@ class TicketsPlugin(Plugin):
             cfg.set_other("tickets", tickets)
             await self._store.save(cfg)
 
-        self.bot.add_view(view, message_id=panel_msg.id)
+        if panel_msg is not None:
+            self.bot.add_view(view, message_id=panel_msg.id)
         await ctx.respond(
             f"Your ticket has been opened: {thread.mention}", ephemeral=True
         )

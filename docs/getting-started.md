@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.61.0/easycord-5.61.0-py3-none-any.whl"
+pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.61.1/easycord-5.61.1-py3-none-any.whl"
 ```
 
 Or clone and install locally:
@@ -170,19 +170,15 @@ bot.run("YOUR_TOKEN")
 
 ## Per-guild configuration
 
-Use `ServerConfigStore` to persist per-guild settings without a full database:
+Use plugin config helpers to persist per-guild settings without a full database:
 
 ```python
 from easycord import Bot, Plugin, slash
-from easycord import ServerConfigStore
 
 class PrefixPlugin(Plugin):
-    def __init__(self):
-        self._store = ServerConfigStore()
-
     @slash(description="Set the welcome channel")
     async def set_welcome(self, ctx, channel_id: str):
-        await self._store.set(ctx.guild.id, "welcome_channel", channel_id)
+        await self.config_set(ctx.guild.id, "welcome_channel", channel_id)
         await ctx.respond(f"Welcome channel set to <#{channel_id}>.")
 ```
 
@@ -314,7 +310,8 @@ Members use `/ask "your question"`. Responses are rate-limited per user and
 automatically truncated to Discord's 2000-character limit.
 
 For other providers (OpenAI, Gemini, Groq, Ollama, etc.) or multi-provider
-fallback chains, see the AI Orchestration section of the README.
+fallback chains, see the [AI Assistant Bot](../README.md#ai-assistant-bot)
+example in the README.
 
 ---
 

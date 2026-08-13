@@ -27,6 +27,7 @@ from ._bot_guild import _GuildMixin
 from ._bot_plugins import _PluginsMixin
 from .registry import InteractionRegistry
 from .event_bus import EventBus
+from .hooks import HookRegistry
 from .tools import ToolRegistry
 from .builtin_tools import register_builtin_tools
 
@@ -116,6 +117,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         )
         self.ai_tools: dict[str, dict] = {}
         self.event_bus = EventBus()
+        self.hooks = HookRegistry()
         self.tool_registry = ToolRegistry()
         try:
             register_builtin_tools(self.tool_registry)
@@ -375,11 +377,16 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
 
     def load_builtin_plugins(self) -> None:
         """Load the framework's bundled first-party plugins."""
+        from .group import SlashGroup
+
         loaded_types = {type(plugin) for plugin in self._plugins}
         for plugin in build_builtin_plugins():
             if type(plugin) in loaded_types:
                 continue
-            self.add_plugin(plugin)
+            if isinstance(plugin, SlashGroup):
+                self.add_group(plugin)
+            else:
+                self.add_plugin(plugin)
             loaded_types.add(type(plugin))
 
     async def _sync_guilds_with_timeout(self) -> None:
@@ -424,6 +431,7 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
                 await self.tree.sync()
         for plugin in self._plugins:
             await plugin.on_load()
+            await self.hooks.fire("on_plugin_load", plugin_name=plugin.name)
             self._start_plugin_tasks(plugin)
         if getattr(self, "_dev_reload", False):
             task = asyncio.create_task(self._hot_reload_loop())
