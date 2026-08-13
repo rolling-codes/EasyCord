@@ -211,7 +211,8 @@ def test_cli_new_template_options(
     assert (project / "bot.py").exists()
     assert (project / "tests" / "test_bot.py").exists()
     assert (project / "plugins" / f"{template}_bot.py").exists() is has_plugin
-    assert "auto_sync=False" in (project / "bot.py").read_text(encoding="utf-8")
+    bot_source = (project / "bot.py").read_text(encoding="utf-8")
+    assert "auto_sync=False" in bot_source or ".auto_sync(False)" in bot_source
 
 
 def test_cli_new_defaults_to_plugin_template(tmp_path: Path, capsys) -> None:
@@ -244,7 +245,10 @@ def test_cli_new_community_template_is_composition_first(tmp_path: Path, capsys)
     bot_source = (project / "bot.py").read_text(encoding="utf-8")
     test_source = (project / "tests" / "test_bot.py").read_text(encoding="utf-8")
 
-    assert "load_builtin_plugins=True" in bot_source
+    assert "Composer()" in bot_source
+    assert ".auto_sync(False)" in bot_source
+    assert ".builtin_plugins()" in bot_source
+    assert ".build()" in bot_source
     assert "ModerationPlugin()" in bot_source
     assert "EconomyPlugin()" in bot_source
     assert "ReminderPlugin()" in bot_source
