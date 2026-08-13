@@ -43,20 +43,20 @@ cd my-bot && pip install -e ".[dev]"
 
 ```python
 import os
-from easycord import Bot, Plugin, slash, SQLiteDatabase
-from easycord.plugins import LevelsPlugin, ModerationPlugin
-
-class MyPlugin(Plugin):
-    @slash(description="Server info")
-    async def info(self, ctx):
-        await ctx.respond(f"{ctx.guild.name} — {ctx.guild.member_count} members")
+from easycord import Bot, SQLiteDatabase
+from easycord.plugins import LevelsPlugin, ModerationPlugin, TagsPlugin
 
 bot = Bot(database=SQLiteDatabase("bot.db"))
-bot.add_plugins(LevelsPlugin(), ModerationPlugin(), MyPlugin())
+
+@bot.slash(description="Server info")
+async def info(ctx):
+    await ctx.respond(f"{ctx.guild.name} — {ctx.guild.member_count} members")
+
+bot.add_plugins(LevelsPlugin(), ModerationPlugin(), TagsPlugin())
 bot.run(os.environ["DISCORD_TOKEN"])
 ```
 
-That's `/rank`, `/leaderboard`, `/kick`, `/ban`, `/timeout`, `/warn`, and `/info` — from 10 lines.
+That's `/rank`, `/leaderboard`, `/kick`, `/ban`, `/timeout`, `/warn`, `/tag`, and `/info` — by assembling library plugins and one small command function.
 
 ### Test it offline
 
@@ -78,29 +78,29 @@ For the current release notes and verified fix list, see [EasyCord v5.61.1](http
 
 ### Community Bot
 
-A full-featured community server bot: leveling, tags, polls, moderation, economy, and a custom admin dashboard — all from built-in plugins and one custom `Plugin`.
+A full-featured community server bot assembled from ready-made plugin objects. Start with shipped features, then add your own command functions only where your server needs custom behavior.
 
 ```python
-import os, discord
-from easycord import Bot, Plugin, slash, SQLiteDatabase
-from easycord.plugins import ModerationPlugin, EconomyPlugin, ReminderPlugin, StarboardPlugin
-
-class AdminPlugin(Plugin):
-    @slash(description="Show server overview", guild_only=True, require_admin=True)
-    async def dashboard(self, ctx):
-        guild = ctx.guild
-        embed = discord.Embed(title=f"Admin — {guild.name}", color=discord.Color.gold())
-        embed.add_field(name="Members", value=str(guild.member_count), inline=True)
-        embed.add_field(name="Channels", value=str(len(guild.channels)), inline=True)
-        embed.add_field(name="Roles", value=str(len(guild.roles)), inline=True)
-        await ctx.respond(embed=embed, ephemeral=True)
+import os
+import discord
+from easycord import Bot, SQLiteDatabase
+from easycord.plugins import EconomyPlugin, ModerationPlugin, ReminderPlugin, StarboardPlugin
 
 bot = Bot(
     load_builtin_plugins=True,       # WelcomePlugin, TagsPlugin, PollsPlugin, LevelsPlugin
     database=SQLiteDatabase("bot.db"),
 )
+
+@bot.slash(description="Show server overview", guild_only=True, require_admin=True)
+async def dashboard(ctx):
+    guild = ctx.guild
+    embed = discord.Embed(title=f"Admin — {guild.name}", color=discord.Color.gold())
+    embed.add_field(name="Members", value=str(guild.member_count), inline=True)
+    embed.add_field(name="Channels", value=str(len(guild.channels)), inline=True)
+    embed.add_field(name="Roles", value=str(len(guild.roles)), inline=True)
+    await ctx.respond(embed=embed, ephemeral=True)
+
 bot.add_plugins(
-    AdminPlugin(),
     ModerationPlugin(),
     EconomyPlugin(),
     ReminderPlugin(),
@@ -109,92 +109,53 @@ bot.add_plugins(
 bot.run(os.environ["DISCORD_TOKEN"])
 ```
 
-**What you get:** `/rank`, `/leaderboard`, `/tag`, `/poll`, `/welcome`, `/kick`, `/ban`, `/timeout`, `/warn`, `/balance`, `/daily`, `/transfer`, `/remind`, plus ⭐ starboard pinning and a custom `/dashboard` — all production-ready with persistent SQLite storage.
+**What you get:** `/rank`, `/leaderboard`, `/tag`, `/poll`, `/welcome`, `/kick`, `/ban`, `/timeout`, `/warn`, `/balance`, `/daily`, `/transfer`, `/remind`, plus starboard pinning and a custom `/dashboard` — all production-ready with persistent SQLite storage.
 
 ---
 
 ### AI Assistant Bot
 
-Multi-provider AI assistant with tool access. Tries Claude first, falls back to Groq on failure, and exposes a server-info tool the AI can call during reasoning.
+Add a conversational AI command by creating a provider object and passing it to the shipped `AIPlugin`.
 
 ```python
 import os
-from easycord import Bot, Plugin, slash, Orchestrator, FallbackStrategy, RunContext, ai_tool
-from easycord.plugins import AnthropicProvider, GroqProvider
-
-class AiPlugin(Plugin):
-    def __init__(self):
-        super().__init__()
-
-    async def on_load(self):
-        self._orchestrator = Orchestrator(
-            strategy=FallbackStrategy([AnthropicProvider(), GroqProvider()]),
-            tools=self.bot.tool_registry,
-        )
-
-    @slash(description="Ask the AI a question")
-    async def ask(self, ctx, question: str):
-        await ctx.defer()
-        result = await self._orchestrator.run(
-            RunContext(messages=[{"role": "user", "content": question}], ctx=ctx, max_steps=3)
-        )
-        await ctx.respond(result.text[:2000])
-
-    @ai_tool(description="Return this server's name and member count")
-    async def server_info(self, ctx) -> str:
-        return f"{ctx.guild.name} has {ctx.guild.member_count} members."
+from easycord import Bot
+from easycord.plugins import AIPlugin, AnthropicProvider
 
 bot = Bot()
-bot.add_plugin(AiPlugin())
+bot.add_plugin(
+    AIPlugin(
+        provider=AnthropicProvider(api_key=os.environ["ANTHROPIC_API_KEY"]),
+        rate_limit=3,
+        rate_window=60.0,
+    )
+)
 bot.run(os.environ["DISCORD_TOKEN"])
 ```
 
-**What you get:** `/ask` backed by Claude (falls back to Groq automatically), with a tool the AI can call to look up server info. Swap providers in one line — the command never changes. See [AI Features](docs/conversation-memory.md) for conversation memory, tool safety levels, and all 9 providers.
+**What you get:** `/ask` backed by Claude without writing a plugin class. Swap in another provider object when you want OpenAI, Gemini, Groq, Ollama, or a custom provider. See [AI Features](docs/conversation-memory.md) for conversation memory, tool safety levels, and all 9 providers.
 
 ---
 
 ### Production Bot — Config Schemas + Middleware
 
-A bot that won't corrupt guild config across schema changes, with rate limiting and error isolation from the start.
+A production-ready bot can be mostly wiring: choose storage, attach middleware, and add shipped plugin objects. Move to custom plugin classes only when your feature needs its own lifecycle or persistent state.
 
 ```python
 import os
-from easycord import Bot, Plugin, slash, task, SQLiteDatabase
-from easycord.config_schema import ConfigSchema
+from easycord import Bot, SQLiteDatabase
 from easycord.middleware import catch_errors, rate_limit, log_middleware
-from easycord.plugins import PluginConfigManager
-
-_DEFAULTS = {"xp_enabled": True, "welcome_channel": None, "mod_log": None}
-SCHEMA = ConfigSchema(key="server", version=1, defaults=_DEFAULTS)
-
-@SCHEMA.migration(from_version=0)
-def _v0_to_v1(section: dict) -> dict:
-    return {**section, "mod_log": None}   # backfill field added in v1
-
-class ServerPlugin(Plugin):
-    def __init__(self):
-        super().__init__()
-        self.config = PluginConfigManager(".easycord/server")
-
-    @slash(description="Toggle XP tracking", guild_only=True, require_admin=True)
-    async def set_xp(self, ctx, enabled: bool):
-        await self.config.get_schema(ctx.guild.id, SCHEMA)
-        await self.config.update(ctx.guild.id, SCHEMA.key, xp_enabled=enabled)
-        await ctx.respond(f"XP {'enabled' if enabled else 'disabled'}.", ephemeral=True)
-
-    @task(hours=1)
-    async def health_ping(self):
-        pass   # runs every hour without blocking the event loop
+from easycord.plugins import LevelsPlugin, ModerationPlugin, TicketsPlugin
 
 bot = Bot(database=SQLiteDatabase("bot.db"))
 bot.use(catch_errors())
 bot.use(rate_limit(limit=5, window=10.0))
 bot.use(log_middleware())
-bot.add_plugin(ServerPlugin())
+bot.add_plugins(LevelsPlugin(), ModerationPlugin(), TicketsPlugin())
 bot.run(os.environ["DISCORD_TOKEN"])
 ```
 
-**What you get:** Per-guild config that survives schema changes — missing keys backfilled, stale keys migrated, all transparently. Heal drifted configs any time with `easycord doctor bot:bot --fix-configs`. Rate limiting and structured error replies out of the box. See [Plugin Config Schemas](docs/config-schema.md) and [Request Lifecycle](docs/request-lifecycle.md).
+**What you get:** SQLite-backed state, rate limiting, structured error replies, moderation commands, leveling, and support tickets without owning a framework subclass. When you do need custom state, add `ConfigSchema` and plugin config helpers from [Plugin Config Schemas](docs/config-schema.md).
 
 ---
 
