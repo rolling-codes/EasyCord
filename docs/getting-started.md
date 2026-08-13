@@ -90,29 +90,30 @@ that guild instead of globally. JSON files use the same field names:
 
 ---
 
-## Adding your first plugin
+## Adding features without writing a plugin
 
-Split features into plugins as the bot grows. A plugin is a class that groups
-related commands and event handlers.
+Start by assembling the plugin objects EasyCord already ships. This is usually
+enough for the first version of a community, moderation, support, or utility bot.
 
 ```python
-from easycord import Bot, Plugin, slash, on
-
-class GreetPlugin(Plugin):
-    @slash(description="Say hello")
-    async def hello(self, ctx):
-        await ctx.respond(f"Hello, {ctx.user.display_name}!")
-
-    @on("member_join")
-    async def on_join(self, member):
-        channel = member.guild.system_channel
-        if channel:
-            await channel.send(f"Welcome, {member.mention}!")
+from easycord import Bot
+from easycord.plugins import LevelsPlugin, PollsPlugin, TagsPlugin, WelcomePlugin
 
 bot = Bot()
-bot.add_plugin(GreetPlugin())
+bot.add_plugins(WelcomePlugin(), TagsPlugin(), PollsPlugin(), LevelsPlugin())
 bot.run("YOUR_TOKEN")
 ```
+
+Use a direct command function for one server-specific action:
+
+```python
+@bot.slash(description="Say hello")
+async def hello(ctx):
+    await ctx.respond(f"Hello, {ctx.user.display_name}!")
+```
+
+Create a custom `Plugin` class when a feature needs shared state, lifecycle
+hooks, event handlers, or several related commands.
 
 For reusable plugins, start from the plugin authoring helpers instead of copying
 files by hand. Generated plugin projects include a required manifest, runnable

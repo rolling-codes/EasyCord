@@ -190,6 +190,7 @@ def test_cli_new_creates_project(tmp_path: Path, capsys) -> None:
     [
         ("minimal", False),
         ("plugin", True),
+        ("community", False),
         ("ai", True),
         ("database", True),
     ],
@@ -229,8 +230,27 @@ def test_cli_new_lists_templates(capsys) -> None:
     assert "EasyCord project templates" in output
     assert "minimal:" in output
     assert "plugin (default):" in output
+    assert "community:" in output
     assert "ai:" in output
     assert "database:" in output
+
+
+def test_cli_new_community_template_is_composition_first(tmp_path: Path, capsys) -> None:
+    project = tmp_path / "server_hub"
+
+    assert main(["new", str(project), "--template", "community"]) == 0
+    capsys.readouterr()
+
+    bot_source = (project / "bot.py").read_text(encoding="utf-8")
+    test_source = (project / "tests" / "test_bot.py").read_text(encoding="utf-8")
+
+    assert "load_builtin_plugins=True" in bot_source
+    assert "ModerationPlugin()" in bot_source
+    assert "EconomyPlugin()" in bot_source
+    assert "ReminderPlugin()" in bot_source
+    assert "class " not in bot_source
+    assert "@bot.slash" in bot_source
+    assert "inspect_interactions" in test_source
 
 
 def test_cli_test_template_prints_and_writes(tmp_path: Path, capsys) -> None:

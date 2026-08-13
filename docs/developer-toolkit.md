@@ -5,17 +5,21 @@ EasyCord includes a small, dependency-free toolkit for local bot development.
 ## Create a bot
 
 ```bash
-easycord new my-bot --template plugin
+easycord new my-bot --template community
 cd my-bot
 pip install -e ".[dev]"
 pytest
 ```
 
+If you are new, start here instead of copying examples by hand. The scaffold
+creates a runnable bot, tests, `.env.example`, `pyproject.toml`, and safe local
+defaults. Generated runnable bot code uses `Bot(auto_sync=False)`, which keeps
+command sync disabled and uses EasyCord's default local storage unless you
+configure another database backend.
+
 The default `plugin` scaffold matches v5.3 behavior and includes `bot.py`, one
 plugin under `plugins/`, `.env.example`, `pyproject.toml`, and a starter pytest
-file using `easycord.testing.invoke()`. Generated runnable bot code uses
-`Bot(auto_sync=False)`, which keeps command sync disabled and uses EasyCord's
-default local storage unless you configure another database backend.
+file using `easycord.testing.invoke()`.
 
 Choose a template when you want a smaller or more specialized starting point:
 
@@ -23,12 +27,14 @@ Choose a template when you want a smaller or more specialized starting point:
 easycord new --list-templates
 easycord new tiny-bot --template minimal
 easycord new plugin-bot --template plugin
+easycord new server-bot --template community
 easycord new assistant-bot --template ai
 easycord new storage-bot --template database
 ```
 
 - `minimal`: one `bot.py` with a slash command and a command test.
 - `plugin`: a plugin-oriented project; this is the default.
+- `community`: a composition-first bot with bundled community plugins and tests.
 - `ai`: a plugin scaffold with a friendly AI-provider placeholder command.
 - `database`: a plugin scaffold showing SQLite app setup and in-memory tests.
 

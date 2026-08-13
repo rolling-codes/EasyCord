@@ -33,7 +33,7 @@ pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.61.1
 Or scaffold a full project:
 
 ```bash
-easycord new my-bot
+easycord new my-bot --template community
 cd my-bot && pip install -e ".[dev]"
 ```
 
@@ -69,6 +69,15 @@ async def test_info():
 ```
 
 No bot token, no Discord connection. See [Testing Commands](docs/testing.md).
+
+### Which object do I need?
+
+| I want to... | Start with... |
+|---|---|
+| Add moderation, levels, tags, polls, or tickets | Import a built-in plugin object |
+| Add one server-specific command | Use `@bot.slash` on a function |
+| Group related commands with shared state | Create a `Plugin` class |
+| Package a reusable feature for other bots | Use `easycord plugin create` |
 
 ---
 

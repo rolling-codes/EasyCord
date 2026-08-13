@@ -31,16 +31,18 @@ from .plugin_creator import (
 )
 from .tools import audit_tool_registry
 
-ProjectTemplate = Literal["minimal", "plugin", "ai", "database"]
+ProjectTemplate = Literal["minimal", "plugin", "community", "ai", "database"]
 _PROJECT_TEMPLATES: tuple[ProjectTemplate, ...] = (
     "minimal",
     "plugin",
+    "community",
     "ai",
     "database",
 )
 _PROJECT_TEMPLATE_DESCRIPTIONS = {
     "minimal": "Single-file bot with a slash command and non-SQL tests.",
     "plugin": "Plugin-oriented scaffold with a memory database; this is the default.",
+    "community": "Composition-first bot with bundled community plugins and tests.",
     "ai": "Plugin scaffold with an AI-provider placeholder command and memory database.",
     "database": "Plugin scaffold with SQLite app setup and in-memory tests.",
 }
@@ -194,6 +196,59 @@ def _plugin_project_files(name: str) -> dict[str, str]:
     }
 
 
+def _community_project_files(name: str) -> dict[str, str]:
+    return {
+        **_base_project_files(name),
+        "bot.py": '''\
+            import os
+
+            from easycord import Bot, SQLiteDatabase
+            from easycord.plugins import EconomyPlugin, ModerationPlugin, ReminderPlugin
+
+
+            bot = Bot(
+                auto_sync=False,
+                database=SQLiteDatabase(path="data/bot.db"),
+                load_builtin_plugins=True,  # WelcomePlugin, TagsPlugin, PollsPlugin, LevelsPlugin
+            )
+
+
+            @bot.slash(description="Show server info")
+            async def info(ctx):
+                guild = ctx.guild
+                await ctx.respond(f"{guild.name} has {guild.member_count} members.")
+
+
+            bot.add_plugins(
+                ModerationPlugin(),
+                EconomyPlugin(),
+                ReminderPlugin(),
+            )
+
+
+            if __name__ == "__main__":
+                bot.run(os.environ["DISCORD_TOKEN"])
+            ''',
+        "tests/test_bot.py": '''\
+            from bot import bot
+            from easycord.testing import invoke
+
+
+            async def test_info_command():
+                ctx = await invoke(bot, "info")
+                ctx.assert_contains("members")
+
+
+            def test_core_community_commands_are_registered():
+                slash_names = {
+                    item["name"]
+                    for item in bot.inspect_interactions()["slash"]
+                }
+                assert {"info", "rank", "leaderboard", "poll", "kick", "balance"} <= slash_names
+            ''',
+    }
+
+
 def _ai_project_files(name: str) -> dict[str, str]:
     plugin_module = _module_name(name)
     plugin_class = f"{_class_name(name)}AssistantPlugin"
@@ -314,6 +369,8 @@ def _project_files(name: str, template: ProjectTemplate) -> dict[str, str]:
         return _minimal_project_files(name)
     if template == "plugin":
         return _plugin_project_files(name)
+    if template == "community":
+        return _community_project_files(name)
     if template == "ai":
         return _ai_project_files(name)
     if template == "database":
