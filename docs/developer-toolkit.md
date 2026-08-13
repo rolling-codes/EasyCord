@@ -34,7 +34,7 @@ easycord new storage-bot --template database
 
 - `minimal`: one `bot.py` with a slash command and a command test.
 - `plugin`: a plugin-oriented project; this is the default.
-- `community`: a composition-first bot with bundled community plugins and tests.
+- `community`: a composition-first Composer bot with bundled community plugins and tests.
 - `ai`: a plugin scaffold with a friendly AI-provider placeholder command.
 - `database`: a plugin scaffold showing SQLite app setup and in-memory tests.
 

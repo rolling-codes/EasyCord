@@ -202,14 +202,21 @@ def _community_project_files(name: str) -> dict[str, str]:
         "bot.py": '''\
             import os
 
-            from easycord import Bot, SQLiteDatabase
+            from easycord import Composer, SQLiteDatabase
             from easycord.plugins import EconomyPlugin, ModerationPlugin, ReminderPlugin
 
 
-            bot = Bot(
-                auto_sync=False,
-                database=SQLiteDatabase(path="data/bot.db"),
-                load_builtin_plugins=True,  # WelcomePlugin, TagsPlugin, PollsPlugin, LevelsPlugin
+            bot = (
+                Composer()
+                .auto_sync(False)
+                .database(SQLiteDatabase(path="data/bot.db"))
+                .builtin_plugins()  # WelcomePlugin, TagsPlugin, PollsPlugin, LevelsPlugin
+                .add_plugins(
+                    ModerationPlugin(),
+                    EconomyPlugin(),
+                    ReminderPlugin(),
+                )
+                .build()
             )
 
 
@@ -217,13 +224,6 @@ def _community_project_files(name: str) -> dict[str, str]:
             async def info(ctx):
                 guild = ctx.guild
                 await ctx.respond(f"{guild.name} has {guild.member_count} members.")
-
-
-            bot.add_plugins(
-                ModerationPlugin(),
-                EconomyPlugin(),
-                ReminderPlugin(),
-            )
 
 
             if __name__ == "__main__":

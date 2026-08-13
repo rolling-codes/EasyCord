@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import discord
 
@@ -12,6 +12,30 @@ from .database import EasyCordDatabase
 from .i18n import LocalizationManager
 from .middleware import MiddlewareFn
 from .plugin import Plugin
+
+if TYPE_CHECKING:
+    from .plugins._ai_providers import AIProviderProtocol
+
+
+_BOT_OPTION_METHODS = {
+    "intents": "intents",
+    "auto_sync": "auto_sync",
+    "sync_guild_id": "sync_guild_id",
+    "load_builtin_plugins": "builtin_plugins",
+    "database": "database",
+    "db_backend": "db_backend",
+    "db_path": "db_path",
+    "db_auto_sync_guilds": "db_auto_sync_guilds",
+    "guild_sync_timeout": "guild_sync_timeout",
+    "localization": "localization",
+    "default_locale": "default_locale",
+    "translations": "translations",
+    "auto_translator": "auto_translator",
+    "ai_provider": "ai_provider",
+    "enable_conversation_memory": "conversation_memory",
+    "enable_health_command": "health_command",
+    "cooldown_cleanup_interval": "cooldown_cleanup_interval",
+}
 
 
 class Composer:
@@ -43,15 +67,22 @@ class Composer:
     def __init__(self) -> None:
         self._intents: discord.Intents | None = None
         self._auto_sync: bool = True
+        self._sync_guild_id: int | None = None
         self._load_builtin_plugins: bool = False
         self._database: EasyCordDatabase | None = None
         self._db_backend: str | None = None
         self._db_path: str | None = None
         self._db_auto_sync_guilds: bool | None = None
+        self._guild_sync_timeout: float | None = 30.0
         self._localization: LocalizationManager | None = None
         self._default_locale: str = "en-US"
         self._translations: dict | None = None
         self._auto_translator: Callable[[str, str, str], str | None] | None = None
+        self._ai_provider: AIProviderProtocol | None = None
+        self._enable_conversation_memory: bool = False
+        self._enable_health_command: bool = False
+        self._cooldown_cleanup_interval: float = 600.0
+        self._client_options: dict[str, Any] = {}
         self._middleware: list[MiddlewareFn] = []
         self._plugins: list[Plugin] = []
         self._groups: list = []
@@ -66,6 +97,11 @@ class Composer:
     def auto_sync(self, enabled: bool = True) -> Composer:
         """Enable or disable automatic slash-command syncing on startup."""
         self._auto_sync = enabled
+        return self
+
+    def sync_guild_id(self, guild_id: int | None) -> Composer:
+        """Set the development guild used for command syncing."""
+        self._sync_guild_id = guild_id
         return self
 
     def builtin_plugins(self, enabled: bool = True) -> Composer:
@@ -93,6 +129,11 @@ class Composer:
         self._db_auto_sync_guilds = enabled
         return self
 
+    def guild_sync_timeout(self, timeout: float | None) -> Composer:
+        """Set the database guild-sync timeout in seconds."""
+        self._guild_sync_timeout = timeout
+        return self
+
     def localization(self, manager: LocalizationManager) -> Composer:
         """Use an explicit localization manager instance."""
         self._localization = manager
@@ -114,6 +155,43 @@ class Composer:
     ) -> Composer:
         """Set the missing-locale auto-translation callback."""
         self._auto_translator = translator
+        return self
+
+    def ai_provider(self, provider: AIProviderProtocol | None) -> Composer:
+        """Set the default AI provider used by contexts and plugins."""
+        self._ai_provider = provider
+        return self
+
+    def conversation_memory(self, enabled: bool = True) -> Composer:
+        """Enable or disable built-in AI conversation memory."""
+        self._enable_conversation_memory = enabled
+        return self
+
+    def health_command(self, enabled: bool = True) -> Composer:
+        """Enable or disable the built-in health command."""
+        self._enable_health_command = enabled
+        return self
+
+    def cooldown_cleanup_interval(self, seconds: float) -> Composer:
+        """Set the cooldown registry cleanup interval in seconds."""
+        self._cooldown_cleanup_interval = seconds
+        return self
+
+    def client_options(self, **options: Any) -> Composer:
+        """Merge options forwarded to :class:`discord.Client`.
+
+        EasyCord-owned :class:`Bot` options must use their dedicated Composer
+        methods so they cannot collide with arguments supplied by
+        :meth:`build`.
+        """
+        for option in options:
+            method = _BOT_OPTION_METHODS.get(option)
+            if method is not None:
+                raise ValueError(
+                    f"{option!r} is an EasyCord Bot option; "
+                    f"use Composer.{method}(...) instead of client_options()."
+                )
+        self._client_options.update(options)
         return self
 
     # ── Built-in middleware ───────────────────────────────────
@@ -253,15 +331,22 @@ class Composer:
         bot = Bot(
             intents=self._intents,
             auto_sync=self._auto_sync,
+            sync_guild_id=self._sync_guild_id,
             load_builtin_plugins=self._load_builtin_plugins,
             database=self._database,
             db_backend=self._db_backend,
             db_path=self._db_path,
             db_auto_sync_guilds=self._db_auto_sync_guilds,
+            guild_sync_timeout=self._guild_sync_timeout,
             localization=self._localization,
             default_locale=self._default_locale,
             translations=self._translations,
             auto_translator=self._auto_translator,
+            ai_provider=self._ai_provider,
+            enable_conversation_memory=self._enable_conversation_memory,
+            enable_health_command=self._enable_health_command,
+            cooldown_cleanup_interval=self._cooldown_cleanup_interval,
+            **self._client_options,
         )
         for mw in self._middleware:
             bot.use(mw)

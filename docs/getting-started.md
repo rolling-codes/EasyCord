@@ -115,6 +115,25 @@ async def hello(ctx):
 Create a custom `Plugin` class when a feature needs shared state, lifecycle
 hooks, event handlers, or several related commands.
 
+For bots with several framework options, `Composer` keeps setup readable while
+building the same `Bot` object:
+
+```python
+from easycord import Composer
+from easycord.plugins import LevelsPlugin, PollsPlugin
+
+bot = (
+    Composer()
+    .auto_sync(False)
+    .health_command()
+    .add_plugins(LevelsPlugin(), PollsPlugin())
+    .build()
+)
+```
+
+Use direct `Bot(...)` construction when it is shorter; use `Composer` when a
+bot combines several services, middleware layers, or plugins.
+
 For reusable plugins, start from the plugin authoring helpers instead of copying
 files by hand. Generated plugin projects include a required manifest, runnable
 bot examples default to local storage, and generated tests use memory storage
