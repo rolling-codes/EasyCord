@@ -33,7 +33,7 @@ authors = [
 [project.optional-dependencies]
 dev = [
     "pytest>=9.1.1",
-    "pytest-asyncio>=1.4.0",
+    "pytest-asyncio>=1.4.1",
     "tomli>=2; python_version < '3.11'",
     "build",
     "twine",
