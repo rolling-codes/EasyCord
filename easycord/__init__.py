@@ -27,6 +27,7 @@ from .context import Context
 from .context_builder import ContextBuilder
 from .database import DatabaseConfig, EasyCordDatabase, GuildRecord, MemoryDatabase, SQLiteDatabase
 from .config import BotConfig
+from .startup import run_bot
 from .decorators import ai_tool, autocomplete, command_error, component, cooldown, deprecated, describe, install_type, message_command, modal, on, premium_required, require_permissions, slash, slash_command, task, user_command, version_introduced
 from .event_bus import EventBus
 from .hooks import HookRegistry
@@ -93,6 +94,7 @@ __all__ = [
     "autocomplete",
     "Bot",
     "BotConfig",
+    "run_bot",
     "ButtonRowBuilder",
     "ChoiceSet",
     "command_error",

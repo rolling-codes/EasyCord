@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, TYPE_CHECKING
 
@@ -246,12 +247,15 @@ class BotConfig:
         """Return a value from ``extra``, or *default* if missing."""
         return self.extra.get(key, default)
 
-    def build_bot(self, **kwargs: Any) -> "Bot":
+    def build_bot(
+        self, *, bot_factory: Callable[..., Bot] | None = None, **kwargs: Any
+    ) -> "Bot":
         """Construct and return a :class:`Bot` wired to this config.
 
         Any keyword arguments are forwarded to ``Bot.__init__``, letting you
         inject intents, plugins, or other options without repeating config
-        values.
+        values. Pass ``bot_factory`` to apply the same configuration to your
+        application's factory instead of constructing Bot directly.
 
         Example::
 
@@ -267,8 +271,8 @@ class BotConfig:
         kwargs.setdefault("auto_sync", self.auto_sync)
         kwargs.setdefault("sync_guild_id", self.guild_id)
         kwargs.setdefault("db_backend", self.db_backend)
-        if self.db_backend == "sqlite":
+        if kwargs["db_backend"] == "sqlite":
             kwargs.setdefault("db_path", self.db_path)
         kwargs.setdefault("guild_sync_timeout", self.guild_sync_timeout)
         kwargs.setdefault("enable_health_command", self.enable_health_command)
-        return Bot(**kwargs)
+        return (Bot if bot_factory is None else bot_factory)(**kwargs)

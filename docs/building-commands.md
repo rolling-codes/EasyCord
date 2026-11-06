@@ -379,3 +379,14 @@ Then `/easycord interactions` will show a live count of all interactions.
 - Ready to test your commands? → [Testing Commands](testing.md)
 - Need to control who can use commands? → [Request Lifecycle](request-lifecycle.md)
 - Want to build a larger feature? → [Organizing Code](organizing-code.md)
+
+## Command guards and installation types
+
+Use `@require_permissions("manage_messages")` for a permission guard and
+`@cooldown(rate=2, per=30, bucket="guild")` to limit repeated use. These
+work with slash commands inside plugins as well as direct command functions.
+Use `@premium_required` when the command requires an active entitlement.
+`@install_type(guild=True, user=True)` chooses which Discord installation types
+can use a command. See [Context Reference](context-reference.md) for
+`ctx.app_context` and `ctx.entitlements`, and [Request Lifecycle](request-lifecycle.md)
+for middleware and error handling.

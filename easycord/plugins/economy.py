@@ -50,9 +50,9 @@ class EconomyPlugin(Plugin):
         /buy <item>           — Purchase item
     """
 
-    def __init__(self):
+    def __init__(self, *, store_path: str = ".easycord/economy"):
         super().__init__()
-        self.config = PluginConfigManager(".easycord/economy")
+        self.config = PluginConfigManager(store_path)
         self._locks = GuildLockManager()
 
     async def on_load(self) -> None:

@@ -80,6 +80,7 @@ class LevelsPlugin(Plugin):
         data_dir: str = ".easycord/levels",
         announce_levelups: bool = True,
     ) -> None:
+        super().__init__()
         self._store = LevelsStore(data_dir)
         self._xp_per_message = xp_per_message
         self._cooldown = cooldown_seconds

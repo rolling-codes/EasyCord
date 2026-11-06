@@ -1,110 +1,107 @@
 # Getting Started with EasyCord
 
-## Install
+Create a bot, test its first command offline, then connect it to your test server.
+You need Python 3.10 or newer. EasyCord uses `discord.py>=2.7.1,<3` for the Discord connection.
+
+## 1. Install and create a project
+
+Create a virtual environment and activate it:
 
 ```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.61.1/easycord-5.61.1-py3-none-any.whl"
+python -m venv .venv
+# macOS/Linux:
+source .venv/bin/activate
+# Windows PowerShell instead:
+# .venv\Scripts\Activate.ps1
 ```
 
-Or clone and install locally:
+Install EasyCord from this checkout, then generate the smallest starter:
 
 ```bash
-git clone https://github.com/rolling-codes/EasyCord.git
-cd EasyCord
-pip install -e ".[dev]"
-```
-
-Python 3.10 or newer is required. The only runtime dependency is `discord.py>=2.7.1,<3`.
-
----
-
-## Start a project with the CLI
-
-EasyCord includes a dependency-free developer toolkit:
-
-```bash
-easycord new my-bot --template plugin
+python -m pip install -e .
+easycord new my-bot --template minimal
 cd my-bot
-pip install -e ".[dev]"
-pytest
+python -m pip install -e ".[dev]"
+```
+
+Run the install command from the EasyCord repository root. These instructions
+use the updated scaffolds in this checkout; the published v5.61.1 wheel contains
+the earlier starter workflow. For that released version, use the
+[v5.61.1 wheel](https://github.com/rolling-codes/EasyCord/releases/download/v5.61.1/easycord-5.61.1-py3-none-any.whl).
+
+The starter includes `bot.py`, a README with setup steps, and a command test.
+Use `--template community` when you want bundled features, or
+`easycord new --list-templates` to see the other choices. The CLI's existing
+default remains `plugin` for compatibility.
+
+## 2. Get your first response offline
+
+```bash
+python -m pytest
+easycord try bot:bot ping
+```
+
+The response should contain `Pong!`. No token, Discord account, or network
+connection is needed for these commands after installation.
+
+`bot:bot` means “the object named `bot` in `bot.py`.” It uses memory storage
+and has command sync disabled. Each generated test creates and closes its own
+memory-backed bot, so tests do not write a SQLite database.
+Community plugins also have JSON storage: offline checks use `.easycord/offline`,
+live launch uses `.easycord/live`, and tests run in temporary directories.
+Changing the database backend alone does not change a plugin's JSON storage.
+
+## 3. Connect to Discord
+
+1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Open **Bot** and create/reset its token. Keep the token private.
+3. Under **OAuth2 → URL Generator**, select `bot` and `applications.commands`.
+   Choose any permissions needed by the features you add, open the generated
+   URL, and invite the bot to a server you manage.
+4. In Discord, enable **User Settings → Advanced → Developer Mode**, then
+   right-click that server and choose **Copy Server ID**.
+5. Export both values in your launch shell.
+
+macOS/Linux:
+
+```bash
+export DISCORD_TOKEN="your-bot-token"
+export DISCORD_GUILD_ID="your-test-server-id"
+```
+
+Windows PowerShell:
+
+```powershell
+$env:DISCORD_TOKEN="your-bot-token"
+$env:DISCORD_GUILD_ID="your-test-server-id"
+```
+
+`.env.example` documents the variables. EasyCord does **not** load `.env` files
+automatically; copying that file alone will not configure the bot.
+
+```bash
 easycord doctor bot:bot
-easycord audit-tools bot:bot
+python bot.py
 ```
 
-The generated project includes a runnable `bot.py`, one example plugin, an
-`.env.example`, and a starter command test.
+The generated launch function validates the configuration, enables command sync
+for your test server, and uses persistent SQLite storage at `data/bot.db` by
+default. After login and sync succeed, run `/ping` in that server.
+Set `EASYCORD_AUTO_SYNC=false` when you explicitly want to disable publication.
+The launch log reports whether sync is enabled.
+The generated `main()` delegates to `run_bot(create_bot)`, so your project does
+not need its own copy of configuration parsing and launch handling.
 
-Starter projects use EasyCord's local SQLite storage by default, so a bot works
-without an external database connection. Generated tests use
-`db_backend="memory"` to avoid writing local files. For explicit persistence,
-pass `db_backend="sqlite"` or provide a `SQLiteDatabase`; for disposable
-storage, pass `db_backend="memory"`, `database=MemoryDatabase()`, or set
-`EASYCORD_DB_BACKEND=memory`.
+The offline bot remains available for tests and CLI tools. Use `python bot.py`
+to launch the live instance with command sync enabled.
 
-`easycord doctor [module:bot]` checks Python support, `discord.py`,
-`DISCORD_TOKEN`, and optional bot imports before you connect to Discord. Use
-`--template minimal`, `--template ai`, or `--template database` for alternate
-starter projects.
+If the command is missing, check the launch logs, the server ID, and the invite
+scopes. An offline response verifies the handler, not Discord publication.
+See [Troubleshooting](troubleshooting.md) and [Command Sync](command-sync.md).
 
-`easycord audit-tools [module:bot]` inspects registered AI tools offline and
-reports safety warnings before any provider or Discord connection is used.
-`easycord new --list-templates` prints the available scaffold options.
+## 4. Add your own command
 
----
-
-## Your first bot
-
-```python
-from easycord import Bot
-
-bot = Bot()
-
-@bot.slash(description="Ping the bot")
-async def ping(ctx):
-    await ctx.respond("Pong!")
-
-bot.run("YOUR_TOKEN")
-```
-
-Save this as `bot.py` and run it. The slash command `/ping` will appear in Discord automatically.
-
----
-
-## Config-driven startup
-
-Use `BotConfig` when you want environment variables or a JSON file to define
-startup settings:
-
-```python
-from easycord import BotConfig
-
-cfg = BotConfig.from_env()
-bot = cfg.build_bot()
-bot.run(cfg.token)
-```
-
-`DISCORD_GUILD_ID` is used as a development sync target, so commands sync to
-that guild instead of globally. JSON files use the same field names:
-`token`, `guild_id`, `db_backend`, `db_path`, `auto_sync`, `log_level`, and
-`extra`.
-
----
-
-## Adding features without writing a plugin
-
-Start by assembling the plugin objects EasyCord already ships. This is usually
-enough for the first version of a community, moderation, support, or utility bot.
-
-```python
-from easycord import Bot
-from easycord.plugins import LevelsPlugin, PollsPlugin, TagsPlugin, WelcomePlugin
-
-bot = Bot()
-bot.add_plugins(WelcomePlugin(), TagsPlugin(), PollsPlugin(), LevelsPlugin())
-bot.run("YOUR_TOKEN")
-```
-
-Use a direct command function for one server-specific action:
+Inside the generated `create_bot` function, before `return bot`, add:
 
 ```python
 @bot.slash(description="Say hello")
@@ -112,275 +109,36 @@ async def hello(ctx):
     await ctx.respond(f"Hello, {ctx.user.display_name}!")
 ```
 
-Create a custom `Plugin` class when a feature needs shared state, lifecycle
-hooks, event handlers, or several related commands.
+Both offline and live instances use this factory, so they receive the same
+commands. Try the new command with `easycord try bot:bot hello`, then restart
+the live bot to publish it to your test server.
 
-For bots with several framework options, `Composer` keeps setup readable while
-building the same `Bot` object:
+## 5. Add a ready-made feature
+
+Import a built-in plugin at the top of `bot.py`:
 
 ```python
-from easycord import Composer
-from easycord.plugins import LevelsPlugin, PollsPlugin
-
-bot = (
-    Composer()
-    .auto_sync(False)
-    .health_command()
-    .add_plugins(LevelsPlugin(), PollsPlugin())
-    .build()
-)
+from easycord.plugins import TagsPlugin
 ```
 
-Use direct `Bot(...)` construction when it is shorter; use `Composer` when a
-bot combines several services, middleware layers, or plugins.
-
-For reusable plugins, start from the plugin authoring helpers instead of copying
-files by hand. Generated plugin projects include a required manifest, runnable
-bot examples default to local storage, and generated tests use memory storage
-so they stay disposable:
+Inside `create_bot`, before `return bot`, attach it:
 
 ```python
-from pathlib import Path
-
-from easycord import check_plugin_project, create_package_plugin
-
-result = create_package_plugin(
-    name="greet",
-    target=Path("easycord-greet"),
-    author="EasyCord Developer",
-)
-report = check_plugin_project(result.target)
-```
-
-Installed plugin packages are discovered through the `easycord.plugins` entry
-point group. The matching CLI wrappers are `easycord plugin create`,
-`easycord plugin check`, and `easycord plugin discover`. See
-[`plugin-authoring.md`](plugin-authoring.md) for the full API.
-
----
-
-## Loading bundled plugins
-
-EasyCord ships multiple first-party plugins in `easycord.plugins`.
-Setting `load_builtin_plugins=True` loads the starter set: welcome, tags,
-polls, and leveling.
-
-```python
-from easycord import Bot
-
-bot = Bot(load_builtin_plugins=True)
-bot.run("YOUR_TOKEN")
-```
-
-Or selectively load the ones you need:
-
-```python
-from easycord import Bot
-from easycord.plugins import LevelsPlugin, PollsPlugin, TagsPlugin, WelcomePlugin
-
-bot = Bot()
-bot.add_plugin(LevelsPlugin(xp_per_message=15, cooldown_seconds=45))
-bot.add_plugin(PollsPlugin())
 bot.add_plugin(TagsPlugin())
-bot.add_plugin(WelcomePlugin())
-bot.run("YOUR_TOKEN")
 ```
 
----
+Use [Built-in Plugins](builtin-plugins.md) to choose features. Member and message
+event plugins may require matching Discord intents in both the Developer Portal
+and the bot's `discord.Intents` settings. Add a custom `Plugin` class when you
+need related commands, shared state, or lifecycle hooks.
 
-## Per-guild configuration
+## Continue when you need more
 
-Use plugin config helpers to persist per-guild settings without a full database:
-
-```python
-from easycord import Bot, Plugin, slash
-
-class PrefixPlugin(Plugin):
-    @slash(description="Set the welcome channel")
-    async def set_welcome(self, ctx, channel_id: str):
-        await self.config_set(ctx.guild.id, "welcome_channel", channel_id)
-        await ctx.respond(f"Welcome channel set to <#{channel_id}>.")
-```
-
-For relational or larger data, use `SQLiteDatabase` (or `MemoryDatabase` in tests):
-
-```python
-from easycord import Bot, SQLiteDatabase
-
-bot = Bot(database=SQLiteDatabase(path="data/bot.db"))
-```
-
----
-
-## Localization (multi-language)
-
-```python
-from easycord import Bot, LocalizationManager
-
-locales = LocalizationManager()
-locales.register("en-US", "locales/en.json")
-locales.register("es-ES", "locales/es.json")
-
-bot = Bot(localization=locales, default_locale="en-US")
-
-@bot.slash(description="Ping")
-async def ping(ctx):
-    await ctx.respond(ctx.t("commands.ping.response", default="Pong!"))
-```
-
-EasyCord resolves the locale automatically: user locale → guild locale → default.
-
----
-
-## Command guards and responses
-
-Stack reusable guards with `@slash`:
-
-```python
-from easycord import cooldown, premium_required, require_permissions, slash
-
-@slash(description="Clean up messages")
-@require_permissions("manage_messages")
-@cooldown(rate=2, per=30, bucket="guild")
-async def cleanup(ctx, count: int = 10):
-    await ctx.send(f"Cleaned {count} messages.", silent=True)
-
-@slash(description="Premium feature")
-@premium_required
-async def exclusive(ctx):
-    await ctx.respond("Thanks for supporting the bot!", suppress_embeds=True)
-```
-
-Use `@install_type(guild=True, user=True)` for Discord user-installable
-commands. Inside handlers, `ctx.app_context` exposes the Discord app command
-context, `ctx.entitlements` exposes active premium entitlements, and
-`ctx.forward(message)` forwards a message from one context to another.
-
-Plugins can override `async def on_error(self, ctx, exc)` for plugin-scoped
-error handling after optional per-command handlers decorated with
-`@command_error("command_name")` and before the global `bot.on_error` handler.
-
----
-
-## Testing commands
-
-`easycord.testing` lets you test command handlers without connecting to Discord:
-
-```python
-from easycord.testing import (
-    FakeContext,
-    FakeContextBuilder,
-    invoke,
-    invoke_component,
-    invoke_message_command,
-    invoke_modal,
-    invoke_user_command,
-)
-
-async def test_ping(bot):
-    ctx = await invoke(bot, "ping")
-    assert ctx.last_response == "Pong!"
-
-async def test_handler_directly():
-    ctx = FakeContext.make(is_admin=True)
-    await ctx.respond("ok")
-    ctx.assert_content("ok")
-```
-
-Context menu, component, and modal handlers can be tested without Discord too:
-
-```python
-ctx = await invoke_user_command(bot, "Profile", target_id=42)
-ctx = await invoke_message_command(bot, "Quote", content="Ship it")
-ctx = await invoke_component(bot, "ticket:close:42")
-ctx = await invoke_modal(bot, "feedback", message="Great bot")
-```
-
-For direct handler tests with richer setup, use the fluent builder:
-
-```python
-ctx = (
-    FakeContextBuilder()
-    .with_user(42, display_name="Ada")
-    .in_guild(100)
-    .with_permissions(manage_messages=True)
-    .with_roles(123456789)
-    .build()
-)
-```
-
----
-
-## AI integration (optional)
-
-EasyCord works fine without AI. If you want an AI assistant command, add
-`OpenClaudePlugin` (requires `anthropic` package and `ANTHROPIC_API_KEY`):
-
-```python
-import os
-from easycord import Bot
-from easycord.plugins import OpenClaudePlugin
-
-bot = Bot()
-bot.add_plugin(OpenClaudePlugin(api_key=os.environ["ANTHROPIC_API_KEY"]))
-bot.run("YOUR_TOKEN")
-```
-
-Members use `/ask "your question"`. Responses are rate-limited per user and
-automatically truncated to Discord's 2000-character limit.
-
-For other providers (OpenAI, Gemini, Groq, Ollama, etc.) or multi-provider
-fallback chains, see the [AI Assistant Bot](../README.md#ai-assistant-bot)
-example in the README.
-
----
-
-## Fluent builder (alternative setup)
-
-```python
-from easycord import FrameworkManager
-
-bot = FrameworkManager.build_bot(
-    builtin_plugins=True,
-    guild_only=True,
-)
-bot.run("YOUR_TOKEN")
-```
-
----
-
-## Project layout recommendation
-
-```text
-my_bot/
-├── bot.py            # startup and wiring
-├── plugins/
-│   ├── fun.py        # one feature per file
-│   └── moderation.py
-├── locales/
-│   └── en.json
-└── pyproject.toml
-```
-
-Keep `bot.py` for startup. Put each feature in its own `Plugin`. Move shared
-settings into `ServerConfigStore` or `SQLiteDatabase` when you need them.
-
----
-
-## Next steps
-
-- **[Documentation index](README.md)** — all 20 guides organized by what you want to do next.
-- Browse [`examples/core-bot.py`](../examples/core-bot.py) for a complete bot with commands, events, plugins, and per-guild config.
-- Check [CHANGELOG.md](../CHANGELOG.md) for what changed in each release.
-
----
-
-## Development: Hot-Reload Plugins
-
-Pass `reload=True` to `bot.run()` to watch plugin files for changes and reload them automatically — no restart needed:
-
-```python
-bot.run(os.environ["DISCORD_TOKEN"], reload=True)
-```
-
-See [hot-reload-development.md](hot-reload-development.md) for the full guide including the `on_reload()` hook, logging, and production safeguards.
+- [Testing](testing.md): add checks using `easycord.testing.invoke`.
+- [Building Commands](building-commands.md): arguments, buttons, forms, and groups.
+- [Organizing Code](organizing-code.md): split features into custom plugins.
+- [Database Guide](database-guide.md): persistent per-server data.
+- [Request Lifecycle](request-lifecycle.md): permissions, middleware, and errors.
+- [Developer Toolkit](developer-toolkit.md): inspect commands and diagnose setup.
+- [AI Features](conversation-memory.md): optional providers and conversation memory.
+- [All guides](README.md): configuration, localization, composition, and references.

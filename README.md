@@ -26,49 +26,53 @@
 
 ## Quick Start
 
-```bash
-pip install "https://github.com/rolling-codes/EasyCord/releases/download/v5.61.1/easycord-5.61.1-py3-none-any.whl"
-```
-
-Or scaffold a full project:
+Start with a small bot and get a response before adding features. From this
+repository checkout (Python 3.10+):
 
 ```bash
-easycord new my-bot --template community
-cd my-bot && pip install -e ".[dev]"
+python -m venv .venv
+# macOS/Linux:
+source .venv/bin/activate
+# Windows PowerShell instead:
+# .venv\Scripts\Activate.ps1
+python -m pip install -e .
+easycord new my-bot --template minimal
+cd my-bot
+python -m pip install -e ".[dev]"
+python -m pytest
+easycord try bot:bot ping
 ```
 
-**Requirements:** Python 3.10+. The only runtime dependency is `discord.py>=2.7.1,<3`.
+You should see `Pong!` without a token or Discord connection. These commands
+use the updated scaffold in this checkout; the published v5.61.1 wheel has the
+earlier starter workflow. The released package is available as the
+[v5.61.1 wheel](https://github.com/rolling-codes/EasyCord/releases/download/v5.61.1/easycord-5.61.1-py3-none-any.whl).
 
 ### Your first bot
 
-```python
-import os
-from easycord import Bot, SQLiteDatabase
-from easycord.plugins import LevelsPlugin, ModerationPlugin, TagsPlugin
-
-bot = Bot(database=SQLiteDatabase("bot.db"))
-
-@bot.slash(description="Server info")
-async def info(ctx):
-    await ctx.respond(f"{ctx.guild.name} — {ctx.guild.member_count} members")
-
-bot.add_plugins(LevelsPlugin(), ModerationPlugin(), TagsPlugin())
-bot.run(os.environ["DISCORD_TOKEN"])
-```
-
-That's `/rank`, `/leaderboard`, `/kick`, `/ban`, `/timeout`, `/warn`, `/tag`, and `/info` — by assembling library plugins and one small command function.
-
-### Test it offline
+The generated `create_bot` function registers your commands:
 
 ```python
-from easycord.testing import invoke
-
-async def test_info():
-    ctx = await invoke(bot, "info")
-    assert "members" in ctx.last_response
+@bot.slash(description="Ping the bot")
+async def ping(ctx):
+    await ctx.respond("Pong!")
 ```
 
-No bot token, no Discord connection. See [Testing Commands](docs/testing.md).
+Follow the generated `my-bot/README.md` or the **[Getting Started guide](docs/getting-started.md)**
+to create a Discord application, invite it, and export `DISCORD_TOKEN` and
+`DISCORD_GUILD_ID`. Then run:
+
+```bash
+easycord doctor bot:bot
+python bot.py
+```
+
+The live instance publishes commands to your chosen test server and uses local
+SQLite storage. Tests and CLI checks use memory storage. `.env` files are not
+automatically loaded.
+
+Add built-in plugin objects when you need more features; choose
+`--template community` for a bot with bundled community features already wired.
 
 ### Which object do I need?
 
@@ -170,6 +174,8 @@ bot.run(os.environ["DISCORD_TOKEN"])
 
 ## 30 Built-in Plugins
 
+Setting `load_builtin_plugins=True` loads the starter set: welcome, tags, polls, and levels.
+
 Load the starter set with one call, or cherry-pick:
 
 ```python
@@ -265,7 +271,7 @@ my_bot/
 | Component routing | Match string IDs manually per handler | `@component("ticket:close:{id:int}")` — typed |
 | Reusable feature module | `Cog` with manual setup/teardown | `Plugin` with `on_load`, `on_unload`, `on_reload` |
 | Per-guild settings | Hand-rolled storage + migration code | `ServerConfigStore` + `ConfigSchema` migrations |
-| Request control | Decorator chains on every command | `bot.use(catch_errors(), rate_limit(), guild_only())` |
+| Request control | Decorator chains on every command | Register each middleware with `bot.use(...)` |
 | Error waterfall | Re-raise or duplicate handlers | `@command_error` → `Plugin.on_error` → `@bot.on_error` |
 | Offline testing | Mock the entire discord.py client | `ctx = await invoke(bot, "kick")` |
 | AI tool calling | LLM SDK + prompt engineering + glue | `@ai_tool` + `Orchestrator` + safety levels |
