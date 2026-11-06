@@ -2,15 +2,86 @@
 from __future__ import annotations
 
 import re
+import shlex
+import sys
 import warnings
 from pathlib import Path
 
 import pytest
+from starter_helpers import EXPECTED_REPLIES, run_command, run_python, starter_env
 
 from easycord.cli import _module_name, _write_new_project
 
 # pytest's default collection patterns for test files: test_*.py and *_test.py.
 _PYTEST_COLLECT_PATTERN = re.compile(r"^test_.*|.*_test$")
+
+
+@pytest.mark.parametrize("template", ["minimal", "plugin", "community", "ai", "database"])
+def test_starter_documented_offline_workflow(tmp_path, template):
+    """Exercise the generated README command and tests in a fresh process."""
+    project = tmp_path / "starter"
+    _write_new_project(project, "starter", template=template)
+    readme = (project / "README.md").read_text()
+    command = re.search(r"^easycord try (.+)$", readme, re.MULTILINE).group(1)
+    result = run_command(project,
+        [sys.executable, "-c", "from easycord.cli import main; raise SystemExit(main())",
+         "try", *shlex.split(command)], env=starter_env(),
+    )
+    assert EXPECTED_REPLIES[template] in result.stdout
+    assert not (project / "data").exists()
+    run_command(project, [sys.executable, "-m", "pytest", "-q"], env=starter_env())
+    assert not (project / "data").exists()
+
+
+@pytest.mark.parametrize("template", ["minimal", "plugin", "community", "ai", "database"])
+def test_starter_live_launch_uses_guild_sync_and_sqlite(tmp_path, template):
+    """Intercept run() to verify launch configuration without contacting Discord."""
+    project = tmp_path / "starter"
+    _write_new_project(project, "starter", template=template)
+    code = '''
+import asyncio
+from pathlib import Path
+from easycord import Bot, MemoryDatabase, SQLiteDatabase
+import bot
+assert isinstance(bot.bot.db, MemoryDatabase)
+assert not bot.bot._auto_sync
+launches = []
+
+def fake_run(instance, token):
+    launches.append(token)
+    assert token == "offline-test-token"
+    assert instance._auto_sync
+    assert instance._sync_guild_id == 123456789
+    assert isinstance(instance.db, SQLiteDatabase)
+    assert Path(instance.db.path) == Path("data/bot.db")
+    def command_names(app):
+        return {item["name"] for item in app.inspect_interactions()["slash"]}
+    assert command_names(instance) == command_names(bot.bot)
+    asyncio.run(instance.close())
+
+Bot.run = fake_run
+bot.main()
+assert launches == ["offline-test-token"], "the starter must launch exactly once"
+asyncio.run(bot.bot.close())
+'''
+    run_python(project, code, DISCORD_TOKEN="offline-test-token", DISCORD_GUILD_ID="123456789")
+
+
+@pytest.mark.parametrize(
+    ("settings", "message"),
+    [({}, "DISCORD_TOKEN"), ({"DISCORD_TOKEN": "test"}, "DISCORD_GUILD_ID"),
+     ({"DISCORD_TOKEN": "test", "DISCORD_GUILD_ID": "oops"}, "must be an integer")],
+)
+def test_starter_launch_explains_missing_configuration(tmp_path, settings, message):
+    project = tmp_path / "starter"
+    _write_new_project(project, "starter", template="minimal")
+    result = run_command(
+        project, [sys.executable, "bot.py"], env=starter_env(**settings), check=False,
+    )
+    assert result.returncode != 0
+    assert message in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not (project / "data").exists()
 
 
 class TestBugs:

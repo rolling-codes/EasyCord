@@ -2,14 +2,12 @@
 
 Pick a goal below to jump straight to what you need. **No wasted clicks.**
 
-**[See the restructure plan →](RESTRUCTURE_PLAN.md)** — We're consolidating 25 guides to 12 core guides for clarity.
-
 ---
 
 ## Start here (5 minutes)
 
 **New to EasyCord?** 
-1. **Do the [Day 1 walkthrough](../README.md#your-first-bot)** in the README (creates a bot, writes a command, tests it offline)
+1. **Follow [Getting Started](getting-started.md)** to create a bot, test it offline, and connect it to your test server
 2. **Follow the recommended learning path below**
 
 ---

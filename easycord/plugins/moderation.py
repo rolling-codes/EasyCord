@@ -62,9 +62,9 @@ class ModerationPlugin(Plugin):
         /mod_config     — View moderation settings
     """
 
-    def __init__(self):
+    def __init__(self, *, store_path: str = ".easycord/moderation"):
         super().__init__()
-        self.config = PluginConfigManager(".easycord/moderation")
+        self.config = PluginConfigManager(store_path)
         self.warn_limiter = ToolLimiter()
         self.ban_limiter = ToolLimiter()
 

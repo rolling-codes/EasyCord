@@ -2,6 +2,8 @@
 
 `easycord.testing` provides everything needed to exercise slash commands and plugin logic without a Discord connection.
 
+Use `invoke()` to run a command on a fresh bot, assert its reply, and close the bot afterward.
+
 ---
 
 ## PluginTestSuite

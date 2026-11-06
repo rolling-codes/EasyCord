@@ -181,8 +181,9 @@ def test_cli_new_creates_project(tmp_path: Path, capsys) -> None:
     assert (project / "plugins" / "demo_bot.py").exists()
     assert (project / "tests" / "test_bot.py").exists()
     bot_source = (project / "bot.py").read_text(encoding="utf-8")
-    assert "Bot(auto_sync=False)" in bot_source
-    assert "db_backend=\"memory\"" not in bot_source
+    assert 'options.setdefault("auto_sync", False)' in bot_source
+    assert 'options.setdefault("db_backend", "memory")' in bot_source
+    assert (project / "README.md").exists()
 
 
 @pytest.mark.parametrize(
@@ -212,7 +213,7 @@ def test_cli_new_template_options(
     assert (project / "tests" / "test_bot.py").exists()
     assert (project / "plugins" / f"{template}_bot.py").exists() is has_plugin
     bot_source = (project / "bot.py").read_text(encoding="utf-8")
-    assert "auto_sync=False" in bot_source or ".auto_sync(False)" in bot_source
+    assert 'options.setdefault("auto_sync", False)' in bot_source
 
 
 def test_cli_new_defaults_to_plugin_template(tmp_path: Path, capsys) -> None:
@@ -236,7 +237,7 @@ def test_cli_new_lists_templates(capsys) -> None:
     assert "database:" in output
 
 
-def test_cli_new_community_template_is_composition_first(tmp_path: Path, capsys) -> None:
+def test_cli_new_community_template_assembles_builtin_plugins(tmp_path: Path, capsys) -> None:
     project = tmp_path / "server_hub"
 
     assert main(["new", str(project), "--template", "community"]) == 0
@@ -245,13 +246,11 @@ def test_cli_new_community_template_is_composition_first(tmp_path: Path, capsys)
     bot_source = (project / "bot.py").read_text(encoding="utf-8")
     test_source = (project / "tests" / "test_bot.py").read_text(encoding="utf-8")
 
-    assert "Composer()" in bot_source
-    assert ".auto_sync(False)" in bot_source
-    assert ".builtin_plugins()" in bot_source
-    assert ".build()" in bot_source
-    assert "ModerationPlugin()" in bot_source
-    assert "EconomyPlugin()" in bot_source
-    assert "ReminderPlugin()" in bot_source
+    assert "Bot(**options)" in bot_source
+    assert "TagsPlugin(data_dir=" in bot_source
+    assert "ModerationPlugin(store_path=" in bot_source
+    assert "EconomyPlugin(store_path=" in bot_source
+    assert "ReminderPlugin(store_path=" in bot_source
     assert "class " not in bot_source
     assert "@bot.slash" in bot_source
     assert "inspect_interactions" in test_source

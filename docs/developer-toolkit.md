@@ -2,24 +2,35 @@
 
 EasyCord includes a small, dependency-free toolkit for local bot development.
 
+See [Starter validation](starter-validation.md) for the scenario matrix and the
+limits of offline and installed-package checks.
+
 ## Create a bot
 
 ```bash
-easycord new my-bot --template community
+easycord new my-bot --template minimal
 cd my-bot
 pip install -e ".[dev]"
 pytest
 ```
 
 If you are new, start here instead of copying examples by hand. The scaffold
-creates a runnable bot, tests, `.env.example`, `pyproject.toml`, and safe local
-defaults. Generated runnable bot code uses `Bot(auto_sync=False)`, which keeps
-command sync disabled and uses EasyCord's default local storage unless you
-configure another database backend.
+creates `bot.py`, isolated tests, a setup README, `.env.example`, and
+`pyproject.toml`. Imports and CLI checks use memory storage without credentials.
+Run `easycord try bot:bot ping` for your first offline response.
+Reuse the environment where you installed EasyCord; do not create a second
+virtual environment between generating and installing the starter. Plugin JSON
+storage is independent of the memory database: community CLI checks use
+`.easycord/offline`, live bots use `.easycord/live`, and tests use temporary
+working directories.
 
-The default `plugin` scaffold matches v5.3 behavior and includes `bot.py`, one
-plugin under `plugins/`, `.env.example`, `pyproject.toml`, and a starter pytest
-file using `easycord.testing.invoke()`.
+Follow the generated README to export `DISCORD_TOKEN` and `DISCORD_GUILD_ID`,
+invite the application, and launch with `python bot.py`. The live instance syncs
+to that test server and uses local SQLite storage by default. `.env` files are
+not loaded automatically. See [Getting Started](getting-started.md).
+
+The existing default is still `plugin`, which adds an example plugin with a
+`hello` command. Every template includes a README using its actual command.
 
 Choose a template when you want a smaller or more specialized starting point:
 
@@ -34,7 +45,7 @@ easycord new storage-bot --template database
 
 - `minimal`: one `bot.py` with a slash command and a command test.
 - `plugin`: a plugin-oriented project; this is the default.
-- `community`: a composition-first Composer bot with bundled community plugins and tests.
+- `community`: a bot assembled from bundled community plugins with isolated tests.
 - `ai`: a plugin scaffold with a friendly AI-provider placeholder command.
 - `database`: a plugin scaffold showing SQLite app setup and in-memory tests.
 
@@ -62,6 +73,32 @@ JSON output is stable for automation. Doctor checks include `code`, `name`,
 ```bash
 easycord doctor bot:bot --json
 ```
+
+The `ai.tools_audit` check summarizes registered AI tools. It does not call a
+provider or execute the tools.
+
+Generated live launch reads `BotConfig.from_env()`: storage, logging,
+`EASYCORD_AUTO_SYNC`, `EASYCORD_GUILD_SYNC_TIMEOUT`, and
+`EASYCORD_HEALTH_COMMAND` settings apply. Offline imports do not parse live
+credentials or settings, so a production shell cannot force a test to connect.
+
+### Start without copying configuration code
+
+Generated bots delegate live launch to one helper:
+
+```python
+from easycord import run_bot
+
+def main():
+    run_bot(create_bot)
+```
+
+`create_bot` remains your application's factory. It accepts Bot options and a
+`data_dir` keyword for plugin storage, and returns a Bot. Calling it directly
+keeps offline development simple. `run_bot` handles live environment validation,
+storage errors, the test-server target, logging, and launch; it reuses
+`BotConfig.build_bot(bot_factory=...)` instead of maintaining a second settings
+mapping. Existing `BotConfig.build_bot()` calls still construct a Bot normally.
 
 The same output formatter is available in Python:
 
@@ -281,9 +318,10 @@ easycord new support-bot --template database
 cd support-bot
 pip install -e ".[dev]"
 pytest
+easycord try bot:bot get_note
+# After exporting DISCORD_TOKEN as described in the generated README:
 easycord doctor bot:bot
-easycord audit-tools bot:bot
 easycord inspect bot:bot --json
-easycord try bot:bot ping
+# AI projects can also run: easycord audit-tools bot:bot
 easycord sync-plan bot:bot --remote old_command --json
 ```

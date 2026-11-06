@@ -16,6 +16,8 @@ ctx.locale        # str — the invoker's Discord locale (e.g. "en-US", "fr", "j
 ctx.is_admin      # bool — True if the invoker has the administrator permission
 ctx.bot_permissions  # discord.Permissions — the bot's permissions in ctx.channel
 ctx.interaction   # discord.Interaction — the raw interaction object
+ctx.app_context   # Discord's application command context
+ctx.entitlements  # active premium entitlements supplied by Discord
 ```
 
 `ctx.is_admin` is a property — do not call it as a method. `ctx.bot_permissions` raises `RuntimeError` in DMs.

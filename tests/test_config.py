@@ -143,6 +143,38 @@ async def test_build_bot_passes_guild_sync_target() -> None:
         await bot.close()
 
 
+async def test_configured_factory_retains_custom_commands_and_explicit_overrides(tmp_path) -> None:
+    """Sharing config wiring must not bypass the app factory or create default storage."""
+    from easycord.testing import invoke
+
+    calls = []
+
+    def factory(*, greeting, **options):
+        calls.append(greeting)
+        bot = Bot(**options)
+
+        @bot.slash(description="Say hello")
+        async def hello(ctx):
+            await ctx.respond(greeting)
+
+        return bot
+
+    configured_storage = tmp_path / "unused-production" / "bot.db"
+    config = BotConfig(token="token", guild_id=123, db_path=str(configured_storage))
+    bot = config.build_bot(
+        bot_factory=factory, greeting="The app factory ran", auto_sync=False,
+        db_backend="memory", sync_guild_id=456,
+    )
+    try:
+        assert calls == ["The app factory ran"]
+        (await invoke(bot, "hello")).assert_content("The app factory ran")
+        assert bot._sync_guild_id == 456
+        assert not bot._auto_sync
+        assert not configured_storage.parent.exists()
+    finally:
+        await bot.close()
+
+
 async def test_setup_hook_syncs_to_configured_guild() -> None:
     db = MagicMock()
     db.auto_sync_guilds = False

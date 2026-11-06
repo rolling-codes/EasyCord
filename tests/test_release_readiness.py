@@ -5,6 +5,8 @@ import importlib.util
 import re
 from pathlib import Path
 
+import pytest
+
 import easycord
 from easycord.builtin_plugins import builtin_plugin_classes
 
@@ -98,77 +100,53 @@ def test_docs_match_builtin_plugin_loader() -> None:
 
 
 def test_release_docs_cover_new_public_features() -> None:
-    docs = "\n".join(
-        [
-            _read("README.md"),
-            _read("docs/getting-started.md"),
-            _read("docs/developer-toolkit.md"),
-            _read("docs/plugin-authoring.md"),
-            _read("CHANGELOG.md"),
-        ]
-    )
-    for term in (
-        "BotConfig",
-        "FakeContext",
-        "invoke()",
-        "@cooldown",
-        "@require_permissions",
-        "@install_type",
-        "@premium_required",
-        "Plugin.on_error",
-        "ctx.send",
-        "ctx.app_context",
-        "ctx.entitlements",
-        "ctx.forward",
-        "silent",
-        "suppress_embeds",
-        "easycord new",
-        "--template minimal",
-        "--template plugin",
-        "--template community",
-        "--template ai",
-        "--template database",
-        "new --list-templates",
-        "easycord doctor",
-        "easycord audit-tools",
-        "audit-tools --fail-on-warnings",
-        "doctor bot:bot --json",
-        "audit-tools bot:bot --json",
-        "inspect bot:bot --json",
-        "sync-plan bot:bot",
-        "ai.tools_audit",
-        "severity",
-        "fix",
-        "audit_tool_registry",
-        "format_doctor_report",
-        "format_tool_audit",
-        "FakeContextBuilder",
-        "MemoryDatabase",
-        "EASYCORD_DB_BACKEND=memory",
-        "with_roles",
-        "invoke_user_command",
-        "invoke_message_command",
-        "invoke_component",
-        "invoke_modal",
-        "PluginManifest",
-        "PluginScaffoldOptions",
-        "PluginScaffoldResult",
-        "PluginCheck",
-        "PluginCheckReport",
-        "create_in_project_plugin",
-        "create_package_plugin",
-        "create_plugin_scaffold",
-        "load_plugin_manifest",
-        "validate_plugin_manifest",
-        "check_plugin_project",
-        "discover_plugins",
-        "load_entrypoint_plugins",
-        "easycord plugin create",
-        "easycord plugin check",
-        "easycord plugin discover",
-        "easycord.plugins",
-    ):
-        assert term in docs
+    # Each API must remain discoverable in its current task guide. Historical
+    # changelogs and plans cannot satisfy documentation coverage by themselves.
+    guides = {
+        "docs/developer-toolkit.md": (
+            "BotConfig", "easycord new", "--template minimal", "--template plugin",
+            "--template community", "--template ai", "--template database",
+            "new --list-templates", "easycord doctor", "easycord audit-tools",
+            "audit-tools bot:bot --fail-on-warnings", "doctor bot:bot --json",
+            "audit-tools bot:bot --json", "inspect bot:bot --json", "sync-plan bot:bot",
+            "ai.tools_audit", "severity", "fix", "audit_tool_registry",
+            "format_doctor_report", "format_tool_audit",
+        ),
+        "docs/testing.md": (
+            "FakeContext", "invoke()", "FakeContextBuilder", "with_roles",
+            "invoke_user_command", "invoke_message_command", "invoke_component",
+            "invoke_modal",
+        ),
+        "docs/building-commands.md": (
+            "@cooldown", "@require_permissions", "@install_type", "@premium_required",
+        ),
+        "docs/error-handling.md": ("Plugin.on_error",),
+        "docs/context-reference.md": (
+            "ctx.send", "ctx.app_context", "ctx.entitlements", "ctx.forward",
+            "silent", "suppress_embeds",
+        ),
+        "docs/database-guide.md": ("MemoryDatabase", "EASYCORD_DB_BACKEND=memory"),
+        "docs/plugin-authoring.md": (
+            "PluginManifest", "PluginScaffoldOptions", "PluginScaffoldResult",
+            "PluginCheck", "PluginCheckReport", "create_in_project_plugin",
+            "create_package_plugin", "create_plugin_scaffold", "load_plugin_manifest",
+            "validate_plugin_manifest", "check_plugin_project", "discover_plugins",
+            "load_entrypoint_plugins", "easycord plugin create", "easycord plugin check",
+            "easycord plugin discover", "easycord.plugins",
+        ),
+    }
+    for guide, terms in guides.items():
+        for term in terms:
+            assert term in _read(guide), f"{term} is missing from {guide}"
+
+
+@pytest.mark.parametrize("page", ["README.md", "docs/getting-started.md", "docs/README.md"])
+def test_beginner_guide_local_links_resolve(page: str) -> None:
+    for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", _read(page)):
+        if target.startswith(("https://", "http://", "mailto:", "#")):
+            continue
+        relative_path = target.split("#", 1)[0]
+        assert (ROOT / page).parent.joinpath(relative_path).is_file(), (page, target)
 
 
 def test_all_public_all_entries_resolve() -> None:

@@ -2,6 +2,19 @@
 
 All notable changes to EasyCord are documented here. See [Semantic Versioning](https://semver.org) for version numbering.
 
+### Unreleased starter workflow improvements
+
+#### Improved
+
+- Starter launch delegates to `run_bot(create_bot)` and reuses BotConfig's factory-aware settings mapping; shared template and test-process helpers remove repeated setup code. FrameworkManager's preset delegates to Composer while retaining both public interfaces.
+- Generated projects now include template-specific setup instructions and CLI next steps.
+- All five starters use a shared bot factory, isolated memory-backed tests, and a live launch configured for a required test-server ID with SQLite storage by default.
+- Starter packaging explicitly includes the bot module; generated projects ignore local credentials and storage files.
+- README and Getting Started follow one minimal-bot workflow, with advanced APIs in task guides and executable scaffold workflow checks.
+- Scenario review fixes keyword project names, copied paths containing spaces, ignored launch settings, invalid guild IDs, and storage-path errors; tests now exercise installed wheels, real setup hooks, restart behavior, and JSON-backed plugin isolation.
+- Community starters separate offline and live plugin storage. Economy and moderation plugins accept an optional `store_path`; existing defaults remain supported.
+- LevelsPlugin initializes its base lifecycle metadata so community startup can fire plugin-load hooks successfully.
+
 ## EasyCord v5.61.1 — 2026-08-13
 
 ### Fixed

@@ -60,16 +60,12 @@ class FrameworkManager:
         plugins: tuple[Plugin, ...] = (),
     ) -> Composer:
         """Return a composer with optional security and convenience presets."""
-        result = composer or Composer()
-        if secure:
-            result.secure_defaults()
-        if guild_only:
-            result.guild_only()
-        if builtin_plugins:
-            result.builtin_plugins(True)
-        if plugins:
-            result.add_plugins(*plugins)
-        return result
+        return (composer or Composer()).convenience_framework(
+            *plugins,
+            secure=secure,
+            guild_only=guild_only,
+            builtin_plugins=builtin_plugins,
+        )
 
     @staticmethod
     def build_bot(

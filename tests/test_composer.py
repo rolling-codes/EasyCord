@@ -9,6 +9,44 @@ import pytest
 from easycord.composer import Composer
 
 
+@pytest.mark.parametrize("enabled", [False, True])
+async def test_manager_preset_preserves_existing_composer_and_optional_behavior(
+    tmp_path, monkeypatch, enabled
+):
+    """Both public setup paths must retain user options and execute real guards."""
+    from easycord import FrameworkManager, Plugin, slash
+    from easycord.testing import invoke
+
+    monkeypatch.chdir(tmp_path)
+
+    class Greeting(Plugin):
+        @slash(description="Greet a member")
+        async def hello(self, ctx):
+            await ctx.respond("Hello from the custom plugin")
+
+    composer = Composer().auto_sync(False).db_backend("memory")
+    configured = FrameworkManager.bootstrap(
+        composer=composer, secure=enabled, guild_only=enabled,
+        builtin_plugins=enabled, plugins=(Greeting(),),
+    )
+    assert configured is composer
+    bot = configured.build()
+    try:
+        (await invoke(bot, "hello")).assert_content("Hello from the custom plugin")
+        dm = await invoke(bot, "hello", guild_id=None)
+        if enabled:
+            assert dm.last_response != "Hello from the custom plugin"
+            assert dm.was_ephemeral
+        else:
+            dm.assert_content("Hello from the custom plugin")
+        names = {item["name"] for item in bot.inspect_interactions()["slash"]}
+        assert ("rank" in names) is enabled
+        assert ("poll" in names) is enabled
+        assert not bot._auto_sync
+    finally:
+        await bot.close()
+
+
 def test_build_preserves_bot_option_defaults() -> None:
     with patch("easycord.composer.Bot") as bot_class:
         Composer().build()
