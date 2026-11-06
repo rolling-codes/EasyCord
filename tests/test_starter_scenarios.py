@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from starter_helpers import (
     EXPECTED_REPLIES,
-    ROOT,
+    clean_source_copy,
     install_wheels,
     run_command,
     run_python,
@@ -132,7 +132,7 @@ def test_installed_framework_console_script_invokes_installed_bot(tmp_path):
     project = tmp_path / "source"
     _write_new_project(project, "distributed", template="minimal")
     site = tmp_path / "site"
-    install_wheels([ROOT, project], tmp_path / "wheels", site)
+    install_wheels([clean_source_copy(tmp_path / "framework"), project], tmp_path / "wheels", site)
     outside = tmp_path / "outside"
     outside.mkdir()
     env = starter_env(pythonpath=site)

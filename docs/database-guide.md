@@ -15,6 +15,12 @@ default). If that wait expires, startup continues and the shielded synchronizati
 task keeps running in the background. Passing `None` or a nonpositive timeout
 opts out of the bound.
 
+`setup_hook` runs before the WebSocket connects, so the guild cache can still be
+empty and guild rows may not exist yet when plugin `on_load` hooks run. The same
+synchronization runs again in `on_ready`, once guilds are cached, under the same
+`guild_sync_timeout`; if that wait expires it is abandoned and continues in the
+background.
+
 ## Backend Agnosticism
 
 The `EasyCordDatabase` interface enforces a strict abstraction layer.

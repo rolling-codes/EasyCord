@@ -65,13 +65,15 @@ from easycord.testing import invoke, invoke_autocomplete, FakeContextBuilder
 
 async def test_ping():
     bot = Bot(auto_sync=False)
+    try:
+        @bot.slash(description="Ping")
+        async def ping(ctx):
+            await ctx.respond("Pong!")
 
-    @bot.slash(description="Ping")
-    async def ping(ctx):
-        await ctx.respond("Pong!")
-
-    ctx = await invoke(bot, "ping")
-    ctx.assert_content("Pong!")
+        ctx = await invoke(bot, "ping")
+        ctx.assert_content("Pong!")
+    finally:
+        await bot.close()
 ```
 
 All `invoke_*` helpers return a `FakeContext` with `.last_response`, `.responses`, and `.assert_content`.

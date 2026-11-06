@@ -124,8 +124,12 @@ from easycord.plugins import TagsPlugin
 Inside `create_bot`, before `return bot`, attach it:
 
 ```python
-bot.add_plugin(TagsPlugin())
+bot.add_plugin(TagsPlugin(data_dir=f"{data_dir}/tags"))
 ```
+
+Passing `data_dir` keeps offline checks and tests on their own files instead of
+live guild data. If you already attached `TagsPlugin()` without it, copy any existing
+tag files into the new folder first, without overwriting files already there.
 
 Use [Built-in Plugins](builtin-plugins.md) to choose features. Member and message
 event plugins may require matching Discord intents in both the Developer Portal

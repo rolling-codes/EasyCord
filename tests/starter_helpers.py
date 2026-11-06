@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -38,6 +39,13 @@ def run_python(project: Path, code: str, *, check=True, isolated=False, **settin
         project, [sys.executable, *(["-I"] if isolated else []), "-c", code],
         env=starter_env(**settings), check=check,
     )
+
+
+def clean_source_copy(dest: Path) -> Path:
+    """Copy the framework without build output so stale files cannot enter a wheel."""
+    shutil.copytree(ROOT, dest, ignore=shutil.ignore_patterns(
+        ".git", "build", "dist", "*.egg-info", "__pycache__", ".venv", ".pytest_cache"))
+    return dest
 
 
 def install_wheels(projects: list[Path], wheels: Path, target: Path) -> None:
