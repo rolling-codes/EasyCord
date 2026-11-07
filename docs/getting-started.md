@@ -25,9 +25,9 @@ python -m pip install -e ".[dev]"
 ```
 
 Run the install command from the EasyCord repository root. These instructions
-use the updated scaffolds in this checkout; the published v5.61.1 wheel contains
+use the updated scaffolds in this checkout; the published v5.62.0 wheel contains
 the earlier starter workflow. For that released version, use the
-[v5.61.1 wheel](https://github.com/rolling-codes/EasyCord/releases/download/v5.61.1/easycord-5.61.1-py3-none-any.whl).
+[v5.62.0 wheel](https://github.com/rolling-codes/EasyCord/releases/download/v5.62.0/easycord-5.62.0-py3-none-any.whl).
 
 The starter includes `bot.py`, a README with setup steps, and a command test.
 Use `--template community` when you want bundled features, or

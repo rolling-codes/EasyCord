@@ -193,3 +193,46 @@ async def test_setup_hook_syncs_to_configured_guild() -> None:
         assert synced_guild.id == 555
     finally:
         await bot.close()
+
+
+async def test_setup_hook_does_not_publish_commands_when_plugin_on_load_fails() -> None:
+    """A failing on_load must abort startup before the command tree is synced,
+    so Discord never keeps commands whose plugin never initialized.
+    """
+    from easycord import Plugin
+
+    class _BoomPlugin(Plugin):
+        async def on_load(self) -> None:
+            raise RuntimeError("boom")
+
+    db = MagicMock()
+    db.auto_sync_guilds = False
+    db.ensure_schema = AsyncMock()
+    db.close = AsyncMock()
+    bot = Bot(database=db, sync_guild_id=555)
+    bot.tree.sync = AsyncMock()
+    bot.tree.copy_global_to = MagicMock()
+    bot.add_plugin(_BoomPlugin())
+    try:
+        with pytest.raises(RuntimeError, match="boom"):
+            await bot.setup_hook()
+        bot.tree.sync.assert_not_awaited()
+    finally:
+        await bot.close()
+
+
+def test_data_dir_lock_blocks_a_second_live_instance(tmp_path) -> None:
+    """Two live bots cannot share one data_dir — the second launch is refused so
+    they can't clobber each other's command sync and plugin data.
+    """
+    from easycord.startup import _lock_data_dir
+
+    data_dir = str(tmp_path / "live")
+    held = _lock_data_dir(data_dir)
+    try:
+        with pytest.raises(SystemExit, match="Another live bot"):
+            _lock_data_dir(data_dir)
+    finally:
+        held.close()
+    # Lock released — a fresh launch against the same dir now succeeds.
+    _lock_data_dir(data_dir).close()

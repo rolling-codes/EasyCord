@@ -1,5 +1,5 @@
 # EasyCord
-![Version](https://img.shields.io/badge/v-5.61.1-blue)
+![Version](https://img.shields.io/badge/v-5.62.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-1871-brightgreen)
@@ -44,9 +44,9 @@ easycord try bot:bot ping
 ```
 
 You should see `Pong!` without a token or Discord connection. These commands
-use the updated scaffold in this checkout; the published v5.61.1 wheel has the
+use the updated scaffold in this checkout; the published v5.62.0 wheel has the
 earlier starter workflow. The released package is available as the
-[v5.61.1 wheel](https://github.com/rolling-codes/EasyCord/releases/download/v5.61.1/easycord-5.61.1-py3-none-any.whl).
+[v5.62.0 wheel](https://github.com/rolling-codes/EasyCord/releases/download/v5.62.0/easycord-5.62.0-py3-none-any.whl).
 
 ### Your first bot
 
@@ -87,7 +87,7 @@ Add built-in plugin objects when you need more features; choose
 
 ## Reference Implementations
 
-For the current release notes and verified fix list, see [EasyCord v5.61.1](https://github.com/rolling-codes/EasyCord/releases/tag/v5.61.1).
+For the current release notes and verified fix list, see [EasyCord v5.62.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.62.0).
 
 ### Community Bot
 
@@ -286,6 +286,6 @@ EasyCord is released under the **MIT License**.
 See `pyproject.toml` for the canonical license metadata.  
 Copyright (c) 2026 Rolling Codes.
 
-**Docs:** [Getting Started](docs/getting-started.md) · [Built-in Plugins](docs/builtin-plugins.md) · [AI Features](docs/conversation-memory.md) · [All guides →](docs/README.md) · [Latest release notes](https://github.com/rolling-codes/EasyCord/releases/tag/v5.61.1)
+**Docs:** [Getting Started](docs/getting-started.md) · [Built-in Plugins](docs/builtin-plugins.md) · [AI Features](docs/conversation-memory.md) · [All guides →](docs/README.md) · [Latest release notes](https://github.com/rolling-codes/EasyCord/releases/tag/v5.62.0)
 
-Release: [v5.61.1](https://github.com/rolling-codes/EasyCord/releases/tag/v5.61.1) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)
+Release: [v5.62.0](https://github.com/rolling-codes/EasyCord/releases/tag/v5.62.0) · [Changelog](CHANGELOG.md) · [GitHub](https://github.com/rolling-codes/EasyCord)

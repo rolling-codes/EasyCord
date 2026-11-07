@@ -63,6 +63,7 @@ class ModerationPlugin(Plugin):
     """
 
     def __init__(self, *, store_path: str = ".easycord/moderation"):
+        """Create the plugin, persisting moderation data under ``store_path``."""
         super().__init__()
         self.config = PluginConfigManager(store_path)
         self.warn_limiter = ToolLimiter()

@@ -107,6 +107,7 @@ def _load_bot(spec: str) -> Bot:
 
 
 def _starter_try_command(template: ProjectTemplate) -> str:
+    """Return the example `easycord try` command arguments for a template."""
     return {
         "minimal": "ping",
         "plugin": "hello",
@@ -117,6 +118,7 @@ def _starter_try_command(template: ProjectTemplate) -> str:
 
 
 def _starter_test_fixture() -> str:
+    """Return the generated tests/conftest.py bot fixture source."""
     return textwrap.dedent('''\
         import pytest_asyncio
 
@@ -136,6 +138,7 @@ def _starter_test_fixture() -> str:
 
 
 def _starter_bot_source(name: str, template: ProjectTemplate) -> str:
+    """Return the generated bot.py source for a project template."""
     plugin_class = _starter_plugin_class(name, template)
     imports = "from easycord import Bot, run_bot"
     setup = "bot = Bot(**options)"
@@ -183,8 +186,10 @@ def create_bot(*, data_dir=".easycord/offline", **options):
     return bot
 
 
-# CLI tools import this memory-backed bot without Discord credentials.
-bot = create_bot()
+# CLI tools import this memory-backed bot without Discord credentials. Guard so a
+# live `python bot.py` run does not build the offline bot or its directories.
+if __name__ != "__main__":
+    bot = create_bot()
 
 
 def main():
@@ -197,6 +202,7 @@ if __name__ == "__main__":
 
 
 def _starter_readme(name: str, template: ProjectTemplate) -> str:
+    """Return the generated README.md walkthrough for a project template."""
     command = _starter_try_command(template)
     return f'''# {name}
 
@@ -274,6 +280,7 @@ More guides: https://github.com/rolling-codes/EasyCord/blob/main/docs/README.md.
 
 
 def _project_files(name: str, template: ProjectTemplate) -> dict[str, str]:
+    """Return the full {relative path: contents} map for a scaffolded project."""
     if template not in _PROJECT_TEMPLATES:
         raise SystemExit(f"Unknown project template: {template}")
     files = {
@@ -289,6 +296,7 @@ def _project_files(name: str, template: ProjectTemplate) -> dict[str, str]:
 
 
 def _base_project_files(name: str) -> dict[str, str]:
+    """Return project files shared by every template (env, gitignore, packaging, fixture)."""
     return {
         ".env.example": "# Reference only: export these in your shell (see README.md).\nDISCORD_TOKEN=replace-me\nDISCORD_GUILD_ID=replace-with-test-server-id\n",
         ".gitignore": ".venv/\n.env\n__pycache__/\n.pytest_cache/\ndata/\n.easycord/\n",
@@ -302,7 +310,7 @@ def _base_project_files(name: str) -> dict[str, str]:
             name = "{_module_name(name).replace("_", "-")}-bot"
             version = "0.1.0"
             requires-python = ">=3.10"
-            dependencies = ["easycord>=5.61.1"]
+            dependencies = ["easycord>=5.62.0"]
 
             [project.optional-dependencies]
             dev = ["pytest>=7", "pytest-asyncio>=0.21"]
@@ -321,11 +329,13 @@ def _base_project_files(name: str) -> dict[str, str]:
 
 
 def _starter_plugin_class(name: str, template: ProjectTemplate) -> str:
+    """Return the generated plugin class name for a template."""
     suffix = {"ai": "AssistantPlugin", "database": "DatabasePlugin"}.get(template, "Plugin")
     return f"{_class_name(name)}{suffix}"
 
 
 def _starter_plugin_source(name: str, template: ProjectTemplate) -> str:
+    """Return the generated plugins/<module>.py source for a template."""
     bodies = {
         "plugin": '''\
             @slash(description="Say hello")
@@ -364,6 +374,7 @@ def _starter_plugin_source(name: str, template: ProjectTemplate) -> str:
 
 
 def _starter_test_source(template: ProjectTemplate) -> str:
+    """Return the generated tests/test_bot.py source for a template."""
     bodies = {
         "minimal": '''\
             async def test_ping_command(bot):

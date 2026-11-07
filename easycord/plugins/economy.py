@@ -51,6 +51,7 @@ class EconomyPlugin(Plugin):
     """
 
     def __init__(self, *, store_path: str = ".easycord/economy"):
+        """Create the plugin, persisting economy data under ``store_path``."""
         super().__init__()
         self.config = PluginConfigManager(store_path)
         self._locks = GuildLockManager()

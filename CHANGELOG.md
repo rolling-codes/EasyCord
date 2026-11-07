@@ -2,9 +2,9 @@
 
 All notable changes to EasyCord are documented here. See [Semantic Versioning](https://semver.org) for version numbering.
 
-### Unreleased starter workflow improvements
+## EasyCord v5.62.0 — 2026-11-07
 
-#### Improved
+### Improved
 
 - Starter launch delegates to `run_bot(create_bot)` and reuses BotConfig's factory-aware settings mapping; shared template and test-process helpers remove repeated setup code. FrameworkManager's preset delegates to Composer while retaining both public interfaces.
 - Generated projects now include template-specific setup instructions and CLI next steps.
@@ -14,6 +14,16 @@ All notable changes to EasyCord are documented here. See [Semantic Versioning](h
 - Scenario review fixes keyword project names, copied paths containing spaces, ignored launch settings, invalid guild IDs, and storage-path errors; tests now exercise installed wheels, real setup hooks, restart behavior, and JSON-backed plugin isolation.
 - Community starters separate offline and live plugin storage. Economy and moderation plugins accept an optional `store_path`; existing defaults remain supported.
 - LevelsPlugin initializes its base lifecycle metadata so community startup can fire plugin-load hooks successfully.
+- Generated community starters now require `easycord>=5.62.0`, the first release shipping the `store_path` option they rely on.
+
+### Fixed
+
+- Generated `bot.py` no longer builds the offline bot or creates its `.easycord/offline/` directories when run directly (`python bot.py`); the module-level instance is created only on import for credential-free CLI tools.
+
+### Release metadata
+
+- Wheel: `easycord-5.62.0-py3-none-any.whl`
+- Source: `easycord-5.62.0.tar.gz` — `releases/download/v5.62.0/easycord-5.62.0.tar.gz`
 
 ## EasyCord v5.61.1 — 2026-08-13
 

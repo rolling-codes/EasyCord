@@ -500,6 +500,13 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
         await self.db.ensure_schema()
         if self.db.auto_sync_guilds:
             await self._sync_guilds_with_timeout()
+        # Run plugin startup before publishing the command tree. Commands are
+        # already registered at add_plugin time, so a failing on_load must abort
+        # startup *before* Discord retains commands whose plugin never initialized.
+        for plugin in self._plugins:
+            await plugin.on_load()
+            await self.hooks.fire("on_plugin_load", plugin_name=plugin.name)
+            self._start_plugin_tasks(plugin)
         if self._auto_sync:
             if self._sync_guild_id is not None:
                 guild = discord.Object(id=self._sync_guild_id)
@@ -507,10 +514,6 @@ class Bot(_EventsMixin, _GuildMixin, _PluginsMixin, _CommandsMixin, discord.Clie
                 await self.tree.sync(guild=guild)
             else:
                 await self.tree.sync()
-        for plugin in self._plugins:
-            await plugin.on_load()
-            await self.hooks.fire("on_plugin_load", plugin_name=plugin.name)
-            self._start_plugin_tasks(plugin)
         if getattr(self, "_dev_reload", False):
             task = asyncio.create_task(self._hot_reload_loop())
             self._background_tasks.add(task)
