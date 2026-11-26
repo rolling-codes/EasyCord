@@ -26,7 +26,7 @@ jobs:
           node-version: "24"
 
       - name: Run Claude Code Action
-        uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9  # v1.0.270
+        uses: anthropics/claude-code-action@b5e37652b7d48df841bfddfd6520610e19bf3136  # v1.0.287
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           trigger_phrase: "@claude"
